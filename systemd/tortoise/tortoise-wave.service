@@ -4,6 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
+User=grimlock
+Group=grimlock
 ExecStart=/bin/bash -c 'source /usr/etc/profile.d/conda.sh && conda activate tortoise && /usr/bin/python3 /deploy/ai-things/tortoise-tts/tortoise/do_tts.py'
 WorkingDirectory=/deploy/ai-things/tortoise-tts/tortoise/
 Restart=always
