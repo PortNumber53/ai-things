@@ -175,7 +175,7 @@ class TextToSpeech:
     Main entry point into Tortoise.
     """
 
-    def __init__(self, autoregressive_batch_size=None, models_dir=MODELS_DIR, 
+    def __init__(self, autoregressive_batch_size=None, models_dir=MODELS_DIR,
                  enable_redaction=True, kv_cache=False, use_deepspeed=False, half=False, device=None,
                  tokenizer_vocab_file=None, tokenizer_basic=False):
 
@@ -416,7 +416,7 @@ class TextToSpeech:
                     yield wav_chunk
     def tts(self, text, voice_samples=None, k=1, verbose=True, use_deterministic_seed=None,
             # autoregressive generation parameters follow
-            num_autoregressive_samples=512, temperature=.8, length_penalty=1, repetition_penalty=2.0, 
+            num_autoregressive_samples=512, temperature=.8, length_penalty=1, repetition_penalty=2.0,
             top_p=.8, max_mel_tokens=500,
             # CVVP parameters follow
             cvvp_amount=.0,

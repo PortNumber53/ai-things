@@ -1017,13 +1017,13 @@ if __name__ == "__main__":
     )
 
     tokenizer = AutoTokenizer.from_pretrained("bigscience/bloom-560m")
-    model = model.to("cuda:0")
+    model = model.to("cuda")
     model = model.eval()
     prompt_text = "hello? \n"
     input_ids = tokenizer(
         prompt_text, return_tensors="pt", add_special_tokens=False
     ).input_ids
-    input_ids = input_ids.to("cuda:0")
+    input_ids = input_ids.to("cuda")
 
     with torch.no_grad():
         result = model.generate(
