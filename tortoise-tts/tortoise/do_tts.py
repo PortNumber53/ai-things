@@ -1,4 +1,5 @@
 import argparse
+import sys
 import os
 import json
 import pika
@@ -7,6 +8,29 @@ import torch
 import torchaudio
 from api import TextToSpeech, MODELS_DIR
 from utils.audio import load_voices
+
+
+def push_message_to_queue(queue_name, message):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--rabbitmq_url', type=str, help='RabbitMQ server URL.', default=f"amqp://{os.getenv('RABBITMQ_USER')}:{os.getenv('RABBITMQ_PASSWORD')}@{os.getenv('RABBITMQ_HOST')}:{os.getenv('RABBITMQ_PORT')}/{os.getenv('RABBITMQ_VHOST')}")
+    args = parser.parse_args()
+
+    connection = None
+    channel = None
+
+
+    url_params = pika.URLParameters(args.rabbitmq_url)
+
+    # Add heartbeat parameter to the connection parameters
+    url_params.heartbeat = 600
+
+    connection = pika.BlockingConnection(url_params)
+
+    channel = connection.channel()
+    channel.queue_declare(queue=queue_name)
+    channel.basic_publish(exchange='', routing_key=queue_name, body=json.dumps(message))
+    print(f"Message pushed to {queue_name} queue: {message}")
+    connection.close()
 
 def get_default_arg(name, default):
     # Fetch value from .env if available, otherwise use default value
@@ -30,7 +54,8 @@ def process_job(job):
         'candidates': get_default_arg('candidates', 1),
         'seed': get_default_arg('seed', None),
         'produce_debug_state': get_default_arg('produce_debug_state', True),
-        'cvvp_amount': get_default_arg('cvvp_amount', 0.0)
+        'cvvp_amount': get_default_arg('cvvp_amount', 0.0),
+        'filename': None
     }
 
     # Override default values with job arguments
@@ -56,15 +81,35 @@ def process_job(job):
                                   preset=args.preset, use_deterministic_seed=args.seed, return_deterministic_state=True, cvvp_amount=args.cvvp_amount)
         if isinstance(gen, list):
             for j, g in enumerate(gen):
-                torchaudio.save(os.path.join(args.output_path, f'{selected_voice}_{k}_{j}.wav'), g.squeeze(0).cpu(), 24000)
-                print(f"File saved: {selected_voice}_{k}_{j}.wav")
+                filename = args.filename if args.filename else f'{selected_voice}_{k}_{j}'
+                torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), g.squeeze(0).cpu(), 24000)
+                print(f"File saved: {filename}.wav")
+
+                message = {
+                    'filename': filename,
+                    'text': args.text,
+                    'selected_voice': selected_voice
+                }
+
+                push_message_to_queue('wav_to_mp3', message)
+
         else:
-            torchaudio.save(os.path.join(args.output_path, f'{selected_voice}_{k}.wav'), gen.squeeze(0).cpu(), 24000)
-            print(f"File saved: {selected_voice}_{k}.wav")
+            filename = args.filename if args.filename else f'{selected_voice}_{k}'
+            torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), gen.squeeze(0).cpu(), 24000)
+            print(f"File saved: {filename}.wav")
+            message = {
+                'filename': filename,
+                'text': args.text,
+                'selected_voice': selected_voice
+            }
+
+            push_message_to_queue('wav_to_mp3', message)
+
 
         if args.produce_debug_state:
             os.makedirs('debug_states', exist_ok=True)
-            torch.save(dbg_state, f'debug_states/do_tts_debug_{selected_voice}.pth')
+            torch.save(dbg_state, f'debug_states/do_tts_debug_{filename}.pth')
+    sys.stdout.flush()
 
 if __name__ == '__main__':
     load_dotenv()  # Load variables from .env file
