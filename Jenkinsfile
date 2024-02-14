@@ -18,7 +18,7 @@ pipeline {
 
         stage('Build') {
             parallel {
-                stage('Install Composer Dependencies') {
+                stage('Laravel Dependencies') {
                     steps {
                         // Install Composer dependencies in the manager folder
                         dir('manager') {
@@ -26,7 +26,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Run NPM Dev') {
+                stage('NodejS dependencies') {
                     steps {
                         // Run npm run dev in the manager folder
                         dir('manager') {
