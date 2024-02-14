@@ -5,6 +5,7 @@ import { PageProps } from "@/types";
 interface Task {
     id: number;
     task_title: string;
+    type: string;
     uuid: string;
     status: string;
     // Add more properties as needed
@@ -42,6 +43,7 @@ export default function Task({
                                 <thead>
                                     <tr>
                                         <th className="py-2">Task Title</th>
+                                        <th className="py-2">Type</th>
                                         <th className="py-2">UUID</th>
                                         <th className="py-2">Status</th>
                                         {/* Add more columns as needed */}
@@ -56,6 +58,9 @@ export default function Task({
                                                     {task.task_title}
                                                 </td>
                                                 <td className="py-2">
+                                                    {task.type}
+                                                </td>
+                                                <td className="py-2">
                                                     {task.uuid}
                                                 </td>
                                                 <td className="py-2">
@@ -68,7 +73,7 @@ export default function Task({
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colSpan={4}>
+                                        <td colSpan={5}>
                                             {tasks.links &&
                                                 tasks.links.map(
                                                     (link, index) => (

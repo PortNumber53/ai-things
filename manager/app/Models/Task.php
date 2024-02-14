@@ -13,10 +13,12 @@ class Task extends Model
         'prompt' => 'array',
         'result' => 'array',
         'meta' => 'array',
+        'payload' => 'array',
     ];
 
     protected $fillable = [
         'task_title',
+        'type',
         'uuid',
         'prompt',
         'result',
