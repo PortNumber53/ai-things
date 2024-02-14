@@ -2,12 +2,24 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head } from "@inertiajs/react";
 import { PageProps } from "@/types";
 
-interface TaskListProps {
-    auth: { user: any };
-    tasks: { data: Task[]; links: any };
+interface Task {
+    id: number;
+    task_title: string;
+    uuid: string;
+    status: string;
+    // Add more properties as needed
 }
 
-export default function Task({ debug, auth, tasks, pagination }: PageProps) {
+interface TaskListProps extends PageProps {
+    tasks: { data: Task[]; links: { url: string; label: string }[] };
+}
+
+export default function Task({
+    debug,
+    auth,
+    tasks,
+    pagination,
+}: TaskListProps) {
     console.log("DEBUG", debug);
     console.log("TASKS", tasks);
     console.log("PAGINATION", pagination);
@@ -33,10 +45,11 @@ export default function Task({ debug, auth, tasks, pagination }: PageProps) {
                                         <th className="py-2">UUID</th>
                                         <th className="py-2">Status</th>
                                         {/* Add more columns as needed */}
+                                        <th className="py-2">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {tasks.map((task) => (
+                                    {tasks.data.map((task) => (
                                         <tr key={task.id}>
                                             <td className="py-2">
                                                 {task.task_title}
@@ -54,10 +67,10 @@ export default function Task({ debug, auth, tasks, pagination }: PageProps) {
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td>
-                                            {debug.links.map((link) => (
-                                                <div>
-                                                    <a href="{link.url}">
+                                        <td colSpan={4}>
+                                            {tasks.links.map((link, index) => (
+                                                <div key={index}>
+                                                    <a href={link.url}>
                                                         {link.label}
                                                     </a>
                                                 </div>
