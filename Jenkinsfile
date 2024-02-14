@@ -16,6 +16,28 @@ pipeline {
             }
         }
 
+        stage('Build') {
+            parallel {
+                stage('Install Composer Dependencies') {
+                    steps {
+                        // Install Composer dependencies in the manager folder
+                        dir('manager') {
+                            sh 'composer install'
+                        }
+                    }
+                }
+                stage('Run NPM Dev') {
+                    steps {
+                        // Run npm run dev in the manager folder
+                        dir('manager') {
+                            sh 'npm install'
+                            sh 'npm run dev'
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Deploy') {
             steps {
                 // Retrieve the .env file content from Jenkins credentials
@@ -29,5 +51,11 @@ pipeline {
             }
         }
 
+        stage('Apply Changes') {
+            steps {
+                // SSH into devbox and run Laravel migrations
+                sh "ssh devbox 'cd ${env.LAPTOP_PATH}/manager && php artisan migrate --force'"
+            }
+        }
     }
 }
