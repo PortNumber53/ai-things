@@ -26,7 +26,7 @@ pipeline {
                         }
                     }
                 }
-                stage('NodejS dependencies') {
+                stage('NodejS Dependencies') {
                     steps {
                         // Run npm run dev in the manager folder
                         dir('manager') {
