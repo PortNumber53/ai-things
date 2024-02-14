@@ -49,32 +49,36 @@ export default function Task({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {tasks.data.map((task) => (
-                                        <tr key={task.id}>
-                                            <td className="py-2">
-                                                {task.task_title}
-                                            </td>
-                                            <td className="py-2">
-                                                {task.uuid}
-                                            </td>
-                                            <td className="py-2">
-                                                {task.status}
-                                            </td>
-                                            {/* Add more cells as needed */}
-                                            <td className="p-2">actions</td>
-                                        </tr>
-                                    ))}
+                                    {tasks.data &&
+                                        tasks.data.map((task) => (
+                                            <tr key={task.id}>
+                                                <td className="py-2">
+                                                    {task.task_title}
+                                                </td>
+                                                <td className="py-2">
+                                                    {task.uuid}
+                                                </td>
+                                                <td className="py-2">
+                                                    {task.status}
+                                                </td>
+                                                {/* Add more cells as needed */}
+                                                <td className="p-2">actions</td>
+                                            </tr>
+                                        ))}
                                 </tbody>
                                 <tfoot>
                                     <tr>
                                         <td colSpan={4}>
-                                            {tasks.links.map((link, index) => (
-                                                <div key={index}>
-                                                    <a href={link.url}>
-                                                        {link.label}
-                                                    </a>
-                                                </div>
-                                            ))}
+                                            {tasks.links &&
+                                                tasks.links.map(
+                                                    (link, index) => (
+                                                        <div key={index}>
+                                                            <a href={link.url}>
+                                                                {link.label}
+                                                            </a>
+                                                        </div>
+                                                    )
+                                                )}
                                         </td>
                                     </tr>
                                 </tfoot>
