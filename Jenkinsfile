@@ -31,7 +31,7 @@ pipeline {
                         // Run npm run dev in the manager folder
                         dir('manager') {
                             sh 'npm install'
-                            sh 'npm run dev'
+                            sh 'npm run build'
                         }
                     }
                 }
