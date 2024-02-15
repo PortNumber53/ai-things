@@ -32,11 +32,14 @@ class AiGenerateFunFacts extends Command
         $prompt = 'give me an unique random fact about a random subject of your choice, make the explanation engaging while keeping it simple.';
 
         // Make HTTP request to LLM/GPT service
-        $response = Http::post('http://192.168.68.40:11434/api/generate', [
+        $response = Http::post(
+            'http://192.168.68.40:11434/api/generate',
+            [
             'model' => 'mistral',
             'prompt' => $prompt,
             'stream' => false,
-        ]);
+            ]
+        );
 
 
 

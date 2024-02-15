@@ -22,12 +22,15 @@ class TaskController extends Controller
     {
         $tasks = Task::paginate(25);
 
-        return Inertia::render('Tasks/List', [
+        return Inertia::render(
+            'Tasks/List',
+            [
             'debug' => $tasks,
             'tasks' => $tasks->items(),
             'pagination' => $tasks->links(),
             'status' => session('status'),
-        ]);
+            ]
+        );
     }
 
     /**

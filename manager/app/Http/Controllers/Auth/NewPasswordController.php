@@ -21,10 +21,13 @@ class NewPasswordController extends Controller
      */
     public function create(Request $request): Response
     {
-        return Inertia::render('Auth/ResetPassword', [
+        return Inertia::render(
+            'Auth/ResetPassword',
+            [
             'email' => $request->email,
             'token' => $request->route('token'),
-        ]);
+            ]
+        );
     }
 
     /**
@@ -34,11 +37,13 @@ class NewPasswordController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
+        $request->validate(
+            [
             'token' => 'required',
             'email' => 'required|email',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
+            ]
+        );
 
         // Here we will attempt to reset the user's password. If it is successful we
         // will update the password on an actual user model and persist it to the
@@ -46,10 +51,12 @@ class NewPasswordController extends Controller
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user) use ($request) {
-                $user->forceFill([
+                $user->forceFill(
+                    [
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
-                ])->save();
+                    ]
+                )->save();
 
                 event(new PasswordReset($user));
             }
@@ -62,8 +69,10 @@ class NewPasswordController extends Controller
             return redirect()->route('login')->with('status', __($status));
         }
 
-        throw ValidationException::withMessages([
+        throw ValidationException::withMessages(
+            [
             'email' => [trans($status)],
-        ]);
+            ]
+        );
     }
 }
