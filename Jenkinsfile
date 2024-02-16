@@ -26,11 +26,12 @@ pipeline {
                 stage('Build API') {
                     steps {
                         dir('manager') {
+                            // Run composer install with all secret files
                             withCredentials([
-                                file(credentialsId: ENV_FILES.brain, variable: 'ENV_FILE_BRAIN'),
-                                file(credentialsId: ENV_FILES.pinky, variable: 'ENV_FILE_PINKY'),
-                                file(credentialsId: ENV_FILES.legion, variable: 'ENV_FILE_LEGION'),
-                                file(credentialsId: ENV_FILES.devbox, variable: 'ENV_FILE_DEVBOX'),
+                                file(credentialsId: 'ai-things-brain-env-prod-file', variable: 'ENV_FILE_BRAIN'),
+                                file(credentialsId: 'ai-things-pinky-env-prod-file', variable: 'ENV_FILE_PINKY'),
+                                file(credentialsId: 'ai-things-legion-env-prod-file', variable: 'ENV_FILE_LEGION'),
+                                file(credentialsId: 'ai-things-devbox-env-prod-file', variable: 'ENV_FILE_DEVBOX'),
                                 ]) {
                                 sh 'cp --no-preserve=mode,ownership $ENV_FILE_BRAIN .env.brain'
                                 sh 'cp --no-preserve=mode,ownership $ENV_FILE_PINKY .env.pinky'
