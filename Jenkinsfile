@@ -2,10 +2,15 @@ pipeline {
     agent any
 
     environment {
-        // Define the credentials ID for the .env file content
-        ENV_FILE_CREDENTIALS_ID = 'ai-things-env-file-prod'
+        // Define the credentials IDs for the .env file content
+        ENV_FILES = [
+            brain: 'ai-things-brain-env-prod-file',
+            pinky: 'ai-things-pinky-env-prod-file',
+            legion: 'ai-things-legion-env-prod-file',
+            devbox: 'ai-things-devbox-env-prod-file'
+        ]
         // Define the path to the Laravel app on the laptop
-        LAPTOP_PATH = '/deploy/ai-things/'
+        DEPLOY_PATH = '/deploy/ai-things/'
     }
 
     stages {
@@ -16,38 +21,48 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Builds') {
             parallel {
-                stage('Laravel Dependencies') {
+                stage("Build Frontend") {
                     steps {
-                        // Install Composer dependencies in the manager folder
-                        dir('manager') {
-                            sh 'composer install'
-                        }
-                    }
-                }
-                stage('NodejS Dependencies') {
-                    steps {
-                        // Run npm run dev in the manager folder
                         dir('manager') {
                             sh 'npm install'
                             sh 'npm run build'
                         }
                     }
                 }
+                stage('Build API') {
+                    steps {
+                        dir('manager') {
+                            // Run composer install with both secret files
+                            withCredentials([
+                                file(credentialsId: ENV_FILES.brain, variable: 'ENV_FILE_BRAIN'),
+                                file(credentialsId: ENV_FILES.pinky, variable: 'ENV_FILE_PINKY'),
+                                file(credentialsId: ENV_FILES.legion, variable: 'ENV_FILE_LEGION'),
+                                file(credentialsId: ENV_FILES.devbox, variable: 'ENV_FILE_DEVBOX'),
+                                ]) {
+                                sh 'cp --no-preserve=mode,ownership $ENV_FILE_BRAIN .env.brain'
+                                sh 'cp --no-preserve=mode,ownership $ENV_FILE_PINKY .env.pinky'
+                                sh 'cp --no-preserve=mode,ownership $ENV_FILE_LEGION .env.legion'
+                                sh 'cp --no-preserve=mode,ownership $ENV_FILE_DEVBOX .env.devbox'
+                                sh 'composer install --no-ansi'
+                            }
+                        }
+                    }
+                }
+                // Add more stages for other folders if needed
             }
         }
 
-        stage('Deploy') {
+        stage('Deployments') {
             steps {
-                // Retrieve the .env file content from Jenkins credentials
-                withCredentials([file(credentialsId: ENV_FILE_CREDENTIALS_ID, variable: 'ENV_FILE')]) {
-                    // Write the .env file content to a file
-                    writeFile file: 'manager/.env', text: sh(script: 'cat $ENV_FILE', returnStdout: true).trim()
+                script {
+                    // Deploy to multiple hosts
+                    def hosts = ['brain', 'pinky', 'legion', 'devbox'] // Add more hosts here if needed
+                    for (host in hosts) {
+                        deployToHost(host, DEPLOY_PATH, ENV_FILES[host])
+                    }
                 }
-
-                // Sync Laravel app files to the laptop using rsync
-                sh "rsync -avz --delete ./ devbox:${env.LAPTOP_PATH}"
             }
         }
 
@@ -58,4 +73,21 @@ pipeline {
             }
         }
     }
+}
+
+def deployToHost(sshConnection, deployBasePath, envFile) {
+    def timestamp = new Date().format("yyyyMMddHHmmss")
+    def deploymentReleasePath = "${deployBasePath}/releases/"
+    def deploymentPath = "${deploymentReleasePath}${timestamp}"
+
+    sh """
+        set -x
+        echo '${deploymentPath}'
+        ssh ${sshConnection} mkdir -pv ${deploymentPath} || { echo "Failed to create releases directory"; exit 1; }
+        rsync -rap --exclude=.git --exclude=.env --exclude=manager/.env.* ./manager/ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
+        rsync -rap --exclude=.git ./manager/.env.${sshConnection} ${sshConnection}:${deploymentPath}/.env || { echo "rsync failed"; exit 1; }
+        rsync -rap --exclude=.git ./deploy/deployment-script.sh ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
+        rsync -rap --exclude=.git ./systemd/ ${sshConnection}:${deployBasePath}/systemd/ || { echo "rsync failed"; exit 1; }
+        ssh ${sshConnection} "cd ${deploymentPath} && ./deployment-script.sh ${deployBasePath} ${deploymentReleasePath} ${deploymentPath} ${timestamp}" || { echo "Deployment script execution failed"; exit 1; }
+    """
 }
