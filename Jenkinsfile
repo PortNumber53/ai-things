@@ -2,14 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // Define the credentials IDs for the .env file content
-        ENV_FILES = [
-            brain: 'ai-things-brain-env-prod-file',
-            pinky: 'ai-things-pinky-env-prod-file',
-            legion: 'ai-things-legion-env-prod-file',
-            devbox: 'ai-things-devbox-env-prod-file'
-        ]
-        // Define the path to the Laravel app on the laptop
         DEPLOY_PATH = '/deploy/ai-things/'
     }
 
@@ -34,7 +26,6 @@ pipeline {
                 stage('Build API') {
                     steps {
                         dir('manager') {
-                            // Run composer install with both secret files
                             withCredentials([
                                 file(credentialsId: ENV_FILES.brain, variable: 'ENV_FILE_BRAIN'),
                                 file(credentialsId: ENV_FILES.pinky, variable: 'ENV_FILE_PINKY'),
@@ -50,7 +41,6 @@ pipeline {
                         }
                     }
                 }
-                // Add more stages for other folders if needed
             }
         }
 
@@ -58,18 +48,17 @@ pipeline {
             steps {
                 script {
                     // Deploy to multiple hosts
-                    def hosts = ['brain', 'pinky', 'legion', 'devbox'] // Add more hosts here if needed
+                    def hosts = ['brain', 'pinky', 'legion', 'devbox']
+                    def ENV_FILES = [
+                        brain: 'ai-things-brain-env-prod-file',
+                        pinky: 'ai-things-pinky-env-prod-file',
+                        legion: 'ai-things-legion-env-prod-file',
+                        devbox: 'ai-things-devbox-env-prod-file'
+                    ]
                     for (host in hosts) {
                         deployToHost(host, DEPLOY_PATH, ENV_FILES[host])
                     }
                 }
-            }
-        }
-
-        stage('Apply Changes') {
-            steps {
-                // SSH into devbox and run Laravel migrations
-                sh "ssh devbox 'cd ${env.LAPTOP_PATH}/manager && php artisan migrate --force'"
             }
         }
     }
