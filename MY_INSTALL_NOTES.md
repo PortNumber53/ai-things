@@ -24,3 +24,28 @@ ln -s /deploy/ai-things/systemd/tortoise/tortoise-wave.service
 systemctl daemon-reload
 systemctl enable --now tortoise-wave.service
 ```
+
+## Tortoise folder
+
+```
+conda create -n tortoise python=3.11
+pip install -r requirements.txt
+
+pip install pika python-dotenv
+```
+
+## Conda installation
+
+Based off: https://www.jeremymorgan.com/tutorials/python-tutorials/how-to-install-anaconda-arch-linux/
+
+```
+yay -S python-pluggy python-pycosat python-ruamel-yaml
+
+git clone https://aur.archlinux.org/python-conda-package-handling.git && cd python-conda-package-handling
+makepkg -is
+
+git clone https://aur.archlinux.org/python-conda.git && cd python-conda
+makepkg -is
+
+conda config --set report_errors true
+```
