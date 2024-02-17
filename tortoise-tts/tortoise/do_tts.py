@@ -8,7 +8,7 @@ import torch
 import torchaudio
 from api import TextToSpeech, MODELS_DIR
 from utils.audio import load_voices
-
+import time
 
 def push_message_to_queue(queue_name, message):
     parser = argparse.ArgumentParser()
@@ -41,6 +41,8 @@ def callback(ch, method, properties, body):
     process_job(job)
 
 def process_job(job):
+    start_time = time.time()
+
     # Default values fetched from .env or original argument parser
     default_args = {
         'text': get_default_arg('text', "The expressiveness of autoregressive transformers is literally nuts! I absolutely adore them."),
@@ -85,10 +87,14 @@ def process_job(job):
                 torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), g.squeeze(0).cpu(), 24000)
                 print(f"File saved: {filename}.wav")
 
+                end_time = time.time()
+                processing_time = end_time - start_time
+
                 message = {
                     'filename': filename,
                     'text': args.text,
-                    'selected_voice': selected_voice
+                    'selected_voice': selected_voice,
+                    'processing_time': processing_time,
                 }
 
                 push_message_to_queue('wav_to_mp3', message)
@@ -97,10 +103,16 @@ def process_job(job):
             filename = args.filename if args.filename else f'{selected_voice}_{k}'
             torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), gen.squeeze(0).cpu(), 24000)
             print(f"File saved: {filename}.wav")
+
+            # Measure processing time
+            end_time = time.time()
+            processing_time = end_time - start_time
+
             message = {
                 'filename': filename,
                 'text': args.text,
-                'selected_voice': selected_voice
+                'selected_voice': selected_voice,
+                'processing_time': processing_time,
             }
 
             push_message_to_queue('wav_to_mp3', message)
