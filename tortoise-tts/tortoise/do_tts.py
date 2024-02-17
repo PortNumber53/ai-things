@@ -140,7 +140,7 @@ if __name__ == '__main__':
 
         connection = pika.BlockingConnection(url_params)
         channel = connection.channel()
-        channel.queue_declare(queue='tts_wave')
+        channel.queue_declare(queue='tts_wave', durable=True)
         channel.basic_consume(queue='tts_wave', on_message_callback=callback, auto_ack=True)
         print('Waiting for messages. To exit press CTRL+C')
         channel.start_consuming()
