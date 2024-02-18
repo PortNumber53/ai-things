@@ -49,3 +49,12 @@ makepkg -is
 
 conda config --set report_errors true
 ```
+
+
+Torroise-TTS
+```
+
+pip install -r requirements.txt
+pip install git+https://github.com/neonbjb/tortoise-tts
+
+```
