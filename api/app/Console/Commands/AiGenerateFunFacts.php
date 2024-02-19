@@ -2,10 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\GenerateFunFactJob;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
-// use App\Jobs\GenerateFunFact;
-use Illuminate\Support\Str;
 
 class AiGenerateFunFacts extends Command
 {
@@ -36,48 +34,9 @@ class AiGenerateFunFacts extends Command
         "CONTENT":"Each paragraph about the content shows here and keeps going as needed"}
         PROMPT);
 
-        // Make HTTP request to LLM/GPT service
-        $response = Http::timeout(600)->post(
-            'http://192.168.68.40:11434/api/generate',
-            [
-                'model' => 'mixtral', // notux dolphin-mistral
-                'prompt' => $prompt,
-                'stream' => false,
-            ]
-        );
+        // Dispatch the job
+        GenerateFunFactJob::dispatch($prompt)->onQueue('text-fun-facts');
 
-        // Check if request was successful
-        if ($response->successful()) {
-            // Parse the response JSON
-            $text = $response->body();
-
-            $uuid = Str::uuid()->toString();
-            $filename = storage_path("/{$uuid}.txt");
-            file_put_contents($filename, $text);
-            $this->info("Payload saved to {$filename}");
-
-
-
-            // dump($data);
-
-            // $responseString = $data['response'];
-            // dump($responseString);
-
-            // $responseJson = json_decode($responseString, true);
-            // dump($responseJson);
-
-            // $plaintext = 'TITLE: ' . $responseJson['TITLE'] . "\n";
-            // $plaintext .= 'CONTENT:' . "\n";
-            // $plaintext .= $responseJson['CONTENT'] . "\n";
-
-            // $filename = storage_path("/{$uuid}.txt");
-            // file_put_contents($filename, $plaintext);
-            // $this->info("Payload saved to {$filename}");
-
-            // GenerateFunFact::dispatch($data)->onQueue('tts-fun-fact');
-        } else {
-            // Handle unsuccessful request
-            $this->error('Failed to generate fun facts. HTTP status code: ' . $response->status());
-        }
+        $this->info('Fun fact generation job dispatched.');
     }
 }
