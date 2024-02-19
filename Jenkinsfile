@@ -17,7 +17,7 @@ pipeline {
             parallel {
                 stage("Build Frontend") {
                     steps {
-                        dir('api') {
+                        dir('frontend') {
                             sh 'npm install'
                             sh 'npm run build'
                         }
