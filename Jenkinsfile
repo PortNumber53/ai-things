@@ -17,7 +17,7 @@ pipeline {
             parallel {
                 stage("Build Frontend") {
                     steps {
-                        dir('manager') {
+                        dir('api') {
                             sh 'npm install'
                             sh 'npm run build'
                         }
@@ -25,7 +25,7 @@ pipeline {
                 }
                 stage('Build API') {
                     steps {
-                        dir('manager') {
+                        dir('api') {
                             // Run composer install with all secret files
                             withCredentials([
                                 file(credentialsId: 'ai-things-brain-env-prod-file', variable: 'ENV_FILE_BRAIN'),
@@ -74,8 +74,8 @@ def deployToHost(sshConnection, deployBasePath, envFile) {
         set -x
         echo '${deploymentPath}'
         ssh ${sshConnection} mkdir -pv ${deploymentPath} || { echo "Failed to create releases directory"; exit 1; }
-        rsync -rap --exclude=.git --exclude=.env* ./manager/ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
-        rsync -rap --exclude=.git ./manager/.env.${sshConnection} ${sshConnection}:${deploymentPath}/.env || { echo "rsync failed"; exit 1; }
+        rsync -rap --exclude=.git --exclude=.env* ./api/ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
+        rsync -rap --exclude=.git ./api/.env.${sshConnection} ${sshConnection}:${deploymentPath}/.env || { echo "rsync failed"; exit 1; }
         rsync -rap --exclude=.git ./deploy/deployment-script.sh ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
         rsync -rap --exclude=.git ./systemd/ ${sshConnection}:${deployBasePath}/systemd/ || { echo "rsync failed"; exit 1; }
         ssh ${sshConnection} "cd ${deploymentPath} && ./deployment-script.sh ${deployBasePath} ${deploymentReleasePath} ${deploymentPath} ${timestamp}" || { echo "Deployment script execution failed"; exit 1; }
