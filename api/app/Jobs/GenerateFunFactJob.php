@@ -41,7 +41,7 @@ class GenerateFunFactJob implements ShouldQueue
     {
         // Make HTTP request to LLM/GPT service
         $response = Http::timeout(600)->post(
-            'http://192.168.68.50:11434/api/generate',
+            'http://192.168.68.40:11434/api/generate',
             [
                 'model' => 'mixtral', // notux dolphin-mistral
                 'prompt' => $this->prompt,
