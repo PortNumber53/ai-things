@@ -29,7 +29,7 @@ class AiGenerateFunFacts extends Command
     public function handle()
     {
         $prompt = trim(<<<PROMPT
-        give me an unique random fact about a random subject of your choice.
+        give me an unique random fact about any subject from the size of atoms to how food has flavor.
         make the explanation engaging while keeping it simple
         write about 6 to 10 paragraphs, your response must be in JSON format structured like this:
         {"TITLE": "The title for the subject comes here",
