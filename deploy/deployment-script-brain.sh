@@ -22,7 +22,7 @@ cd $DEPLOY_BASE_PATH
 sudo ln -sfn $DEPLOYMENT_RELEASE_PATH$TIMESTAMP current
 
 
-cd $DEPLOYMENT_RELEASE_PATH
+cd $DEPLOYMENT_PATH
 ln -sfn $DEPLOY_BASE_PATH/storage storage
 
 echo "-Preparing systemd files"
