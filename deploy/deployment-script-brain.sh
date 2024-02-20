@@ -16,7 +16,7 @@ TIMESTAMP=$4
 
 echo "copying systemd files"
 cd /etc/systemd/system/
-sudo ls -sfn /deploy/ai-things/current/deploy/brain/systemd/ai_generate_fun_facts.service
+sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/ai_generate_fun_facts.service
 sudo systemctl daemon-reload
 
 
