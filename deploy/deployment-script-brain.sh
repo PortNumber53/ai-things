@@ -22,8 +22,8 @@ cd $DEPLOY_BASE_PATH
 sudo ln -sfn $DEPLOYMENT_RELEASE_PATH$TIMESTAMP current
 
 
-cd $DEPLOYMENT_PATH
-ln -sfn $DEPLOY_BASE_PATH/storage storage
+cd ${DEPLOYMENT_PATH}
+ln -sfn ${DEPLOY_BASE_PATH}storage storage
 
 echo "-Preparing systemd files"
 cd /etc/systemd/system/
