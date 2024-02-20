@@ -64,7 +64,7 @@ pipeline {
 
 def deployToHost(sshConnection, deployBasePath, envFile) {
     def timestamp = new Date().format("yyyyMMddHHmmss")
-    def deploymentReleasePath = "${deployBasePath}/releases/"
+    def deploymentReleasePath = "${deployBasePath}releases/"
     def deploymentPath = "${deploymentReleasePath}${timestamp}"
 
     sh """
@@ -74,7 +74,7 @@ def deployToHost(sshConnection, deployBasePath, envFile) {
         rsync -rap --exclude=.git --exclude=.env* ./ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
         rsync -rap --exclude=.git ./api/.env.${sshConnection} ${sshConnection}:${deploymentPath}/.env || { echo "rsync failed"; exit 1; }
         rsync -rap --exclude=.git ./deploy/deployment-script-${sshConnection}.sh ${sshConnection}:${deploymentPath}/deployment.sh || { echo "rsync failed"; exit 1; }
-        rsync -rap --exclude=.git ./systemd/ ${sshConnection}:${deployBasePath}/systemd/ || { echo "rsync failed"; exit 1; }
-        ssh ${sshConnection} "cd ${deploymentPath} && ./deployment-script.sh ${deployBasePath} ${deploymentReleasePath} ${deploymentPath} ${timestamp}" || { echo "Deployment script execution failed"; exit 1; }
+        rsync -rap --exclude=.git ./systemd/ ${sshConnection}:${deployBasePath}systemd/ || { echo "rsync failed"; exit 1; }6ghjn
+        ssh ${sshConnection} "cd ${deploymentPath} && ./deploy/deployment-script-${sshConnection}.sh ${deployBasePath} ${deploymentReleasePath} ${deploymentPath} ${timestamp}" || { echo "Deployment script execution failed"; exit 1; }
     """
 }
