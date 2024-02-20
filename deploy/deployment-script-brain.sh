@@ -19,7 +19,7 @@ sudo systemctl disable --now laravel-worker@text_fun_facts.service
 
 echo "Updating current symlink"
 cd $DEPLOY_BASE_PATH
-sudo ln -sfn $DEPLOYMENT_RELEASE_PATH$TIMESTAMP current
+ln -sfn $DEPLOYMENT_RELEASE_PATH$TIMESTAMP current
 
 
 cd ${DEPLOYMENT_PATH}
