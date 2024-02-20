@@ -38,7 +38,7 @@ class AiGenerateFunFacts extends Command
             PROMPT);
 
             // Dispatch the job
-            GenerateFunFactJob::dispatch($prompt)->onQueue('text-fun-facts');
+            GenerateFunFactJob::dispatch($prompt)->onQueue('text_fun_facts');
 
             $this->info('Fun fact generation job dispatched.');
 

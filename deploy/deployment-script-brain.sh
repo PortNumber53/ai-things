@@ -25,9 +25,9 @@ sudo ln -sfn $DEPLOYMENT_RELEASE_PATH$TIMESTAMP current
 echo "-Preparing systemd files"
 cd /etc/systemd/system/
 
-sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/laravel-worker@.service laravel-worker@text-fun-facts.service
+sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/laravel-worker@.service laravel-worker@text_fun_facts.service
 sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/ai_generate_fun_facts.service
 sudo systemctl daemon-reload
 
 # Enable services
-sudo systemctl enable --now laravel-worker@text-fun-facts.service
+sudo systemctl enable --now laravel-worker@text_fun_facts.service
