@@ -14,7 +14,7 @@ DEPLOYMENT_PATH=$3
 TIMESTAMP=$4
 
 # Disable servies
-sudo systemctl disable --now ai_generate_fun_facts.service
+# sudo systemctl disable --now ai_generate_fun_facts.service
 
 
 echo "Updating current symlink"
