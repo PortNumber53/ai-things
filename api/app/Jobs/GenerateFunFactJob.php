@@ -8,6 +8,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class GenerateFunFactJob implements ShouldQueue
 {
@@ -55,13 +56,9 @@ class GenerateFunFactJob implements ShouldQueue
             $text = $response->body();
 
             $uuid = Str::uuid()->toString();
-            $filename = public_path("/output/funfacts/{$uuid}.txt");
+            $filename = public_path("funfacts/{$uuid}.txt");
 
-            $directory = dirname($filename);
-            if (!is_dir($directory)) {
-                mkdir($directory, 0755, true); // Create recursively with appropriate permissions
-            }
-            file_put_contents($filename, $text);
+            Storage::disk('output')->put($filename, $text);
 
             echo "Output file: $filename\n";
 
