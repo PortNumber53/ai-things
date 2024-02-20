@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
+User=grimlock
+Group=grimlock
 WorkingDirectory=/deploy/ai-things/current/api
 ExecStart=/usr/bin/php /deploy/ai-things/current/api/artisan Ai:GenerateFunFacts --sleep=30
 Restart=always
