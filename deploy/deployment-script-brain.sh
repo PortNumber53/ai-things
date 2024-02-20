@@ -15,7 +15,8 @@ TIMESTAMP=$4
 
 
 echo "copying systemd files"
-sudo rsync -ravp --progress ./deploy/brain/systemd/ /etc/systemd/system/
+cd /etc/systemd/system/
+sudo ls -sfn /deploy/ai-things/current/deploy/brain/systemd/ai_generate_fun_facts.service
 sudo systemctl daemon-reload
 
 
