@@ -84,6 +84,7 @@ return [
                     'heartbeat' => 30,
                 ],
             ],
+            'lazy' => false,
             'options' => [
                 'heartbeat' => 10,
             ],
