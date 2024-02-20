@@ -36,7 +36,6 @@ class AiGenerateFunFacts extends Command
                 {"TITLE": "The title for the subject comes here",
                 "CONTENT":"Each paragraph about the content shows here and keeps going as needed"}
             PROMPT);
-            $prompt = "What's 2+4";
 
             // Dispatch the job
             GenerateFunFactJob::dispatch($prompt)->onQueue('text_fun_facts');
