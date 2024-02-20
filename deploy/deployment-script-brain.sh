@@ -22,7 +22,9 @@ cd $DEPLOY_BASE_PATH/current/
 ln -sfn $DEPLOYMENT_RELEASE_PATH$TIMESTAMP current
 
 cd $DEPLOY_BASE_PATH/current/api
-ln -sfn ${DEPLOY_BASE_PATH}storage storage
+ls -la
+ls -la storage
+ln -sfn ${DEPLOY_BASE_PATH}storage
 
 cd ${DEPLOYMENT_PATH}
 ln -sfn ${DEPLOY_BASE_PATH}storage storage
