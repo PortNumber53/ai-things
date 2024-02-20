@@ -84,6 +84,7 @@ return [
                     'heartbeat' => 30,
                 ],
             ],
+            'worker' => \App\Queue\RabbitMQQueue::class,
             'lazy' => false,
             'options' => [
                 'heartbeat' => 10,
