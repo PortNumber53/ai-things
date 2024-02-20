@@ -22,6 +22,8 @@ cd ${DEPLOYMENT_PATH}
 ln -sfn ${DEPLOY_BASE_PATH}storage storage
 
 
+cd ${DEPLOY_BASE_PATH}
+ln -sfn ${DEPLOYMENT_RELEASE_PATH} ./current
 
 
 echo "-Preparing systemd files"
