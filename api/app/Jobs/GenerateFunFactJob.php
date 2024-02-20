@@ -55,8 +55,14 @@ class GenerateFunFactJob implements ShouldQueue
             $text = $response->body();
 
             $uuid = Str::uuid()->toString();
-            $filename = storage_path("/{$uuid}.txt");
+            $filename = public_path("/output/funfacts/{$uuid}.txt");
+
+            $directory = dirname($filename);
+            if (!is_dir($directory)) {
+                mkdir($directory, 0755, true); // Create recursively with appropriate permissions
+            }
             file_put_contents($filename, $text);
+
             // You may dispatch another job to process the saved payload if needed
             // For example, GenerateFunFactProcessorJob::dispatch($filename);
         } else {
