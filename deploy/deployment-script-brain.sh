@@ -14,7 +14,7 @@ DEPLOYMENT_PATH=$3
 TIMESTAMP=$4
 
 # Disable servies
-# sudo systemctl disable --now ai_generate_fun_facts.service
+sudo systemctl disable --now laravel-worker@text_fun_facts.service
 
 
 echo "Updating current symlink"
@@ -31,3 +31,6 @@ sudo systemctl daemon-reload
 
 # Enable services
 sudo systemctl enable --now laravel-worker@text_fun_facts.service
+
+# Restart services
+sudo systemctl restart laravel-worker@text_fun_facts.service
