@@ -71,7 +71,7 @@ def deployToHost(sshConnection, deployBasePath, envFile) {
         set -x
         echo '${deploymentPath}'
         ssh ${sshConnection} mkdir -pv ${deploymentPath} || { echo "Failed to create releases directory"; exit 1; }
-        rsync -rap --exclude=.git --exclude=.env.* ./ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
+        rsync -rap --exclude=.git --exclude=.env.* --exclude=api\\@tmp ./ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
         rsync -rap --exclude=.git ./.env.${sshConnection} ${sshConnection}:${deploymentPath}/.env || { echo "rsync failed"; exit 1; }
         ssh ${sshConnection} "cd ${deploymentPath} && ./deploy/deployment-script-${sshConnection}.sh ${deployBasePath} ${deploymentReleasePath} ${deploymentPath} ${timestamp}" || { echo "Deployment script execution failed"; exit 1; }
     """
