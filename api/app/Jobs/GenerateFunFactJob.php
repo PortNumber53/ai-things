@@ -65,6 +65,8 @@ class GenerateFunFactJob implements ShouldQueue
             // You may dispatch another job to process the saved payload if needed
             // For example, GenerateFunFactProcessorJob::dispatch($filename);
         } else {
+            dump($response->status());
+            dump($response->body());
             // Handle unsuccessful request
             // You might want to retry the job or log the failure
             // For example, $this->release(60) to retry after 60 seconds
