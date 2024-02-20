@@ -6,7 +6,7 @@ After=network.target
 User=grimlock
 Group=grimlock
 Restart=always
-WorkingDirectory=/deploy/ai-things/current/
+WorkingDirectory=/deploy/ai-things/current/api/
 ExecStart=/usr/bin/php artisan queue:work --sleep=3 --tries=3 --queue=%I
 
 [Install]
