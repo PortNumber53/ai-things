@@ -56,7 +56,7 @@ class GenerateFunFactJob implements ShouldQueue
             $text = $response->body();
 
             $uuid = Str::uuid()->toString();
-            $filename = public_path("funfacts/{$uuid}.txt");
+            $filename = "funfacts/{$uuid}.txt";
 
             Storage::disk('output')->put($filename, $text);
 
