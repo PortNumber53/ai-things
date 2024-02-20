@@ -63,6 +63,8 @@ class GenerateFunFactJob implements ShouldQueue
             }
             file_put_contents($filename, $text);
 
+            echo "Output file: $filename\n";
+
             // You may dispatch another job to process the saved payload if needed
             // For example, GenerateFunFactProcessorJob::dispatch($filename);
         } else {
