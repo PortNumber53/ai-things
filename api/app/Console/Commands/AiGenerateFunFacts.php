@@ -12,7 +12,7 @@ class AiGenerateFunFacts extends Command
      *
      * @var string
      */
-    protected $signature = 'Ai:GenerateFunFacts';
+    protected $signature = 'Ai:GenerateFunFacts {--sleep=30 : Sleep duration in seconds}';
 
     /**
      * The console command description.
@@ -26,17 +26,24 @@ class AiGenerateFunFacts extends Command
      */
     public function handle()
     {
-        $prompt = trim(<<<PROMPT
-        give me an unique random fact about any subject from the size of atoms to how food has flavor.
-        make the explanation engaging while keeping it simple
-        write about 6 to 10 paragraphs, your response must be in JSON format structured like this:
-        {"TITLE": "The title for the subject comes here",
-        "CONTENT":"Each paragraph about the content shows here and keeps going as needed"}
-        PROMPT);
+        $sleepDuration = $this->option('sleep');
 
-        // Dispatch the job
-        GenerateFunFactJob::dispatch($prompt)->onQueue('text-fun-facts');
+        while (true) {
+            $prompt = trim(<<<PROMPT
+                give me an unique random fact about any subject from the size of atoms to how food has flavor.
+                make the explanation engaging while keeping it simple
+                write about 6 to 10 paragraphs, your response must be in JSON format structured like this:
+                {"TITLE": "The title for the subject comes here",
+                "CONTENT":"Each paragraph about the content shows here and keeps going as needed"}
+            PROMPT);
 
-        $this->info('Fun fact generation job dispatched.');
+            // Dispatch the job
+            GenerateFunFactJob::dispatch($prompt)->onQueue('text-fun-facts');
+
+            $this->info('Fun fact generation job dispatched.');
+
+            // Sleep for the specified duration before dispatching the next job
+            sleep($sleepDuration);
+        }
     }
 }

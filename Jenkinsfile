@@ -23,22 +23,19 @@ pipeline {
                         }
                     }
                 }
-                stage('Build API') {
+                stage('Prepare API') {
                     steps {
-                        dir('api') {
-                            // Run composer install with all secret files
-                            withCredentials([
-                                file(credentialsId: 'ai-things-brain-env-prod-file', variable: 'ENV_FILE_BRAIN'),
-                                file(credentialsId: 'ai-things-pinky-env-prod-file', variable: 'ENV_FILE_PINKY'),
-                                file(credentialsId: 'ai-things-legion-env-prod-file', variable: 'ENV_FILE_LEGION'),
-                                file(credentialsId: 'ai-things-devbox-env-prod-file', variable: 'ENV_FILE_DEVBOX'),
-                                ]) {
-                                sh 'cp --no-preserve=mode,ownership $ENV_FILE_BRAIN .env.brain'
-                                sh 'cp --no-preserve=mode,ownership $ENV_FILE_PINKY .env.pinky'
-                                sh 'cp --no-preserve=mode,ownership $ENV_FILE_LEGION .env.legion'
-                                sh 'cp --no-preserve=mode,ownership $ENV_FILE_DEVBOX .env.devbox'
-                                sh 'composer install --no-ansi'
-                            }
+                        // Run composer install with all secret files
+                        withCredentials([
+                            file(credentialsId: 'ai-things-brain-env-prod-file', variable: 'ENV_FILE_BRAIN'),
+                            file(credentialsId: 'ai-things-pinky-env-prod-file', variable: 'ENV_FILE_PINKY'),
+                            file(credentialsId: 'ai-things-legion-env-prod-file', variable: 'ENV_FILE_LEGION'),
+                            file(credentialsId: 'ai-things-devbox-env-prod-file', variable: 'ENV_FILE_DEVBOX'),
+                        ]) {
+                            sh 'cp --no-preserve=mode,ownership $ENV_FILE_BRAIN .env.brain'
+                            sh 'cp --no-preserve=mode,ownership $ENV_FILE_PINKY .env.pinky'
+                            sh 'cp --no-preserve=mode,ownership $ENV_FILE_LEGION .env.legion'
+                            sh 'cp --no-preserve=mode,ownership $ENV_FILE_DEVBOX .env.devbox'
                         }
                     }
                 }
@@ -74,7 +71,7 @@ def deployToHost(sshConnection, deployBasePath, envFile) {
         set -x
         echo '${deploymentPath}'
         ssh ${sshConnection} mkdir -pv ${deploymentPath} || { echo "Failed to create releases directory"; exit 1; }
-        rsync -rap --exclude=.git --exclude=.env* ./api/ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
+        rsync -rap --exclude=.git --exclude=.env* ./ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
         rsync -rap --exclude=.git ./api/.env.${sshConnection} ${sshConnection}:${deploymentPath}/.env || { echo "rsync failed"; exit 1; }
         rsync -rap --exclude=.git ./deploy/deployment-script-${sshConnection}.sh ${sshConnection}:${deploymentPath}/deployment.sh || { echo "rsync failed"; exit 1; }
         rsync -rap --exclude=.git ./systemd/ ${sshConnection}:${deployBasePath}/systemd/ || { echo "rsync failed"; exit 1; }
