@@ -18,7 +18,7 @@ sudo systemctl disable --now laravel-worker@text_fun_facts.service
 
 
 echo "Updating release symlink"
-cd ${DEPLOYMENT_PATH}
+cd ${DEPLOYMENT_PATH}/api
 ln -sfn ${DEPLOY_BASE_PATH}storage storage
 
 
