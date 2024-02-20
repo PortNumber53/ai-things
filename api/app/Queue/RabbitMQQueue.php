@@ -2,6 +2,7 @@
 
 namespace App\Queue;
 
+use Illuminate\Support\Facades\Log;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Exception\AMQPChannelClosedException;
 use PhpAmqpLib\Exception\AMQPConnectionClosedException;
@@ -14,8 +15,8 @@ class RabbitMQQueue extends BaseRabbitMQQueue
         try {
             parent::publishBasic($msg, $exchange, $destination, $mandatory, $immediate, $ticket);
         } catch (AMQPConnectionClosedException | AMQPChannelClosedException) {
+            Log::info('Reconneting to RabbitMQ');
             $this->reconnect();
-            dump('Reconnet');
             parent::publishBasic($msg, $exchange, $destination, $mandatory, $immediate, $ticket);
         }
     }
@@ -25,7 +26,7 @@ class RabbitMQQueue extends BaseRabbitMQQueue
         try {
             parent::publishBatch($jobs, $data, $queue);
         } catch (AMQPConnectionClosedException | AMQPChannelClosedException) {
-            dump('Reconnet');
+            Log::info('Reconneting to RabbitMQ');
             $this->reconnect();
             parent::publishBatch($jobs, $data, $queue);
         }
@@ -36,7 +37,7 @@ class RabbitMQQueue extends BaseRabbitMQQueue
         try {
             return parent::createChannel();
         } catch (AMQPConnectionClosedException) {
-            dump('Reconnet');
+            Log::info('Reconneting to RabbitMQ');
             $this->reconnect();
             return parent::createChannel();
         }
