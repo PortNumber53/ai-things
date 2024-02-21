@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'sync'),
+    'default' => env('QUEUE_CONNECTION', 'rabbitmq'),
 
     /*
     |--------------------------------------------------------------------------
@@ -81,13 +81,11 @@ return [
                     'user' => env('RABBITMQ_USER', 'guest'),
                     'password' => env('RABBITMQ_PASSWORD', 'guest'),
                     'vhost' => env('RABBITMQ_VHOST', '/'),
-                    'heartbeat' => 30,
                 ],
             ],
             'worker' => \App\Queue\RabbitMQQueue::class,
-            'lazy' => false,
             'options' => [
-                'heartbeat' => 10,
+                'heartbeat' => 2,
             ],
         ],
     ],
