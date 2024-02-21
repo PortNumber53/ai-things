@@ -48,6 +48,10 @@ class GenerateFunFactJob implements ShouldQueue
                 'model' => 'llama2', // notux dolphin-mistral tinyllama mixtral llama2
                 'prompt' => $this->prompt,
                 'stream' => false,
+                'options' => [
+                    'seed' => microtime(),
+                    'temperature' =>  1,
+                ]
             ]
         );
 
