@@ -29,6 +29,7 @@ class AiGenerateFunFacts extends Command
         $sleepDuration = $this->option('sleep');
 
         while (true) {
+            $timestamp = date('Y-m-d H:i:s');
             $prompt = trim(<<<PROMPT
                 give me an unique random fact about any subject from the size of atoms to how food has flavor.
                 make the explanation engaging while keeping it simple
@@ -40,7 +41,7 @@ class AiGenerateFunFacts extends Command
             // Dispatch the job
             GenerateFunFactJob::dispatch($prompt)->onQueue('text_fun_facts');
 
-            $this->info('Fun fact generation job dispatched.');
+            $this->info("{$timestamp} Fun fact generation job dispatched.");
 
             // Sleep for the specified duration before dispatching the next job
             sleep($sleepDuration);
