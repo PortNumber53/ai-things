@@ -49,7 +49,7 @@ class GenerateFunFactJob implements ShouldQueue
                 'prompt' => $this->prompt,
                 'stream' => false,
                 'options' => [
-                    'seed' => microtime(),
+                    'seed' => time(),
                     'temperature' =>  1,
                 ]
             ]
