@@ -45,7 +45,8 @@ class GenerateFunFactJob implements ShouldQueue
         $response = Http::timeout(600)->post(
             'http://192.168.68.40:11434/api/generate',
             [
-                'model' => 'llama2', // notux dolphin-mistral tinyllama mixtral llama2
+                'model' => 'mixtral', // notux dolphin-mistral tinyllama mixtral llama2
+                'keep_alive' => 300,
                 'prompt' => $this->prompt,
                 'stream' => false,
                 'options' => [
