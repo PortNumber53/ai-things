@@ -84,9 +84,9 @@ return [
                 ],
             ],
             'worker' => \App\Queue\RabbitMQQueue::class,
-            'options' => [
-                'heartbeat' => 2,
-            ],
+            // 'options' => [
+            //     'heartbeat' => 20,
+            // ],
         ],
     ],
 

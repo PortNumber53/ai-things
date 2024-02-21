@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class GenerateFunFactJob implements ShouldQueue
 {
@@ -44,7 +45,7 @@ class GenerateFunFactJob implements ShouldQueue
         $response = Http::timeout(600)->post(
             'http://192.168.68.40:11434/api/generate',
             [
-                'model' => 'tinyllama', // notux dolphin-mistral tinyllama mixtral
+                'model' => 'mixtral', // notux dolphin-mistral tinyllama mixtral
                 'prompt' => $this->prompt,
                 'stream' => false,
             ]
@@ -60,7 +61,7 @@ class GenerateFunFactJob implements ShouldQueue
 
             Storage::disk('output')->put($filename, $text);
 
-            echo "Output file: $filename\n";
+            Log::info("Output file: $filename");
 
             // You may dispatch another job to process the saved payload if needed
             // For example, GenerateFunFactProcessorJob::dispatch($filename);
