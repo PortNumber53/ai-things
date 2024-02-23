@@ -16,6 +16,27 @@ sudo chown -Rv grimlock:grimlock /deploy
 
 ## set up systemd service
 
+
+install conda
+```
+yay -S wget
+yay -S python-pluggy python-pycosat python-ruamel-yaml anaconda
+
+
+git clone https://aur.archlinux.org/python-conda-package-handling.git && cd python-conda-package-handling
+makepkg -is
+
+git clone https://aur.archlinux.org/python-conda.git && cd python-conda
+makepkg -is
+
+conda --version
+
+wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+./Miniforge3-Linux-x86_64.sh
+
+
+```
+
 (as root)
 
 ```
