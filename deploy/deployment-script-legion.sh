@@ -18,3 +18,17 @@ ln -sfn ${DEPLOY_BASE_PATH}storage storage
 
 cd ${DEPLOY_BASE_PATH}
 ln -sfn ${DEPLOYMENT_PATH} ./current
+
+
+echo "-Preparing systemd files"
+cd /etc/systemd/system/
+
+sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/tortoise.service tortoise.service
+sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/tortoise.service
+sudo systemctl daemon-reload
+
+# Enable services
+sudo systemctl enable --now tortoise.service
+
+# Restart services
+sudo systemctl restart tortoise.service
