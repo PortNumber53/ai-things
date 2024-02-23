@@ -7,7 +7,7 @@ User=grimlock
 Group=grimlock
 Restart=always
 WorkingDirectory=/deploy/ai-things/current/tortoise-tts/tortoise/
-ExecStart=/usr/bin/bash -c "conda activate tortoise && python do_tts.py"
+ExecStart=/usr/bin/bash -c "source /usr/etc/profile.d/conda.sh && conda activate tortoise && /home/grimlock/.conda/envs/tortoise/bin/python do_tts.py"
 
 [Install]
 WantedBy=multi-user.target
