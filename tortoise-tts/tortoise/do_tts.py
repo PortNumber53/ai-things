@@ -9,8 +9,30 @@ import torchaudio
 from api import TextToSpeech, MODELS_DIR
 from utils.audio import load_voices
 import time
+import signal
+
+# Global variable to track whether a job is currently being processed
+job_processing = False
+
+def signal_handler(sig, frame):
+    global job_processing
+    if job_processing:
+        print("Waiting for the current job to finish...")
+        # Wait until the job finishes before exiting
+        while job_processing:
+            time.sleep(1)
+    print("Exiting...")
+    sys.exit(0)
+
+# Register the signal handler for SIGINT (CTRL+C) and SIGTERM (kill)
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
 
 def push_message_to_queue(queue_name, message):
+    global job_processing
+    job_processing = True
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--rabbitmq_url', type=str, help='RabbitMQ server URL.', default=f"amqp://{os.getenv('RABBITMQ_USER')}:{os.getenv('RABBITMQ_PASSWORD')}@{os.getenv('RABBITMQ_HOST')}:{os.getenv('RABBITMQ_PORT')}/{os.getenv('RABBITMQ_VHOST')}")
     args = parser.parse_args()
@@ -18,19 +40,28 @@ def push_message_to_queue(queue_name, message):
     connection = None
     channel = None
 
+    try:
+        url_params = pika.URLParameters(args.rabbitmq_url)
 
-    url_params = pika.URLParameters(args.rabbitmq_url)
+        # Add heartbeat parameter to the connection parameters
+        url_params.heartbeat = 600
 
-    # Add heartbeat parameter to the connection parameters
-    url_params.heartbeat = 600
+        connection = pika.BlockingConnection(url_params)
 
-    connection = pika.BlockingConnection(url_params)
+        channel = connection.channel()
+        channel.queue_declare(queue=queue_name)
+        channel.basic_publish(exchange='', routing_key=queue_name, body=json.dumps(message))
+        print(f"Message pushed to {queue_name} queue: {message}")
+    except Exception as e:
+        print(f"Error pushing message to {queue_name} queue: {e}")
+    finally:
+        if channel:
+            channel.close()
+        if connection and connection.is_open:
+            connection.close()
 
-    channel = connection.channel()
-    channel.queue_declare(queue=queue_name)
-    channel.basic_publish(exchange='', routing_key=queue_name, body=json.dumps(message))
-    print(f"Message pushed to {queue_name} queue: {message}")
-    connection.close()
+    job_processing = False
+
 
 def get_default_arg(name, default):
     # Fetch value from .env if available, otherwise use default value
@@ -41,6 +72,9 @@ def callback(ch, method, properties, body):
     process_job(job)
 
 def process_job(job):
+    global job_processing
+    job_processing = True
+
     start_time = time.time()
 
     # Default values fetched from .env or original argument parser
@@ -122,6 +156,8 @@ def process_job(job):
             os.makedirs('debug_states', exist_ok=True)
             torch.save(dbg_state, f'debug_states/do_tts_debug_{filename}.pth')
     sys.stdout.flush()
+    job_processing = False
+
 
 if __name__ == '__main__':
     load_dotenv()  # Load variables from .env file
