@@ -50,11 +50,18 @@ makepkg -is
 conda config --set report_errors true
 ```
 
-
 Torroise-TTS
+
 ```
 
 pip install -r requirements.txt
 pip install git+https://github.com/neonbjb/tortoise-tts
 
+```
+
+## Folders:
+
+```
+sudo mkdir -pv /output/funfacts/
+sudo chown -Rv grimlock:grimlock /output/funfacts/
 ```
