@@ -179,18 +179,20 @@ if __name__ == '__main__':
         # Add heartbeat parameter to the connection parameters
         url_params.heartbeat = 600
 
-        connection = pika.BlockingConnection(url_params)
-        channel = connection.channel()
-        channel.queue_declare(queue='tts_wave', durable=True)
-        channel.basic_consume(queue='tts_wave', on_message_callback=callback, auto_ack=True)
-        print('Waiting for messages. To exit press CTRL+C')
-        channel.start_consuming()
-    except pika.exceptions.AMQPConnectionError as e:
-        print(f"Error connecting to RabbitMQ server: {e}")
+        while True:
+            try:
+                connection = pika.BlockingConnection(url_params)
+                channel = connection.channel()
+                channel.queue_declare(queue='tts_wave', durable=True)
+                channel.basic_consume(queue='tts_wave', on_message_callback=callback, auto_ack=True)
+                print('Waiting for messages. To exit press CTRL+C')
+                channel.start_consuming()
+            except pika.exceptions.AMQPConnectionError as e:
+                print(f"Error connecting to RabbitMQ server: {e}")
+            finally:
+                if channel:
+                    channel.close()
+                if connection and connection.is_open:
+                    connection.close()
     except KeyboardInterrupt:
         print("Exiting...")
-    finally:
-        if channel:
-            channel.close()
-        if connection and connection.is_open:
-            connection.close()
