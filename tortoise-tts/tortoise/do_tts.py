@@ -49,6 +49,11 @@ def push_message_to_queue(queue_name, message):
         connection = pika.BlockingConnection(url_params)
 
         channel = connection.channel()
+
+        # Check if the channel is still open, if not, reopen it
+        if not channel.is_open:
+            channel = connection.channel()
+
         channel.queue_declare(queue=queue_name)
         channel.basic_publish(exchange='', routing_key=queue_name, body=json.dumps(message))
         print(f"Message pushed to {queue_name} queue: {message}")
