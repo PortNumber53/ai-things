@@ -164,35 +164,39 @@ def process_job(job):
     job_processing = False
 
 
-if __name__ == '__main__':
+def main():
     load_dotenv()  # Load variables from .env file
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--rabbitmq_url', type=str, help='RabbitMQ server URL.', default=f"amqp://{os.getenv('RABBITMQ_USER')}:{os.getenv('RABBITMQ_PASSWORD')}@{os.getenv('RABBITMQ_HOST')}:{os.getenv('RABBITMQ_PORT')}/{os.getenv('RABBITMQ_VHOST')}")
     args = parser.parse_args()
 
+    url_params = pika.URLParameters(args.rabbitmq_url)
+    url_params.heartbeat = 600
+
     connection = None
     channel = None
-    try:
-        url_params = pika.URLParameters(args.rabbitmq_url)
 
-        # Add heartbeat parameter to the connection parameters
-        url_params.heartbeat = 600
+    while True:
+        try:
+            connection = pika.BlockingConnection(url_params)
+            channel = connection.channel()
+            channel.queue_declare(queue='tts_wave', durable=True)
+            channel.basic_consume(queue='tts_wave', on_message_callback=callback, auto_ack=True)
+            print('Waiting for messages. To exit press CTRL+C')
+            channel.start_consuming()
+        except pika.exceptions.AMQPConnectionError as e:
+            print(f"Error connecting to RabbitMQ server: {e}")
+            print("Attempting to reconnect in 5 seconds...")
+            time.sleep(5)
+        except KeyboardInterrupt:
+            print("Exiting...")
+            break
+        finally:
+            if channel and channel.is_open:
+                channel.close()
+            if connection and connection.is_open:
+                connection.close()
 
-        while True:
-            try:
-                connection = pika.BlockingConnection(url_params)
-                channel = connection.channel()
-                channel.queue_declare(queue='tts_wave', durable=True)
-                channel.basic_consume(queue='tts_wave', on_message_callback=callback, auto_ack=True)
-                print('Waiting for messages. To exit press CTRL+C')
-                channel.start_consuming()
-            except pika.exceptions.AMQPConnectionError as e:
-                print(f"Error connecting to RabbitMQ server: {e}")
-            finally:
-                if channel:
-                    channel.close()
-                if connection and connection.is_open:
-                    connection.close()
-    except KeyboardInterrupt:
-        print("Exiting...")
+if __name__ == '__main__':
+    main()

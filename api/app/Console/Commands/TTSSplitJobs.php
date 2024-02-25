@@ -56,8 +56,9 @@ class TTSSplitJobs extends Command
                     $queue->pushRaw($jsonPayload, 'tts_wave');
                 }
 
-
-                dump($sentence_data['content']);
+                $indexStr = str_pad($index, 10, ' ', STR_PAD_LEFT);
+                $this->line("$indexStr : " . $sentence_data['content']);
+                // dump("$index " . $sentence_data['content']);
             }
         }
 
