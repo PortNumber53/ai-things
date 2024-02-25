@@ -73,8 +73,12 @@ def get_default_arg(name, default):
     return os.getenv(name.upper(), default)
 
 def callback(ch, method, properties, body):
-    job = json.loads(body.decode())
-    process_job(job)
+    try:
+        job = json.loads(body.decode())
+        process_job(job)
+        ch.basic_ack(delivery_tag=method.delivery_tag)  # Acknowledge message after processing
+    except Exception as e:
+        print(f"Error processing message: {e}")
 
 def process_job(job):
     global job_processing
@@ -182,7 +186,8 @@ def main():
             connection = pika.BlockingConnection(url_params)
             channel = connection.channel()
             channel.queue_declare(queue='tts_wave', durable=True)
-            channel.basic_consume(queue='tts_wave', on_message_callback=callback, auto_ack=True)
+            channel.basic_qos(prefetch_count=1)  # Set prefetch count to 1
+            channel.basic_consume(queue='tts_wave', on_message_callback=callback)
             print('Waiting for messages. To exit press CTRL+C')
             channel.start_consuming()
         except pika.exceptions.AMQPConnectionError as e:
