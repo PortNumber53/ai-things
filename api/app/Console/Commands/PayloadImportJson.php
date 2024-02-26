@@ -39,13 +39,19 @@ class PayloadImportJson extends Command
         }
         // dump($fileJson);
         $response = $fileJson['response'];
+
+        // replace chars
+        $response = trim(str_replace(["\n", "\r"], ['\\n', '\\r'], $response));
+        echo "\n--------------------------- RESPONSE\n";
+        echo($response);
+        echo "\n---------------------------n\n";
+
         $responseJson = json_decode($response, true);
         $meta = json_encode([
             'original_file' => $filename,
             'hash' => Hash::make($fileContent),
             'filename' => pathinfo($filename, PATHINFO_FILENAME),
         ]);
-        // dump($responseJson);
 
         if (!empty($responseJson['TITLE']) && !empty($responseJson['CONTENT'])) {
             $title = $responseJson['TITLE'];
