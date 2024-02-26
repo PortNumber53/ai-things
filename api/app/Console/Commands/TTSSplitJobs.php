@@ -41,7 +41,7 @@ class TTSSplitJobs extends Command
             $title = $content['title'];
             $jsonPayload = $jobTemplate;
             $jsonPayload['text'] = $title;
-            $jsonPayload['filename'] = str_pad($title, 10, '0', STR_PAD_LEFT) . '-' .
+            $jsonPayload['filename'] = str_pad($content['id'], 10, '0', STR_PAD_LEFT) . '-' .
                 str_pad(0, 3, '0', STR_PAD_LEFT) . '-' . $voice . '-' . md5($title);
 
             $jsonPayload = json_encode($jsonPayload);
