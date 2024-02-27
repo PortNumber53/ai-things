@@ -28,7 +28,7 @@ sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/gemini_generate_fun_
 sudo systemctl daemon-reload
 
 # Run migrations
-cd ${DEPLOYMENT_PATH}
+cd ${DEPLOYMENT_PATH}/api
 ./artisan migrate --force
 
 
