@@ -71,6 +71,10 @@ PROMPT),
             return 1;
         }
 
+        $title = '';
+        $paragraphs = [];
+        $count = 0; // Counter for total entries
+
         // Extract data from the response
         $responseData = json_decode($response->getBody(), true);
         // dump($responseData);
@@ -78,9 +82,6 @@ PROMPT),
             $text = $responseData['candidates'][0]['content']['parts'][0]['text'];
 
             $responsePart = explode("\n", $text);
-            $title = '';
-            $paragraphs = [];
-            $count = 0; // Counter for total entries
             $previousLineWasSpacer = false; // Flag to track if the previous line was a spacer
             foreach ($responsePart as $line) {
                 if (strpos($line, 'TITLE:') === 0) {
@@ -102,22 +103,22 @@ PROMPT),
                     $previousLineWasSpacer = true;
                 }
             }
+
+            // Save data to database
+            Content::create([
+                'title' => $title,
+                'status' => 'new',
+                'type' => 'gemini.payload',
+                'sentences' => json_encode($paragraphs),
+                'count' => $count,
+                'meta' => json_encode(['gemini_response' => $responseData]),
+            ]);
+
+            // Display success message
+            $this->info('Fun fact generated successfully.');
         } else {
             $this->error('Failed to parse response data.');
         }
-
-        // Save data to database
-        Content::create([
-            'title' => $title,
-            'status' => 'new',
-            'type' => 'gemini.payload',
-            'sentences' => json_encode($paragraphs),
-            'count' => $count,
-            'meta' => json_encode(['gemini_response' => $responseData]),
-        ]);
-
-        // Display success message
-        $this->info('Fun fact generated successfully.');
 
         return 0;
     }
