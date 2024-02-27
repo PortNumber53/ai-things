@@ -5,15 +5,16 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use App\Models\Content;
+use GuzzleHttp\Client;
 
-class GenerateFunFact extends Command
+class GeminiGenerateFunFact extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'gemini:generate-fun-fact';
+    protected $signature = 'Gemini:GenerateFunFact';
 
     /**
      * The console command description.
@@ -27,7 +28,7 @@ class GenerateFunFact extends Command
      */
     public function handle()
     {
-        $apiKey = config('services.gemini.api_key');
+        $apiKey = config('gemini.api_key');
 
         // API Endpoint
         $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
@@ -52,20 +53,49 @@ PROMPT),
             ]
         ];
 
-        // Make HTTP POST request
+        // Make HTTP POST request using GuzzleClient
         $response = $this->makeRequest($url, $requestData, $apiKey);
 
         // Check for errors
-        if ($response->failed()) {
-            $this->error('Failed to generate fun fact. Status: ' . $response->status());
+        if ($response->getStatusCode() !== 200) {
+            $this->error('Failed to generate fun fact. Status: ' . $response->getStatusCode());
             return 1;
         }
 
         // Extract data from the response
-        $geminiResponse = $response->json();
-        $title = 'Random Fun Fact';
-        $paragraphs = [];
-        $count = 0;
+        $responseData = json_decode($response->getBody(), true);
+        // dump($responseData);
+        if (isset($responseData['candidates'][0]['content']['parts'][0]['text'])) {
+            $text = $responseData['candidates'][0]['content']['parts'][0]['text'];
+
+            $responsePart = explode("\n", $text);
+            $title = '';
+            $paragraphs = [];
+            $count = 0; // Counter for total entries
+            $previousLineWasSpacer = false; // Flag to track if the previous line was a spacer
+            foreach ($responsePart as $line) {
+                if (strpos($line, 'TITLE:') === 0) {
+                    $title = trim(str_replace('TITLE:', '', $line));
+                } elseif (!empty($line)) {
+                    $line = trim(str_replace('CONTENT:', '', $line));
+                    // Break each line into sentences
+                    $lineSentences = array_filter(preg_split('/(?<=[.!?])\s+/', $line));
+                    foreach ($lineSentences as $sentence) {
+                        $paragraphs[] = ['count' => ++$count, 'content' => trim($sentence)];
+                    }
+                    // Reset the flag when adding non-spacer content
+                    $previousLineWasSpacer = false;
+                }
+                // Add spacer after each paragraph only if the previous line wasn't a spacer
+                if (!$previousLineWasSpacer) {
+                    $paragraphs[] = ['count' => ++$count, 'content' => '<spacer>'];
+                    // Set the flag to true after adding a spacer
+                    $previousLineWasSpacer = true;
+                }
+            }
+        } else {
+            $this->error('Failed to parse response data.');
+        }
 
         // Save data to database
         Content::create([
@@ -74,7 +104,7 @@ PROMPT),
             'type' => 'gemini.payload',
             'sentences' => json_encode($paragraphs),
             'count' => $count,
-            'meta' => json_encode(['gemini_response' => $geminiResponse]),
+            'meta' => json_encode(['gemini_response' => $responseData]),
         ]);
 
         // Display success message
@@ -89,12 +119,20 @@ PROMPT),
      * @param string $url
      * @param array $data
      * @param string $apiKey
-     * @return \Illuminate\Http\Client\Response
+     * @return \Psr\Http\Message\ResponseInterface
      */
     private function makeRequest($url, $data, $apiKey)
     {
-        return Http::withHeaders([
-            'Content-Type' => 'application/json'
-        ])->post($url . '?key=' . $apiKey, $data);
+        $client = new Client([
+            'headers' => [
+                'Content-Type' => 'application/json'
+            ]
+        ]);
+
+        $response = $client->post($url . '?key=' . $apiKey, [
+            'json' => $data
+        ]);
+
+        return $response;
     }
 }
