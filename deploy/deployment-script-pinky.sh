@@ -27,6 +27,11 @@ sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/gemini_generate_fun_
 sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/gemini_generate_fun_facts.service
 sudo systemctl daemon-reload
 
+# Run migrations
+cd ${DEPLOYMENT_PATH}
+./artisan migrate --force
+
+
 # Enable services
 sudo systemctl enable --now gemini_generate_fun_facts.service
 

@@ -28,7 +28,7 @@ sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/tortoise.service
 sudo systemctl daemon-reload
 
 # Enable services
-sudo systemctl disable --now tortoise.service
+# sudo systemctl disable --now tortoise.service
 
 # Restart services
-sudo systemctl stop tortoise.service
+# sudo systemctl stop tortoise.service
