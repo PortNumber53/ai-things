@@ -58,7 +58,16 @@ PROMPT),
 
         // Check for errors
         if ($response->getStatusCode() !== 200) {
-            $this->error('Failed to generate fun fact. Status: ' . $response->getStatusCode());
+            $statusCode = $response->getStatusCode();
+            $this->error('Failed to generate fun fact. Status: ' . $statusCode);
+            switch ($statusCode) {
+                case 429:
+                case 503:
+                    sleep(5);
+                    break;
+                default:
+                    sleep(1);
+            }
             return 1;
         }
 
