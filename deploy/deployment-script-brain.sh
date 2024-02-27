@@ -34,7 +34,7 @@ sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/ai_generate_fun_fact
 sudo systemctl daemon-reload
 
 # Enable services
-sudo systemctl enable --now laravel-worker@text_fun_facts.service
+sudo systemctl disable --now laravel-worker@text_fun_facts.service
 
 # Restart services
-sudo systemctl restart laravel-worker@text_fun_facts.service
+sudo systemctl stop laravel-worker@text_fun_facts.service

@@ -11,7 +11,6 @@ use Illuminate\Support\Str;
 use App\Models\Content;
 use Illuminate\Support\Facades\Hash;
 
-
 class AiGenerateFunFacts extends Command
 {
     /**
