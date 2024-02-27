@@ -82,9 +82,8 @@ class GeminiGenerateFunFact extends Command
             'meta' => json_encode($meta),
         ]);
 
-
         // Display response
-        $this->info('body: ' . $response->body());
+        $this->info('Fun fact generated');
 
         return 0;
     }
