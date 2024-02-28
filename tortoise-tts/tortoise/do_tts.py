@@ -29,7 +29,7 @@ def signal_handler(sig, frame):
         while job_processing:
             time.sleep(1)
     logger.info("Exiting...")
-    sys.exit(0)
+    raise KeyboardInterrupt
 
 # Register the signal handler for SIGINT (CTRL+C) and SIGTERM (kill)
 signal.signal(signal.SIGINT, signal_handler)
