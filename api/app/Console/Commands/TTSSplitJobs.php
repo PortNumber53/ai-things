@@ -47,7 +47,7 @@ class TTSSplitJobs extends Command
                 str_pad(0, 3, '0', STR_PAD_LEFT) . '-' . $voice . '-' . md5($title);
 
             $jsonPayload = json_encode($jsonPayload);
-            // $queue->pushRaw($jsonPayload, 'tts_wave');
+            $queue->pushRaw($jsonPayload, 'tts_wave');
             $this->line("TITLE : " . $title);
         }
         if (!empty($content['sentences'])) {
@@ -64,7 +64,7 @@ class TTSSplitJobs extends Command
 
                     $jsonPayload = json_encode($jsonPayload);
                     dump($jsonPayload);
-                    // $queue->pushRaw($jsonPayload, 'tts_wave');
+                    $queue->pushRaw($jsonPayload, 'tts_wave');
                     $indexStr = str_pad($index, 10, ' ', STR_PAD_LEFT);
                     $this->line("$indexStr : " . $sentence_data['content']);
                 }
