@@ -111,7 +111,7 @@ def update_postgres_meta(content_id, filename):
     try:
         cur = conn.cursor()
         # Fetch existing meta JSON
-        cur.execute(sql.SQL("SELECT meta FROM contents WHERE content_id = %s"), (content_id,))
+        cur.execute(sql.SQL("SELECT meta FROM contents WHERE id = %s"), (content_id,))
         row = cur.fetchone()
         if row:
             existing_meta = row[0] or {}  # Handle None case
@@ -122,7 +122,7 @@ def update_postgres_meta(content_id, filename):
             # Update meta with new filename
             existing_meta.setdefault("filenames", []).append(filename)
             # Update the contents table with the new meta
-            cur.execute(sql.SQL("UPDATE contents SET meta = %s WHERE content_id = %s"),
+            cur.execute(sql.SQL("UPDATE contents SET meta = %s WHERE id = %s"),
                         (json.dumps(existing_meta), content_id))
             conn.commit()
             logger.info(f"Meta updated for content_id {content_id} with filename {filename}")
