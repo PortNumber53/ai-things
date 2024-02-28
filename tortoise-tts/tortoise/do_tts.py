@@ -6,10 +6,17 @@ import pika
 from dotenv import load_dotenv
 import torch
 import torchaudio
+import psycopg2
+from psycopg2 import sql
 from api import TextToSpeech, MODELS_DIR
 from utils.audio import load_voices
 import time
 import signal
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Global variable to track whether a job is currently being processed
 job_processing = False
@@ -17,16 +24,31 @@ job_processing = False
 def signal_handler(sig, frame):
     global job_processing
     if job_processing:
-        print("Waiting for the current job to finish...")
+        logger.info("Waiting for the current job to finish...")
         # Wait until the job finishes before exiting
         while job_processing:
             time.sleep(1)
-    print("Exiting...")
+    logger.info("Exiting...")
     sys.exit(0)
 
 # Register the signal handler for SIGINT (CTRL+C) and SIGTERM (kill)
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
+
+# Function to fetch PostgreSQL connection
+def get_postgres_connection():
+    try:
+        conn = psycopg2.connect(
+            dbname=os.getenv('POSTGRES_DB'),
+            user=os.getenv('POSTGRES_USER'),
+            password=os.getenv('POSTGRES_PASSWORD'),
+            host=os.getenv('POSTGRES_HOST'),
+            port=os.getenv('POSTGRES_PORT')
+        )
+        return conn
+    except psycopg2.Error as e:
+        logger.error(f"Error connecting to PostgreSQL: {e}")
+        return None
 
 
 def push_message_to_queue(queue_name, message):
@@ -56,9 +78,9 @@ def push_message_to_queue(queue_name, message):
 
         channel.queue_declare(queue=queue_name)
         channel.basic_publish(exchange='', routing_key=queue_name, body=json.dumps(message))
-        print(f"Message pushed to {queue_name} queue: {message}")
+        logger.info(f"Message pushed to {queue_name} queue: {message}")
     except Exception as e:
-        print(f"Error pushing message to {queue_name} queue: {e}")
+        logger.error(f"Error pushing message to {queue_name} queue: {e}")
     finally:
         if channel:
             channel.close()
@@ -78,7 +100,39 @@ def callback(ch, method, properties, body):
         process_job(job)
         ch.basic_ack(delivery_tag=method.delivery_tag)  # Acknowledge message after processing
     except Exception as e:
-        print(f"Error processing message: {e}")
+        logger.error(f"Error processing message: {e}")
+
+
+def update_postgres_meta(content_id, filename):
+    conn = get_postgres_connection()
+    if conn is None:
+        return
+
+    try:
+        cur = conn.cursor()
+        # Fetch existing meta JSON
+        cur.execute(sql.SQL("SELECT meta FROM contents WHERE content_id = %s"), (content_id,))
+        row = cur.fetchone()
+        if row:
+            existing_meta = row[0] or {}  # Handle None case
+            # Check if filename already exists in meta
+            if "filenames" in existing_meta and filename in existing_meta["filenames"]:
+                logger.info(f"Filename {filename} already exists in meta for content_id {content_id}")
+                return
+            # Update meta with new filename
+            existing_meta.setdefault("filenames", []).append(filename)
+            # Update the contents table with the new meta
+            cur.execute(sql.SQL("UPDATE contents SET meta = %s WHERE content_id = %s"),
+                        (json.dumps(existing_meta), content_id))
+            conn.commit()
+            logger.info(f"Meta updated for content_id {content_id} with filename {filename}")
+        else:
+            logger.error(f"No row found for content_id {content_id}")
+    except psycopg2.Error as e:
+        logger.error(f"Error updating PostgreSQL meta: {e}")
+    finally:
+        if conn:
+            conn.close()
 
 def process_job(job):
     global job_processing
@@ -114,40 +168,19 @@ def process_job(job):
     os.makedirs(args.output_path, exist_ok=True)
     tts = TextToSpeech(models_dir=args.model_dir, use_deepspeed=args.use_deepspeed, kv_cache=args.kv_cache, half=args.half)
 
-    selected_voices = args.voice.split(',')
-    for k, selected_voice in enumerate(selected_voices):
-        if '&' in selected_voice:
-            voice_sel = selected_voice.split('&')
-        else:
-            voice_sel = [selected_voice]
-        voice_samples, conditioning_latents = load_voices(voice_sel)
+    selected_voice = args.voice
 
-        gen, dbg_state = tts.tts_with_preset(args.text, k=args.candidates, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                                  preset=args.preset, use_deterministic_seed=args.seed, return_deterministic_state=True, cvvp_amount=args.cvvp_amount)
-        if isinstance(gen, list):
-            for j, g in enumerate(gen):
-                filename = args.filename if args.filename else f'{selected_voice}_{k}_{j}'
-                torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), g.squeeze(0).cpu(), 24000)
-                print(f"File saved: {filename}.wav")
+    voice_samples, conditioning_latents = load_voices([selected_voice])
 
-                end_time = time.time()
-                processing_time = end_time - start_time
+    gen, dbg_state = tts.tts_with_preset(args.text, k=args.candidates, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
+                              preset=args.preset, use_deterministic_seed=args.seed, return_deterministic_state=True, cvvp_amount=args.cvvp_amount)
 
-                message = {
-                    'filename': filename,
-                    'text': args.text,
-                    'selected_voice': selected_voice,
-                    'processing_time': processing_time,
-                }
+    if isinstance(gen, list):
+        for j, g in enumerate(gen):
+            filename = args.filename if args.filename else f'{selected_voice}_{j}'
+            torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), g.squeeze(0).cpu(), 24000)
+            logger.info(f"File saved: {filename}.wav")
 
-                push_message_to_queue('wav_to_mp3', message)
-
-        else:
-            filename = args.filename if args.filename else f'{selected_voice}_{k}'
-            torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), gen.squeeze(0).cpu(), 24000)
-            print(f"File saved: {filename}.wav")
-
-            # Measure processing time
             end_time = time.time()
             processing_time = end_time - start_time
 
@@ -160,10 +193,38 @@ def process_job(job):
 
             push_message_to_queue('wav_to_mp3', message)
 
+            # Update PostgreSQL meta with filename
+            content_id = job.get("content_id")  # Assuming content_id is present in the job payload
+            if content_id:
+                update_postgres_meta(content_id, filename)
 
-        if args.produce_debug_state:
-            os.makedirs('debug_states', exist_ok=True)
-            torch.save(dbg_state, f'debug_states/do_tts_debug_{filename}.pth')
+    else:
+        filename = args.filename if args.filename else f'{selected_voice}'
+        torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), gen.squeeze(0).cpu(), 24000)
+        logger.info(f"File saved: {filename}.wav")
+
+        # Measure processing time
+        end_time = time.time()
+        processing_time = end_time - start_time
+
+        message = {
+            'filename': filename,
+            'text': args.text,
+            'selected_voice': selected_voice,
+            'processing_time': processing_time,
+        }
+
+        push_message_to_queue('wav_to_mp3', message)
+
+        # Update PostgreSQL meta with filename
+        content_id = job.get("content_id")  # Assuming content_id is present in the job payload
+        if content_id:
+            update_postgres_meta(content_id, filename)
+
+    if args.produce_debug_state:
+        os.makedirs('debug_states', exist_ok=True)
+        torch.save(dbg_state, f'debug_states/do_tts_debug_{filename}.pth')
+
     sys.stdout.flush()
     job_processing = False
 
@@ -188,14 +249,14 @@ def main():
             channel.queue_declare(queue='tts_wave', durable=True)
             channel.basic_qos(prefetch_count=1)  # Set prefetch count to 1
             channel.basic_consume(queue='tts_wave', on_message_callback=callback)
-            print('Waiting for messages. To exit press CTRL+C')
+            logger.info('Waiting for messages. To exit press CTRL+C')
             channel.start_consuming()
         except pika.exceptions.AMQPConnectionError as e:
-            print(f"Error connecting to RabbitMQ server: {e}")
-            print("Attempting to reconnect in 5 seconds...")
+            logger.error(f"Error connecting to RabbitMQ server: {e}")
+            logger.info("Attempting to reconnect in 5 seconds...")
             time.sleep(5)
         except KeyboardInterrupt:
-            print("Exiting...")
+            logger.info("Exiting...")
             break
         finally:
             if channel and channel.is_open:

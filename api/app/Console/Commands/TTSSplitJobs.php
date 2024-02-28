@@ -29,7 +29,8 @@ class TTSSplitJobs extends Command
         $jobTemplate = [
             'text' => 'Sample text,',
             'voice' => 'tom',
-            'filename' => 'sample_file_rando_voice',
+            'filename' => 'sample_file_random_voice',
+            'content_id' => 0,
         ];
         $content = Content::where('status', 'new')->first();
 
@@ -40,12 +41,13 @@ class TTSSplitJobs extends Command
         if (!empty($content['title'])) {
             $title = $content['title'];
             $jsonPayload = $jobTemplate;
+            $jsonPayload['content_id'] = $content['id'];
             $jsonPayload['text'] = $title;
             $jsonPayload['filename'] = str_pad($content['id'], 10, '0', STR_PAD_LEFT) . '-' .
                 str_pad(0, 3, '0', STR_PAD_LEFT) . '-' . $voice . '-' . md5($title);
 
             $jsonPayload = json_encode($jsonPayload);
-            $queue->pushRaw($jsonPayload, 'tts_wave');
+            // $queue->pushRaw($jsonPayload, 'tts_wave');
             $this->line("TITLE : " . $title);
         }
         if (!empty($content['sentences'])) {
@@ -54,13 +56,15 @@ class TTSSplitJobs extends Command
                 $text = $sentence_data['content'];
                 if ($text !== '<spacer>') {
                     $jsonPayload = $jobTemplate;
+                    $jsonPayload['content_id'] = $content['id'];
                     $jsonPayload['text'] = $text;
                     $jsonPayload['filename'] = str_pad($content['id'], 10, '0', STR_PAD_LEFT) . '-' .
                         str_pad($index, 3, '0', STR_PAD_LEFT) . '-' . $voice . '-' . md5($text);
 
 
                     $jsonPayload = json_encode($jsonPayload);
-                    $queue->pushRaw($jsonPayload, 'tts_wave');
+                    dump($jsonPayload);
+                    // $queue->pushRaw($jsonPayload, 'tts_wave');
                     $indexStr = str_pad($index, 10, ' ', STR_PAD_LEFT);
                     $this->line("$indexStr : " . $sentence_data['content']);
                 }
