@@ -50,9 +50,12 @@ systemctl enable --now tortoise-wave.service
 
 ```
 conda create -n tortoise python=3.11
-pip install -r requirements.txt
+conda activate tortoise
 
-pip install pika python-dotenv
+cd tortoise-tts
+pip install -r requirements.txt
+pip install git+https://github.com/neonbjb/tortoise-tts
+pip install pika python-dotenv torch torchaudio psycopg2 progressbar
 ```
 
 ## Conda installation

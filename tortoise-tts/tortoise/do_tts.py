@@ -123,14 +123,14 @@ def update_postgres_meta(content_id, filename, sentence_id=None):
                 logger.info(f"Filename {filename} already exists in meta for content_id {content_id}")
                 return
             # Update meta with new filename
-            existing_meta.setdefault("filenames", []).append(filename)
+            existing_meta.setdefault("filenames", []).append(f'{filename}.wav')
             if sentence_id is not None:
                 existing_meta.setdefault("sentence_id", []).append(sentence_id)
             # Update the contents table with the new meta
             cur.execute(sql.SQL("UPDATE contents SET meta = %s WHERE id = %s"),
                         (json.dumps(existing_meta), content_id))
             conn.commit()
-            logger.info(f"Meta updated for content_id {content_id} with filename {filename}")
+            logger.info(f"Meta updated for content_id {content_id} with filename {filename}.wav")
         else:
             logger.error(f"No row found for content_id {content_id}")
     except psycopg2.Error as e:
