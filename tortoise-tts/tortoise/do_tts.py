@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 # Global variable to track whether a job is currently being processed
 job_processing = False
 
+# Set the base output folder
+BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', 'results/')
+
 def signal_handler(sig, frame):
     global job_processing
     if job_processing:
@@ -151,7 +154,7 @@ def process_job(job):
         'use_deepspeed': get_default_arg('use_deepspeed', False),
         'kv_cache': get_default_arg('kv_cache', True),
         'half': get_default_arg('half', True),
-        'output_path': get_default_arg('output_path', 'results/'),
+        'output_path': get_default_arg('output_path', BASE_OUTPUT_FOLDER),
         'model_dir': get_default_arg('model_dir', MODELS_DIR),
         'candidates': get_default_arg('candidates', 1),
         'seed': get_default_arg('seed', None),
@@ -168,7 +171,8 @@ def process_job(job):
 
     if torch.backends.mps.is_available():
         args.use_deepspeed = False
-    os.makedirs(args.output_path, exist_ok=True)
+
+    os.makedirs(os.path.join(BASE_OUTPUT_FOLDER, args.output_path), exist_ok=True)
     tts = TextToSpeech(models_dir=args.model_dir, use_deepspeed=args.use_deepspeed, kv_cache=args.kv_cache, half=args.half)
 
     selected_voice = args.voice
