@@ -57,10 +57,10 @@ class TTSSplitJobs extends Command
                 if ($text !== '<spacer>') {
                     $jsonPayload = $jobTemplate;
                     $jsonPayload['content_id'] = $content['id'];
+                    $jsonPayload['sentence_id'] = $index; // Add the index as 'sentence_id'
                     $jsonPayload['text'] = $text;
                     $jsonPayload['filename'] = str_pad($content['id'], 10, '0', STR_PAD_LEFT) . '-' .
                         str_pad($index, 3, '0', STR_PAD_LEFT) . '-' . $voice . '-' . md5($text);
-
 
                     $jsonPayload = json_encode($jsonPayload);
                     dump($jsonPayload);
