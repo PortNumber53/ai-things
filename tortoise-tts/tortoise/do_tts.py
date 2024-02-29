@@ -119,18 +119,16 @@ def update_postgres_meta(content_id, filename, sentence_id=None):
         if row:
             existing_meta = row[0] or {}  # Handle None case
             # Check if filename already exists in meta
-            if "filenames" in existing_meta and filename in existing_meta["filenames"]:
+            if "filenames" in existing_meta and any(entry["filename"] == f'{filename}.wav' for entry in existing_meta["filenames"]):
                 logger.info(f"Filename {filename} already exists in meta for content_id {content_id}")
                 return
             # Update meta with new filename
-            existing_meta.setdefault("filenames", []).append(f'{filename}.wav')
-            if sentence_id is not None:
-                existing_meta.setdefault("sentence_id", []).append(sentence_id)
+            existing_meta.setdefault("filenames", []).append({"filename": f'{filename}.wav', "sentence_id": sentence_id})
             # Update the contents table with the new meta
             cur.execute(sql.SQL("UPDATE contents SET meta = %s WHERE id = %s"),
                         (json.dumps(existing_meta), content_id))
             conn.commit()
-            logger.info(f"Meta updated for content_id {content_id} with filename {filename}.wav")
+            logger.info(f"Meta updated for content_id {content_id} with filename {filename}")
         else:
             logger.error(f"No row found for content_id {content_id}")
     except psycopg2.Error as e:
@@ -138,6 +136,7 @@ def update_postgres_meta(content_id, filename, sentence_id=None):
     finally:
         if conn:
             conn.close()
+
 
 
 def process_job(job):
@@ -178,6 +177,28 @@ def process_job(job):
     selected_voice = args.voice
 
     voice_samples, conditioning_latents = load_voices([selected_voice])
+
+    # Check if wave information already exists in meta JSON
+    content_id = job.get("content_id")
+    if content_id:
+        conn = get_postgres_connection()
+        if conn is not None:
+            try:
+                cur = conn.cursor()
+                cur.execute(sql.SQL("SELECT meta FROM contents WHERE id = %s"), (content_id,))
+                row = cur.fetchone()
+                if row:
+                    existing_meta = row[0] or {}
+                    if "filenames" in existing_meta:
+                        existing_filenames = [entry.get("filename", "") for entry in existing_meta["filenames"]]
+                        if args.filename in existing_filenames:
+                            logger.info(f"Wave information for {args.filename} already exists in meta for content_id {content_id}. Skipping processing.")
+                            job_processing = False
+                            return
+            except psycopg2.Error as e:
+                logger.error(f"Error fetching existing meta from PostgreSQL: {e}")
+            finally:
+                conn.close()
 
     gen, dbg_state = tts.tts_with_preset(args.text, k=args.candidates, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
                               preset=args.preset, use_deterministic_seed=args.seed, return_deterministic_state=True, cvvp_amount=args.cvvp_amount)
