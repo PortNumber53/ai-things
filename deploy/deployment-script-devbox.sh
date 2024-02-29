@@ -31,4 +31,4 @@ sudo systemctl daemon-reload
 sudo systemctl disable --now tortoise.service
 
 # Restart services
-sudo systemctl stop tortoise.service
+# sudo systemctl stop tortoise.service
