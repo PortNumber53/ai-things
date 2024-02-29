@@ -171,7 +171,8 @@ def process_job(job):
     if torch.backends.mps.is_available():
         args.use_deepspeed = False
 
-    os.makedirs(os.path.join(BASE_OUTPUT_FOLDER, args.output_path, 'waves'), exist_ok=True)
+    args.output_path = os.path.join(args.output_path, 'waves')
+    os.makedirs(os.path.join(BASE_OUTPUT_FOLDER, args.output_path), exist_ok=True)
     tts = TextToSpeech(models_dir=args.model_dir, use_deepspeed=args.use_deepspeed, kv_cache=args.kv_cache, half=args.half)
 
     selected_voice = args.voice
