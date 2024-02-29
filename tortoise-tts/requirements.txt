@@ -25,3 +25,4 @@ psutil
 sounddevice
 python-dotenv
 pika
+psycopg2
