@@ -103,7 +103,7 @@ def callback(ch, method, properties, body):
         logger.error(f"Error processing message: {e}")
 
 
-def update_postgres_meta(content_id, filename):
+def update_postgres_meta(content_id, filename, sentence_id=None):
     conn = get_postgres_connection()
     if conn is None:
         return
@@ -121,6 +121,8 @@ def update_postgres_meta(content_id, filename):
                 return
             # Update meta with new filename
             existing_meta.setdefault("filenames", []).append(filename)
+            if sentence_id is not None:
+                existing_meta.setdefault("sentence_id", []).append(sentence_id)
             # Update the contents table with the new meta
             cur.execute(sql.SQL("UPDATE contents SET meta = %s WHERE id = %s"),
                         (json.dumps(existing_meta), content_id))
@@ -133,6 +135,7 @@ def update_postgres_meta(content_id, filename):
     finally:
         if conn:
             conn.close()
+
 
 def process_job(job):
     global job_processing
@@ -195,8 +198,9 @@ def process_job(job):
 
             # Update PostgreSQL meta with filename
             content_id = job.get("content_id")  # Assuming content_id is present in the job payload
+            sentence_id = job.get("sentence_id")  # Assuming sentence_id is present in the job payload
             if content_id:
-                update_postgres_meta(content_id, filename)
+                update_postgres_meta(content_id, filename, sentence_id)
 
     else:
         filename = args.filename if args.filename else f'{selected_voice}'
@@ -218,8 +222,9 @@ def process_job(job):
 
         # Update PostgreSQL meta with filename
         content_id = job.get("content_id")  # Assuming content_id is present in the job payload
+        sentence_id = job.get("sentence_id")  # Assuming sentence_id is present in the job payload
         if content_id:
-            update_postgres_meta(content_id, filename)
+            update_postgres_meta(content_id, filename, sentence_id)
 
     if args.produce_debug_state:
         os.makedirs('debug_states', exist_ok=True)
