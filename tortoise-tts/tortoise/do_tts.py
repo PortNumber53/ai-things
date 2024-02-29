@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 job_processing = False
 
 # Set the base output folder
-BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', 'results/')
+BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output/')
 
 def signal_handler(sig, frame):
     global job_processing
