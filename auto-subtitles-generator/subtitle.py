@@ -9,15 +9,15 @@ import whisper
 # Load environment variables from .env file
 load_dotenv()
 
-# Access the OUTPUT_FOLDER environment variable, with a default of "output" if not found
-OUTPUT_FOLDER = os.getenv('OUTPUT_FOLDER', '/output/')
+# Access the BASE_OUTPUT_FOLDER environment variable, with a default of "output" if not found
+BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output/')
 
 DEVICE = "cpu"  # Force using CPU for inference
 
 loaded_model = whisper.load_model("small", device=DEVICE)
 
 def inference(loaded_model, input_file, task):
-    save_dir = os.path.join(OUTPUT_FOLDER, "subtitles")
+    save_dir = os.path.join(BASE_OUTPUT_FOLDER, "subtitles")
     os.makedirs(save_dir, exist_ok=True)
 
     with open(f"{save_dir}/input.mp3", "wb") as f:
