@@ -47,12 +47,12 @@ pipeline {
             steps {
                 script {
                     // Deploy to multiple hosts
-                    def hosts = ['brain', 'pinky', 'legion', 'devbox']
+                    def hosts = ['brain', 'pinky', 'legion']//, 'devbox'
                     def ENV_FILES = [
                         brain: 'ai-things-brain-env-prod-file',
                         pinky: 'ai-things-pinky-env-prod-file',
                         legion: 'ai-things-legion-env-prod-file',
-                        // devbox: 'ai-things-devbox-env-prod-file'
+                        devbox: 'ai-things-devbox-env-prod-file'
                     ]
                     for (host in hosts) {
                         deployToHost(host, DEPLOY_PATH, ENV_FILES[host], TIMESTAMP)
