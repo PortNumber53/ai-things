@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         DEPLOY_PATH = '/deploy/ai-things/'
+        TIMESTAMP = new Date().format("yyyyMMddHHmmss")
     }
 
     stages {
@@ -51,10 +52,10 @@ pipeline {
                         brain: 'ai-things-brain-env-prod-file',
                         pinky: 'ai-things-pinky-env-prod-file',
                         legion: 'ai-things-legion-env-prod-file',
-                        devbox: 'ai-things-devbox-env-prod-file'
+                        // devbox: 'ai-things-devbox-env-prod-file'
                     ]
                     for (host in hosts) {
-                        deployToHost(host, DEPLOY_PATH, ENV_FILES[host])
+                        deployToHost(host, DEPLOY_PATH, ENV_FILES[host], TIMESTAMP)
                     }
                 }
             }
@@ -62,8 +63,7 @@ pipeline {
     }
 }
 
-def deployToHost(sshConnection, deployBasePath, envFile) {
-    def timestamp = new Date().format("yyyyMMddHHmmss")
+def deployToHost(sshConnection, deployBasePath, envFile, timestamp) {
     def deploymentReleasePath = "${deployBasePath}releases/"
     def deploymentPath = "${deploymentReleasePath}${timestamp}"
 
