@@ -176,7 +176,6 @@ def process_job(job):
     tts = TextToSpeech(models_dir=args.model_dir, use_deepspeed=args.use_deepspeed, kv_cache=args.kv_cache, half=args.half)
 
     selected_voice = args.voice
-
     voice_samples, conditioning_latents = load_voices([selected_voice])
 
     # Check if wave information already exists in meta JSON
@@ -204,53 +203,26 @@ def process_job(job):
     gen, dbg_state = tts.tts_with_preset(args.text, k=args.candidates, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
                               preset=args.preset, use_deterministic_seed=args.seed, return_deterministic_state=True, cvvp_amount=args.cvvp_amount)
 
-    if isinstance(gen, list):
-        for j, g in enumerate(gen):
-            filename = args.filename if args.filename else f'{selected_voice}_{j}'
-            torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), g.squeeze(0).cpu(), 24000)
-            logger.info(f"File saved: {filename}.wav")
+    filename = args.filename if args.filename else f'{selected_voice}'
+    torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), gen.squeeze(0).cpu(), 24000)
+    logger.info(f"File saved: {filename}.wav")
 
-            end_time = time.time()
-            processing_time = end_time - start_time
+    end_time = time.time()
+    processing_time = end_time - start_time
 
-            message = {
-                'filename': filename,
-                'text': args.text,
-                'selected_voice': selected_voice,
-                'processing_time': processing_time,
-            }
+    message = {
+        'filename': filename,
+        'text': args.text,
+        'selected_voice': selected_voice,
+        'processing_time': processing_time,
+    }
+    push_message_to_queue('wav_to_mp3', message)
 
-            push_message_to_queue('wav_to_mp3', message)
-
-            # Update PostgreSQL meta with filename
-            content_id = job.get("content_id")  # Assuming content_id is present in the job payload
-            sentence_id = job.get("sentence_id")  # Assuming sentence_id is present in the job payload
-            if content_id:
-                update_postgres_meta(content_id, filename, sentence_id)
-
-    else:
-        filename = args.filename if args.filename else f'{selected_voice}'
-        torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), gen.squeeze(0).cpu(), 24000)
-        logger.info(f"File saved: {filename}.wav")
-
-        # Measure processing time
-        end_time = time.time()
-        processing_time = end_time - start_time
-
-        message = {
-            'filename': filename,
-            'text': args.text,
-            'selected_voice': selected_voice,
-            'processing_time': processing_time,
-        }
-
-        push_message_to_queue('wav_to_mp3', message)
-
-        # Update PostgreSQL meta with filename
-        content_id = job.get("content_id")  # Assuming content_id is present in the job payload
-        sentence_id = job.get("sentence_id")  # Assuming sentence_id is present in the job payload
-        if content_id:
-            update_postgres_meta(content_id, filename, sentence_id)
+    # Update PostgreSQL meta with filename
+    content_id = job.get("content_id")  # Assuming content_id is present in the job payload
+    sentence_id = job.get("sentence_id")  # Assuming sentence_id is present in the job payload
+    if content_id:
+        update_postgres_meta(content_id, filename, sentence_id)
 
     if args.produce_debug_state:
         os.makedirs('debug_states', exist_ok=True)
