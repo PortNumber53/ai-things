@@ -135,6 +135,7 @@ export const PaginatedSubtitles: React.FC<{
 				position: 'relative',
 				overflow: 'hidden',
 				paddingBottom: '20px',
+				bottom: '0px',
 			}}
 		>
 			<div

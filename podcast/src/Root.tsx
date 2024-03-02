@@ -17,11 +17,12 @@ export const RemotionRoot: React.FC = () => {
 					audioOffsetInSeconds: 0,
 
 					// Title settings
-					audioFileName: staticFile(
-						'0000000005-output_combined_with_silence.mp3'
+					audioFileName: staticFile('output_combined_with_silence_182.mp3'),
+					coverImgFileName: staticFile(
+						'Default_Spaghettification_The_Bizarre_Phenomenon_in_Black_Hole_0.jpg'
 					),
-					coverImgFileName: staticFile('cover.jpg'),
-					titleText: '00005 - The Magic of Mushrooms',
+					titleText:
+						'00182 - Spaghettification: The Bizarre Phenomenon in Black Holes',
 					titleColor: 'rgba(186, 186, 186, 0.93)',
 
 					// Subtitles settings
@@ -30,15 +31,15 @@ export const RemotionRoot: React.FC = () => {
 					subtitlesTextColor: 'rgba(255, 255, 255, 0.93)',
 					subtitlesLinePerPage: 4,
 					subtitlesZoomMeasurerSize: 10,
-					subtitlesLineHeight: 98,
+					subtitlesLineHeight: 90,
 
 					// Wave settings
 					waveColor: '#93d5ae',
 					waveFreqRangeStartIndex: 7,
-					waveLinesToDisplay: 60,
+					waveLinesToDisplay: 40,
 					waveNumberOfSamples: '256', // This is string for Remotion controls and will be converted to a number
 					mirrorWave: false,
-					durationInSeconds: 169.5,
+					durationInSeconds: 107.5,
 				}}
 				// Determine the length of the video based on the duration of the audio file
 				calculateMetadata={({ props }) => {
