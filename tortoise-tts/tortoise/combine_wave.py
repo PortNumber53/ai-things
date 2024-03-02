@@ -1,6 +1,8 @@
 import psycopg2
 import json
 import os
+import numpy as np
+import soundfile as sf
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -17,7 +19,7 @@ def get_wav_paths_from_database():
         )
         cursor = connection.cursor()
 
-        cursor.execute("SELECT meta FROM contents")
+        cursor.execute("SELECT meta FROM contents WHERE id=182")
         results = cursor.fetchall()
 
         cursor.close()
@@ -26,9 +28,23 @@ def get_wav_paths_from_database():
         filenames = []
         for result in results:
             meta = result[0]
+            # print("Meta:", meta)  # Debugging statement
             if 'filenames' in meta:
                 filenames_json = meta['filenames']
-                filenames.extend([entry['filename'] for entry in filenames_json])
+                if isinstance(filenames_json, list):  # Check if filenames_json is a list
+                    for entry in filenames_json:
+                        if isinstance(entry, dict):  # Check if entry is a dictionary
+                            filename = entry.get('filename')
+                            filename = '/output/waves/' + filename
+                            print(f'FILENAME: {filename}')
+                            if filename:
+                                # Add the filename to the list
+                                filenames.append(filename)
+                        else:
+                            print("Invalid entry in filenames_json:", entry)
+                else:
+                    print("filenames_json is not a list:", filenames_json)
+
 
         if filenames:
             return filenames
@@ -39,14 +55,15 @@ def get_wav_paths_from_database():
         print("Error connecting to the database:", e)
         return []
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print("An unexpected error occurred:", e)
         return []
-
-
 
 def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
     combined_frames = []
     sample_rate = None
+    print(wav_paths)
 
     for wav_path in wav_paths:
         if wav_path == '<spacer>':
@@ -89,4 +106,7 @@ if __name__ == "__main__":
     else:
         # Proceed with combining WAV files
         output_path = '/output/waves/output_combined_with_silence.wav'
-        combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1)
+        try:
+            combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1)
+        except ValueError as e:
+            print("Error:", e)
