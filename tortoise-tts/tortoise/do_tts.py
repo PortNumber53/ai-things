@@ -212,7 +212,7 @@ def process_job(job):
     # Save generated audio file
     try:
         torchaudio.save(file_path, gen.squeeze(0).cpu(), 24000)
-        logger.info(f"File saved: {filename}")
+        logger.warning(f"File saved: {filename}")
     except Exception as e:
         logger.error(f"Error saving file {filename}: {e}")
 
