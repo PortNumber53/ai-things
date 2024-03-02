@@ -35,7 +35,7 @@ def get_wav_paths_from_database(content_id):
                 filenames_json = meta['filenames']
                 if isinstance(filenames_json, list):
                     filenames = []
-                    for entry in filenames_json:
+                    for entry in sorted(filenames_json, key=lambda x: x.get('sentence_id', 0)):
                         if isinstance(entry, dict):
                             filename = entry.get('filename')
                             filename = os.path.join(BASE_OUTPUT_FOLDER, 'waves', filename)  # Construct filename with BASE_OUTPUT_FOLDER
