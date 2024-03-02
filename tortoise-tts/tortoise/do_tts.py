@@ -15,7 +15,7 @@ import signal
 import logging
 
 # Set up logging
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # Global variable to track whether a job is currently being processed
@@ -119,7 +119,7 @@ def update_postgres_meta(content_id, filename, sentence_id=None):
             existing_meta = row[0] or {}  # Handle None case
             # Check if filename already exists in meta
             if "filenames" in existing_meta and any(entry["filename"] == f'{filename}.wav' for entry in existing_meta["filenames"]):
-                logger.info(f"Filename {filename} already exists in meta for content_id {content_id}")
+                logger.warning(f"Filename {filename} already exists in meta for content_id {content_id}")
                 return
             # Update meta with new filename
             existing_meta.setdefault("filenames", []).append({"filename": f'{filename}.wav', "sentence_id": sentence_id})
@@ -185,7 +185,7 @@ def process_job(job):
                         # Check if the current filename matches any existing filename
                         print(existing_filenames)
                         if filename in existing_filenames:
-                            logger.info(f"Wave information for {filename} already exists in meta for content_id {content_id}. Skipping processing.")
+                            logger.warn(f"Wave information for {filename} already exists in meta for content_id {content_id}. Skipping processing.")
                             job_processing = False
                             return
             except psycopg2.Error as e:
