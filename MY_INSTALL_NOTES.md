@@ -89,3 +89,15 @@ pip install git+https://github.com/neonbjb/tortoise-tts
 sudo mkdir -pv /output/funfacts/
 sudo chown -Rv grimlock:grimlock /output/funfacts/
 ```
+
+
+
+## Subtitles
+
+```
+conda activate subtitle
+
+
+
+
+```
