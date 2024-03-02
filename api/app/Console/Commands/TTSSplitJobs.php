@@ -45,7 +45,7 @@ class TTSSplitJobs extends Command
             $jsonPayload['text'] = $title;
             $jsonPayload['sentence_id'] = 0;
             $jsonPayload['filename'] = str_pad($content['id'], 10, '0', STR_PAD_LEFT) . '-' .
-                str_pad(0, 3, '0', STR_PAD_LEFT) . '-' . $voice . '-' . md5($title);
+                str_pad(0, 3, '0', STR_PAD_LEFT) . '-' . $voice . '-' . md5($title) . '.wav';
 
             $jsonPayload = json_encode($jsonPayload);
             $queue->pushRaw($jsonPayload, 'tts_wave');
