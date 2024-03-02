@@ -15,7 +15,7 @@ import signal
 import logging
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 # Global variable to track whether a job is currently being processed
@@ -67,12 +67,11 @@ def push_message_to_queue(queue_name, message):
 
     try:
         url_params = pika.URLParameters(args.rabbitmq_url)
-
-        # Add heartbeat parameter to the connection parameters
         url_params.heartbeat = 600
+        pika_logger = logging.getLogger('pika')
+        pika_logger.setLevel(logging.ERROR)        # Add heartbeat parameter to the connection parameters
 
         connection = pika.BlockingConnection(url_params)
-
         channel = connection.channel()
 
         # Check if the channel is still open, if not, reopen it
@@ -167,6 +166,7 @@ def process_job(job):
         default_args[arg_name] = arg_value
 
     args = argparse.Namespace(**default_args)
+    filename = args.filename if args.filename else f'{selected_voice}'
 
     # Check if wave information already exists in meta JSON
     content_id = job.get("content_id")
@@ -206,7 +206,6 @@ def process_job(job):
     gen, dbg_state = tts.tts_with_preset(args.text, k=args.candidates, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
                               preset=args.preset, use_deterministic_seed=args.seed, return_deterministic_state=True, cvvp_amount=args.cvvp_amount)
 
-    filename = args.filename if args.filename else f'{selected_voice}'
     file_path = os.path.join(args.output_path, f'{filename}.wav')
 
     # Save generated audio file
