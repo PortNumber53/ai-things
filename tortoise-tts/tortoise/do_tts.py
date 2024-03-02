@@ -166,7 +166,7 @@ def process_job(job):
         default_args[arg_name] = arg_value
 
     args = argparse.Namespace(**default_args)
-    filename = args.filename if args.filename else f'{selected_voice}'
+    filename = args.filename if args.filename else f'{selected_voice}.wav'  # Add ".wav" extension
     print(f'FILENAME: {filename}')
 
     # Check if wave information already exists in meta JSON
@@ -209,14 +209,14 @@ def process_job(job):
     gen, dbg_state = tts.tts_with_preset(args.text, k=args.candidates, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
                               preset=args.preset, use_deterministic_seed=args.seed, return_deterministic_state=True, cvvp_amount=args.cvvp_amount)
 
-    file_path = os.path.join(args.output_path, f'{filename}.wav')
+    file_path = os.path.join(args.output_path, f'{filename}')
 
     # Save generated audio file
     try:
         torchaudio.save(file_path, gen.squeeze(0).cpu(), 24000)
-        logger.info(f"File saved: {filename}.wav")
+        logger.info(f"File saved: {filename}")
     except Exception as e:
-        logger.error(f"Error saving file {filename}.wav: {e}")
+        logger.error(f"Error saving file {filename}: {e}")
 
     # Measure processing time
     end_time = time.time()
