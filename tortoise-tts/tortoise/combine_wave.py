@@ -4,11 +4,15 @@ import os
 import numpy as np
 import soundfile as sf
 from dotenv import load_dotenv
+import argparse
 
 # Load environment variables from .env file
 load_dotenv()
 
-def get_wav_paths_from_database():
+# Get the BASE_OUTPUT_FOLDER from the environment variables
+BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output/')
+
+def get_wav_paths_from_database(content_id):
     try:
         connection = psycopg2.connect(
             host=os.getenv('DB_HOST'),
@@ -19,37 +23,35 @@ def get_wav_paths_from_database():
         )
         cursor = connection.cursor()
 
-        cursor.execute("SELECT meta FROM contents WHERE id=182")
-        results = cursor.fetchall()
+        cursor.execute("SELECT meta FROM contents WHERE id=%s", (content_id,))
+        result = cursor.fetchone()
 
         cursor.close()
         connection.close()
 
-        filenames = []
-        for result in results:
+        if result:
             meta = result[0]
-            # print("Meta:", meta)  # Debugging statement
             if 'filenames' in meta:
                 filenames_json = meta['filenames']
-                if isinstance(filenames_json, list):  # Check if filenames_json is a list
+                if isinstance(filenames_json, list):
+                    filenames = []
                     for entry in filenames_json:
-                        if isinstance(entry, dict):  # Check if entry is a dictionary
+                        if isinstance(entry, dict):
                             filename = entry.get('filename')
-                            filename = '/output/waves/' + filename
-                            print(f'FILENAME: {filename}')
+                            filename = os.path.join(BASE_OUTPUT_FOLDER, 'waves', filename)  # Construct filename with BASE_OUTPUT_FOLDER
                             if filename:
-                                # Add the filename to the list
                                 filenames.append(filename)
                         else:
                             print("Invalid entry in filenames_json:", entry)
+                    return filenames
                 else:
                     print("filenames_json is not a list:", filenames_json)
-
-
-        if filenames:
-            return filenames
+                    return []
+            else:
+                print("No filenames found in the meta.")
+                return []
         else:
-            print("No filenames found in the database.")
+            print(f"No content found with ID {content_id}.")
             return []
     except psycopg2.Error as e:
         print("Error connecting to the database:", e)
@@ -63,50 +65,45 @@ def get_wav_paths_from_database():
 def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
     combined_frames = []
     sample_rate = None
-    print(wav_paths)
 
     for wav_path in wav_paths:
         if wav_path == '<spacer>':
-            # Add silence frames
             silence_samples = int(silence_duration * sample_rate)
             combined_frames.append(np.zeros((silence_samples, 1), dtype=np.float32))
             continue
 
         frames, sr = sf.read(wav_path, dtype='float32')
 
-        # Store sample rate
         if sample_rate is None:
             sample_rate = sr
         elif sample_rate != sr:
             raise ValueError("All WAV files must have the same sample rate.")
 
-        # Check if the audio is mono or stereo
         num_channels = 1 if len(frames.shape) == 1 else frames.shape[1]
 
-        # Reshape frames if necessary
         if len(frames.shape) == 1:
             frames = frames.reshape(-1, 1)
 
-        # Append frames from the current WAV file
         combined_frames.append(frames)
 
-    # Concatenate frames into a single array
     combined_frames = np.concatenate(combined_frames, axis=0)
 
-    # Save the combined frames to a new WAV file
     sf.write(output_path, combined_frames, sample_rate)
 
 if __name__ == "__main__":
-    # Get wav_paths from the database
-    wav_paths = get_wav_paths_from_database()
+    parser = argparse.ArgumentParser(description='Combine WAV files with silence.')
+    parser.add_argument('content_id', type=int, help='ID of the content to process')
+    args = parser.parse_args()
 
-    # Check if any filenames were retrieved
+    wav_paths = get_wav_paths_from_database(args.content_id)
+
     if not wav_paths:
-        print("No filenames retrieved from the database.")
+        print("No filenames retrieved for the specified content ID.")
     else:
-        # Proceed with combining WAV files
-        output_path = '/output/waves/output_combined_with_silence.wav'
+        # Construct the output path using BASE_OUTPUT_FOLDER and content_id
+        output_path = os.path.join(BASE_OUTPUT_FOLDER, 'waves', f'output_combined_with_silence_{args.content_id}.wav')
         try:
             combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1)
+            print(f"Combined WAV files saved to: {output_path}")
         except ValueError as e:
             print("Error:", e)
