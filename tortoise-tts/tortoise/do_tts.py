@@ -167,7 +167,6 @@ def process_job(job):
 
     args = argparse.Namespace(**default_args)
     filename = args.filename if args.filename else f'{selected_voice}.wav'  # Add ".wav" extension
-    print(f'FILENAME: {filename}')
 
     # Check if wave information already exists in meta JSON
     content_id = job.get("content_id")
@@ -183,7 +182,6 @@ def process_job(job):
                     if "filenames" in existing_meta:
                         existing_filenames = [entry.get("filename", "") for entry in existing_meta["filenames"]]
                         # Check if the current filename matches any existing filename
-                        print(existing_filenames)
                         if filename in existing_filenames:
                             logger.warn(f"Wave information for {filename} already exists in meta for content_id {content_id}. Skipping processing.")
                             job_processing = False
