@@ -145,7 +145,7 @@ def process_job(job):
 
     start_time = time.time()
 
-    # Default values fetched from .env or original argument parser
+    # Fetch default arguments
     default_args = {
         'text': get_default_arg('text', "The expressiveness of autoregressive transformers is literally nuts! I absolutely adore them."),
         'voice': get_default_arg('voice', 'random'),
@@ -167,16 +167,6 @@ def process_job(job):
         default_args[arg_name] = arg_value
 
     args = argparse.Namespace(**default_args)
-
-    if torch.backends.mps.is_available():
-        args.use_deepspeed = False
-
-    args.output_path = os.path.join(args.output_path, 'waves')
-    os.makedirs(os.path.join(BASE_OUTPUT_FOLDER, args.output_path), exist_ok=True)
-    tts = TextToSpeech(models_dir=args.model_dir, use_deepspeed=args.use_deepspeed, kv_cache=args.kv_cache, half=args.half)
-
-    selected_voice = args.voice
-    voice_samples, conditioning_latents = load_voices([selected_voice])
 
     # Check if wave information already exists in meta JSON
     content_id = job.get("content_id")
@@ -200,33 +190,60 @@ def process_job(job):
             finally:
                 conn.close()
 
+    if torch.backends.mps.is_available():
+        args.use_deepspeed = False
+
+    args.output_path = os.path.join(args.output_path, 'waves')
+    os.makedirs(os.path.join(BASE_OUTPUT_FOLDER, args.output_path), exist_ok=True)
+
+    # Initialize TextToSpeech instance
+    tts = TextToSpeech(models_dir=args.model_dir, use_deepspeed=args.use_deepspeed, kv_cache=args.kv_cache, half=args.half)
+
+    selected_voice = args.voice
+    voice_samples, conditioning_latents = load_voices([selected_voice])
+
+    # Perform text-to-speech synthesis
     gen, dbg_state = tts.tts_with_preset(args.text, k=args.candidates, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
                               preset=args.preset, use_deterministic_seed=args.seed, return_deterministic_state=True, cvvp_amount=args.cvvp_amount)
 
     filename = args.filename if args.filename else f'{selected_voice}'
-    torchaudio.save(os.path.join(args.output_path, f'{filename}.wav'), gen.squeeze(0).cpu(), 24000)
-    logger.info(f"File saved: {filename}.wav")
+    file_path = os.path.join(args.output_path, f'{filename}.wav')
 
+    # Save generated audio file
+    try:
+        torchaudio.save(file_path, gen.squeeze(0).cpu(), 24000)
+        logger.info(f"File saved: {filename}.wav")
+    except Exception as e:
+        logger.error(f"Error saving file {filename}.wav: {e}")
+
+    # Measure processing time
     end_time = time.time()
     processing_time = end_time - start_time
 
+    # Prepare message for queue
     message = {
         'filename': filename,
         'text': args.text,
         'selected_voice': selected_voice,
         'processing_time': processing_time,
     }
+
+    # Push message to queue
     push_message_to_queue('wav_to_mp3', message)
 
     # Update PostgreSQL meta with filename
-    content_id = job.get("content_id")  # Assuming content_id is present in the job payload
-    sentence_id = job.get("sentence_id")  # Assuming sentence_id is present in the job payload
+    content_id = job.get("content_id")
+    sentence_id = job.get("sentence_id")
     if content_id:
         update_postgres_meta(content_id, filename, sentence_id)
 
+    # Save debug state if required
     if args.produce_debug_state:
         os.makedirs('debug_states', exist_ok=True)
-        torch.save(dbg_state, f'debug_states/do_tts_debug_{filename}.pth')
+        try:
+            torch.save(dbg_state, f'debug_states/do_tts_debug_{filename}.pth')
+        except Exception as e:
+            logger.error(f"Error saving debug state for {filename}: {e}")
 
     sys.stdout.flush()
     job_processing = False
