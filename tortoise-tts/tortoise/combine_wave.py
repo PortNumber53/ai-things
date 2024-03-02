@@ -1,5 +1,48 @@
-import soundfile as sf
-import numpy as np
+import psycopg2
+import json
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+def get_wav_paths_from_database():
+    try:
+        connection = psycopg2.connect(
+            host=os.getenv('DB_HOST'),
+            port=os.getenv('DB_PORT'),
+            database=os.getenv('DB_DATABASE'),
+            user=os.getenv('DB_USERNAME'),
+            password=os.getenv('DB_PASSWORD')
+        )
+        cursor = connection.cursor()
+
+        cursor.execute("SELECT meta FROM contents")
+        results = cursor.fetchall()
+
+        cursor.close()
+        connection.close()
+
+        filenames = []
+        for result in results:
+            meta = result[0]
+            if 'filenames' in meta:
+                filenames_json = meta['filenames']
+                filenames.extend([entry['filename'] for entry in filenames_json])
+
+        if filenames:
+            return filenames
+        else:
+            print("No filenames found in the database.")
+            return []
+    except psycopg2.Error as e:
+        print("Error connecting to the database:", e)
+        return []
+    except Exception as e:
+        print("An unexpected error occurred:", e)
+        return []
+
+
 
 def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
     combined_frames = []
@@ -36,30 +79,14 @@ def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
     # Save the combined frames to a new WAV file
     sf.write(output_path, combined_frames, sample_rate)
 
-# Example usage:
-wav_paths = [
-    '/output/waves/0000000005-000-tom-e55f22a980f86367122f8541b3d414bd.wav',
-    '<spacer>',
-    '/output/waves/0000000005-001-tom-bc04a8a4bfd4e4f8b15a7be0b8ba8335.wav',
-    '/output/waves/0000000005-002-tom-22cd10ec898c4fb51175ad477e51a4f4.wav',
-    '/output/waves/0000000005-003-tom-1c13a6a50625874971e127b8b568b065.wav',
-    '/output/waves/0000000005-004-tom-a19c6f414ae704a10ec3dced68522221.wav',
-    '<spacer>',
-    '/output/waves/0000000005-006-tom-6b946c0f7d98f4df1bbd91161156c7e0.wav',
-    '/output/waves/0000000005-007-tom-f2771a39e208b74a8063e5859e47af99.wav',
-    '/output/waves/0000000005-008-tom-a4e034102748fd1144d9027b99bbd5e2.wav',
-    '<spacer>',
-    '/output/waves/0000000005-010-tom-3436b4ef448c9c21598750bb928f4423.wav',
-    '/output/waves/0000000005-011-tom-9f2756a39cf8707fdf1fce570990dd88.wav',
-    '/output/waves/0000000005-012-tom-52b48794803be57183fb5c46f40fbfb1.wav',
-    '<spacer>',
-    '/output/waves/0000000005-014-tom-33d67fa686790b542333e4e1d3fbc772.wav',
-    '/output/waves/0000000005-015-tom-51346c9c09d528a481fefcb7a3a3aefe.wav',
-    '/output/waves/0000000005-016-tom-9a59c980e7e705ed8c28d8ad3b2254f3.wav',
-    '<spacer>',
-    '/output/waves/0000000005-018-tom-d93715ef8bf21794d7cd3fad2cdec602.wav',
-    '/output/waves/0000000005-019-tom-f79074e3bd6a668158406695b288607a.wav',
-    '/output/waves/0000000005-020-tom-217e0c51372b4a6bdfd3eda113f68426.wav',
-    ]
-output_path = '/output/waves/output_combined_with_silence.wav'
-combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1)  # Add 2 seconds of silence between files
+if __name__ == "__main__":
+    # Get wav_paths from the database
+    wav_paths = get_wav_paths_from_database()
+
+    # Check if any filenames were retrieved
+    if not wav_paths:
+        print("No filenames retrieved from the database.")
+    else:
+        # Proceed with combining WAV files
+        output_path = '/output/waves/output_combined_with_silence.wav'
+        combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1)
