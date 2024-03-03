@@ -118,11 +118,11 @@ def update_postgres_meta(content_id, filename, sentence_id=None):
         if row:
             existing_meta = row[0] or {}  # Handle None case
             # Check if filename already exists in meta
-            if "filenames" in existing_meta and any(entry["filename"] == f'{filename}.wav' for entry in existing_meta["filenames"]):
+            if "filenames" in existing_meta and any(entry["filename"] == f'{filename}' for entry in existing_meta["filenames"]):
                 logger.warning(f"Filename {filename} already exists in meta for content_id {content_id}")
                 return
             # Update meta with new filename
-            existing_meta.setdefault("filenames", []).append({"filename": f'{filename}.wav', "sentence_id": sentence_id})
+            existing_meta.setdefault("filenames", []).append({"filename": f'{filename}', "sentence_id": sentence_id})
             # Update the contents table with the new meta
             cur.execute(sql.SQL("UPDATE contents SET meta = %s WHERE id = %s"),
                         (json.dumps(existing_meta), content_id))
