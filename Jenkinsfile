@@ -47,7 +47,7 @@ pipeline {
             steps {
                 script {
                     // Deploy to multiple hosts
-                    def hosts = ['brain', 'pinky', 'legion']//, 'devbox'
+                    def hosts = ['brain', 'pinky', 'legion', 'devbox']
                     def ENV_FILES = [
                         brain: 'ai-things-brain-env-prod-file',
                         pinky: 'ai-things-pinky-env-prod-file',
