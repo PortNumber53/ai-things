@@ -16,8 +16,8 @@ sudo chown -Rv grimlock:grimlock /deploy
 
 ## set up systemd service
 
-
 install conda
+
 ```
 yay -S wget
 yay -S python-pluggy python-pycosat python-ruamel-yaml anaconda
@@ -90,13 +90,12 @@ sudo mkdir -pv /output/funfacts/
 sudo chown -Rv grimlock:grimlock /output/funfacts/
 ```
 
-
-
 ## Subtitles
 
 ```
+conda create -n subtitle python=3.11
 conda activate subtitle
-
+pip install -r requirements.txt
 
 
 
