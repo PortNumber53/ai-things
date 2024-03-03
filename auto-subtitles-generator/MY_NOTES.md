@@ -4,7 +4,7 @@
 ```
 conda create -n subtitles python=3.11
 
-conda acticate subtitles
+conda activate subtitles
 
 
 pip install ffmpeg requests
