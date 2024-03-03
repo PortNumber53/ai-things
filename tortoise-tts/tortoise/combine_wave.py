@@ -5,6 +5,7 @@ import numpy as np
 import soundfile as sf
 from dotenv import load_dotenv
 import argparse
+import wave
 
 # Load environment variables from .env file
 load_dotenv()
@@ -66,10 +67,13 @@ def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
     combined_frames = []
     sample_rate = None
 
+    # Insert silence frames at the start
+    if sample_rate is not None:
+        silence_samples = int(silence_duration * sample_rate)
+        combined_frames.append(np.zeros((silence_samples, 1), dtype=np.float32))
+
     for wav_path in wav_paths:
         if wav_path == '<spacer>':
-            silence_samples = int(silence_duration * sample_rate)
-            combined_frames.append(np.zeros((silence_samples, 1), dtype=np.float32))
             continue
 
         frames, sr = sf.read(wav_path, dtype='float32')
@@ -90,6 +94,18 @@ def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
 
     sf.write(output_path, combined_frames, sample_rate)
 
+def get_wav_duration(file_path):
+    with wave.open(file_path, 'rb') as wav_file:
+        # Get the number of frames and the frame rate
+        num_frames = wav_file.getnframes()
+        frame_rate = wav_file.getframerate()
+
+        # Calculate the duration in seconds
+        duration = num_frames / float(frame_rate)
+
+        return duration
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Combine WAV files with silence.')
     parser.add_argument('content_id', type=int, help='ID of the content to process')
@@ -104,6 +120,11 @@ if __name__ == "__main__":
         output_path = os.path.join(BASE_OUTPUT_FOLDER, 'waves', f'output_combined_with_silence_{args.content_id}.wav')
         try:
             combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1)
+
+            # Get duration of the combined WAV file
+            duration = get_wav_duration(output_path)
+
             print(f"Combined WAV files saved to: {output_path}")
+            print(f"Duration of the combined WAV file is: {duration:.2f} seconds")
         except ValueError as e:
             print("Error:", e)
