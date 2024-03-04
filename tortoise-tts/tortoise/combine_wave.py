@@ -42,15 +42,14 @@ def get_wav_and_spacer_paths_from_database(content_id):
 
             if 'filenames' in meta:
                 filenames_json = meta['filenames']
-                sentences_json = json.loads(sentences)
 
                 # Process spacer contents
                 spacers = []
-                for entry in sentences_json:
+                for entry in sentences:
                     if entry['content'].startswith("<spacer"):
                         match = re.search(r"<spacer\s*(\d*)>", entry['content'])
                         if match:
-                            spacer_length = int(match.group(1))
+                            spacer_length = int(match.group(1)) if match.group(1) else 1
                         else:
                             spacer_length = 1
                         spacers.append({"content": entry['content'], "count": entry['count'], "length": spacer_length})
@@ -90,6 +89,8 @@ def get_wav_and_spacer_paths_from_database(content_id):
         traceback.print_exc()
         print("An unexpected error occurred:", e)
         return []
+
+
 
 
 def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):

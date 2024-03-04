@@ -75,6 +75,16 @@ PROMPT),
         $paragraphs = [];
         $count = 0; // Counter for total entries
 
+        // Define spacer lengths for different punctuation marks
+        $punctuationSpacers = [
+            '.' => 4, // Period
+            '!' => 4, // Exclamation mark
+            '?' => 4, // Question mark
+            ';' => 2, // Semicolon (shorter spacer)
+            ',' => 1, // Comma (shorter spacer)
+            // Add more punctuation marks and their corresponding spacer lengths as needed
+        ];
+
         // Extract data from the response
         $responseData = json_decode($response->getBody(), true);
         // dump($responseData);
@@ -89,16 +99,21 @@ PROMPT),
                 } elseif (!empty($line)) {
                     $line = trim(str_replace('CONTENT:', '', $line));
                     // Break each line into sentences
-                    $lineSentences = array_filter(preg_split('/(?<=[.!?;,])\s+/', $line));
+                    $lineSentences = preg_split('/(?<=[.!?;,])\s+/', $line); // Use punctuation marks for splitting
                     foreach ($lineSentences as $sentence) {
+                        // Determine the spacer for the punctuation mark
+                        $lastChar = substr(trim($sentence), -1);
+                        $spacer = isset($punctuationSpacers[$lastChar]) ? $punctuationSpacers[$lastChar] : 2; // Default to a longer spacer
                         $paragraphs[] = ['count' => ++$count, 'content' => trim($sentence)];
+                        // Use spacer based on punctuation
+                        $paragraphs[] = ['count' => ++$count, 'content' => "<spacer $spacer>"];
                     }
                     // Reset the flag when adding non-spacer content
                     $previousLineWasSpacer = false;
                 }
                 // Add spacer after each paragraph only if the previous line wasn't a spacer
                 if (!$previousLineWasSpacer) {
-                    $paragraphs[] = ['count' => ++$count, 'content' => '<spacer>'];
+                    $paragraphs[] = ['count' => ++$count, 'content' => "<spacer 6>"]; // longer spacer for paragraphs
                     // Set the flag to true after adding a spacer
                     $previousLineWasSpacer = true;
                 }
@@ -119,7 +134,6 @@ PROMPT),
         } else {
             $this->error('Failed to parse response data.');
         }
-
         return 0;
     }
 
