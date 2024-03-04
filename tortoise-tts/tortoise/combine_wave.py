@@ -66,6 +66,7 @@ def get_wav_paths_from_database(content_id):
 def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
     combined_frames = []
     sample_rate = None
+    total_samples = 0  # Variable to store the total number of samples
 
     # Insert silence frames at the start
     if sample_rate is not None:
@@ -73,13 +74,12 @@ def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
         combined_frames.append(np.zeros((silence_samples, 1), dtype=np.float32))
 
     for wav_path in wav_paths:
-        if wav_path == '<spacer>':
-            continue
-
         frames, sr = sf.read(wav_path, dtype='float32')
 
         if sample_rate is None:
             sample_rate = sr
+            silence_samples = int(silence_duration * sample_rate)
+            combined_frames.append(np.zeros((int(silence_samples / 2), 1), dtype=np.float32))
         elif sample_rate != sr:
             raise ValueError("All WAV files must have the same sample rate.")
 
@@ -89,6 +89,9 @@ def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
             frames = frames.reshape(-1, 1)
 
         combined_frames.append(frames)
+
+        # Accumulate the number of samples
+        total_samples += frames.shape[0]
 
     combined_frames = np.concatenate(combined_frames, axis=0)
 
@@ -105,6 +108,9 @@ def get_wav_duration(file_path):
 
         return duration
 
+    # Calculate the total duration in seconds
+    total_duration = total_samples / sample_rate
+    print("Total Duration (seconds):", total_duration)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Combine WAV files with silence.')
