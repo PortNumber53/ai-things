@@ -17,21 +17,20 @@ export const RemotionRoot: React.FC = () => {
 					audioOffsetInSeconds: 0,
 
 					// Title settings
-					audioFileName: staticFile('output_combined_with_silence_182.mp3'),
+					audioFileName: staticFile('audio.mp3'),
 					coverImgFileName: staticFile(
-						'Default_Spaghettification_The_Bizarre_Phenomenon_in_Black_Hole_0.jpg'
+						'Default_The_LittleKnown_History_of_French_Fries_0.jpg'
 					),
-					titleText:
-						'00182 - Spaghettification: The Bizarre Phenomenon in Black Holes',
+					titleText: '01229 - The Little-Known History of French Fries',
 					titleColor: 'rgba(186, 186, 186, 0.93)',
 
 					// Subtitles settings
 					subtitlesFileName: staticFile('subtitles.srt'),
 					onlyDisplayCurrentSentence: true,
 					subtitlesTextColor: 'rgba(255, 255, 255, 0.93)',
-					subtitlesLinePerPage: 4,
-					subtitlesZoomMeasurerSize: 10,
-					subtitlesLineHeight: 90,
+					subtitlesLinePerPage: 8,
+					subtitlesZoomMeasurerSize: 4,
+					subtitlesLineHeight: 70,
 
 					// Wave settings
 					waveColor: '#93d5ae',
@@ -39,7 +38,7 @@ export const RemotionRoot: React.FC = () => {
 					waveLinesToDisplay: 40,
 					waveNumberOfSamples: '256', // This is string for Remotion controls and will be converted to a number
 					mirrorWave: false,
-					durationInSeconds: 107.5,
+					durationInSeconds: 202.9,
 				}}
 				// Determine the length of the video based on the duration of the audio file
 				calculateMetadata={({ props }) => {

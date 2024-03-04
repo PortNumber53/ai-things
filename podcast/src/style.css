@@ -66,9 +66,9 @@
 }
 
 .captions {
-	margin-top: calc(var(--base-size) * 5.5);
-	font-size: calc(var(--base-size) * 1.5);
-	font-weight: 600;
+	margin-top: calc(var(--base-size) * 2.5);
+	font-size: calc(var(--base-size) * 1.0);
+	font-weight: 200;
 }
 
 .promo-container {
