@@ -6,6 +6,7 @@ import soundfile as sf
 from dotenv import load_dotenv
 import argparse
 import wave
+import re
 
 # Load environment variables from .env file
 load_dotenv()
@@ -13,7 +14,7 @@ load_dotenv()
 # Get the BASE_OUTPUT_FOLDER from the environment variables
 BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output/')
 
-def get_wav_paths_from_database(content_id):
+def get_wav_and_spacer_paths_from_database(content_id):
     try:
         connection = psycopg2.connect(
             host=os.getenv('DB_HOST'),
@@ -24,16 +25,37 @@ def get_wav_paths_from_database(content_id):
         )
         cursor = connection.cursor()
 
+        # Fetch filenames from meta field
         cursor.execute("SELECT meta FROM contents WHERE id=%s", (content_id,))
-        result = cursor.fetchone()
+        meta_result = cursor.fetchone()
+
+        # Fetch sentences from sentences column
+        cursor.execute("SELECT sentences FROM contents WHERE id=%s", (content_id,))
+        sentences_result = cursor.fetchone()
 
         cursor.close()
         connection.close()
 
-        if result:
-            meta = result[0]
+        if meta_result and sentences_result:
+            meta = meta_result[0]
+            sentences = sentences_result[0]
+
             if 'filenames' in meta:
                 filenames_json = meta['filenames']
+                sentences_json = json.loads(sentences)
+
+                # Process spacer contents
+                spacers = []
+                for entry in sentences_json:
+                    if entry['content'].startswith("<spacer"):
+                        match = re.search(r"<spacer\s*(\d*)>", entry['content'])
+                        if match:
+                            spacer_length = int(match.group(1))
+                        else:
+                            spacer_length = 1
+                        spacers.append({"content": entry['content'], "count": entry['count'], "length": spacer_length})
+
+                # Process WAV filenames
                 if isinstance(filenames_json, list):
                     filenames = []
                     for entry in sorted(filenames_json, key=lambda x: x.get('sentence_id', 0)):
@@ -44,7 +66,13 @@ def get_wav_paths_from_database(content_id):
                                 filenames.append(filename)
                         else:
                             print("Invalid entry in filenames_json:", entry)
-                    return filenames
+                    # Merge spacer contents and filenames
+                    combined_list = spacers + [{"content": filename, "count": count+len(spacers), "length": 0} for count, filename in enumerate(filenames, start=1)]
+
+                    # Sort combined list based on count
+                    combined_list.sort(key=lambda x: x['count'])
+
+                    return combined_list
                 else:
                     print("filenames_json is not a list:", filenames_json)
                     return []
@@ -62,6 +90,7 @@ def get_wav_paths_from_database(content_id):
         traceback.print_exc()
         print("An unexpected error occurred:", e)
         return []
+
 
 def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
     combined_frames = []
@@ -112,7 +141,8 @@ if __name__ == "__main__":
     parser.add_argument('content_id', type=int, help='ID of the content to process')
     args = parser.parse_args()
 
-    wav_paths = get_wav_paths_from_database(args.content_id)
+    wav_paths = get_wav_and_spacer_paths_from_database(args.content_id)
+    print(wav_paths)
 
     if not wav_paths:
         print("No filenames retrieved for the specified content ID.")

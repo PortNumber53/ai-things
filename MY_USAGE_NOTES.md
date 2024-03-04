@@ -1,0 +1,32 @@
+# Usage
+
+##Combine the generate wav files
+
+```
+python combine_wave.py 182
+
+
+
+ffmpeg -i audio.wav -acodec libmp3lame audio.mp3
+
+
+```
+
+## Generate subtitles
+
+```
+cd auto-subtitles-generator
+conda activate subtitle
+python subtitle.py /output/waves/output_combined_with_silence_182.wav Transcribe 182
+```
+
+Prompt to fix subtitles
+
+```
+I ran a script to automatically generate subtitles for my text, and I want you to fix eventual mistakes that happened. I will give you the original text and the SRT file. Please fix mistakes in the SRT file and present the entire file with fixes. You only need to putput the fixed SRT file, no comments about it.
+
+this is the original text
+TITLE: Spaghettification: The Bizarre Phenomenon in Black Holes\n\nCONTENT:\n\nImagine yourself standing near a massive black hole. As you approach the event horizon, an intriguing phenomenon called \"spaghettification\" takes hold. This peculiar process involv
+
+and this is the generate SRT file we need to fix:
+```
