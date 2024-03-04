@@ -40,9 +40,8 @@ class GeminiGenerateFunFact extends Command
                     'parts' => [
                         [
                             'text' => trim(<<<PROMPT
-give me a single unique random fact about any subject
-make the explanation engaging while keeping it simple
-write about 6 to 10 paragraphs, your response must be in format structured exactly like this:
+Write about a single unique random fact about any subject, make the explanation engaging while keeping it simple
+write about 6 to 10 paragraphs, your response must be in format structured exactly like this, no extra formatting required:
 TITLE: The title for the subject comes here
 CONTENT: (the entire content about the subject goes on the next line)
 Your entire response goes here.
@@ -77,9 +76,9 @@ PROMPT),
 
         // Define spacer lengths for different punctuation marks
         $punctuationSpacers = [
-            '.' => 4, // Period
-            '!' => 4, // Exclamation mark
-            '?' => 4, // Question mark
+            '.' => 3, // Period
+            '!' => 3, // Exclamation mark
+            '?' => 3, // Question mark
             ';' => 2, // Semicolon (shorter spacer)
             ',' => 1, // Comma (shorter spacer)
             // Add more punctuation marks and their corresponding spacer lengths as needed
@@ -89,7 +88,8 @@ PROMPT),
         $responseData = json_decode($response->getBody(), true);
         // dump($responseData);
         if (isset($responseData['candidates'][0]['content']['parts'][0]['text'])) {
-            $text = $responseData['candidates'][0]['content']['parts'][0]['text'];
+            $text = str_replace("\n\n", "\n", $responseData['candidates'][0]['content']['parts'][0]['text']);
+            $responseData['candidates'][0]['content']['parts'][0]['text'] = $text;
 
             $responsePart = explode("\n", $text);
             $previousLineWasSpacer = false; // Flag to track if the previous line was a spacer
@@ -103,17 +103,19 @@ PROMPT),
                     foreach ($lineSentences as $sentence) {
                         // Determine the spacer for the punctuation mark
                         $lastChar = substr(trim($sentence), -1);
-                        $spacer = isset($punctuationSpacers[$lastChar]) ? $punctuationSpacers[$lastChar] : 2; // Default to a longer spacer
-                        $paragraphs[] = ['count' => ++$count, 'content' => trim($sentence)];
-                        // Use spacer based on punctuation
-                        $paragraphs[] = ['count' => ++$count, 'content' => "<spacer $spacer>"];
+                        $spacer = isset($punctuationSpacers[$lastChar]) ? $punctuationSpacers[$lastChar] : 2;
+                        if (trim($sentence) !== '') {
+                            $paragraphs[] = ['count' => ++$count, 'content' => trim($sentence)];
+                            // Use spacer based on punctuation
+                            $paragraphs[] = ['count' => ++$count, 'content' => "<spacer $spacer>"];
+                        }
                     }
                     // Reset the flag when adding non-spacer content
                     $previousLineWasSpacer = false;
                 }
                 // Add spacer after each paragraph only if the previous line wasn't a spacer
                 if (!$previousLineWasSpacer) {
-                    $paragraphs[] = ['count' => ++$count, 'content' => "<spacer 6>"]; // longer spacer for paragraphs
+                    $paragraphs[] = ['count' => ++$count, 'content' => "<spacer 3>"]; // longer spacer for paragraphs
                     // Set the flag to true after adding a spacer
                     $previousLineWasSpacer = true;
                 }
