@@ -68,11 +68,6 @@ def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
     sample_rate = None
     total_samples = 0  # Variable to store the total number of samples
 
-    # Insert silence frames at the start
-    if sample_rate is not None:
-        silence_samples = int(silence_duration * sample_rate)
-        combined_frames.append(np.zeros((silence_samples, 1), dtype=np.float32))
-
     for wav_path in wav_paths:
         frames, sr = sf.read(wav_path, dtype='float32')
 

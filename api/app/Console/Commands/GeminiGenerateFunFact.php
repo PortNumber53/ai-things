@@ -89,7 +89,7 @@ PROMPT),
                 } elseif (!empty($line)) {
                     $line = trim(str_replace('CONTENT:', '', $line));
                     // Break each line into sentences
-                    $lineSentences = array_filter(preg_split('/(?<=[.!?])\s+/', $line));
+                    $lineSentences = array_filter(preg_split('/(?<=[.!?;,])\s+/', $line));
                     foreach ($lineSentences as $sentence) {
                         $paragraphs[] = ['count' => ++$count, 'content' => trim($sentence)];
                     }
