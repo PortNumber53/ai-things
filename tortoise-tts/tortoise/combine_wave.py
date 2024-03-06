@@ -91,8 +91,6 @@ def get_wav_and_spacer_paths_from_database(content_id):
         return []
 
 
-
-
 def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
     combined_frames = []
     sample_rate = None
@@ -132,10 +130,6 @@ def get_wav_duration(file_path):
         duration = num_frames / float(frame_rate)
 
         return duration
-
-    # Calculate the total duration in seconds
-    total_duration = total_samples / sample_rate
-    print("Total Duration (seconds):", total_duration)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Combine WAV files with silence.')
