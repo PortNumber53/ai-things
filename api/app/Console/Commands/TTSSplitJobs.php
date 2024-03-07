@@ -12,7 +12,7 @@ class TTSSplitJobs extends Command
      *
      * @var string
      */
-    protected $signature = 'tts:SplitJobs';
+    protected $signature = 'tts:SplitJobs {content_id?}';
 
     /**
      * The console command description.
@@ -32,9 +32,21 @@ class TTSSplitJobs extends Command
             'filename' => 'sample_file_random_voice',
             'content_id' => 0,
         ];
-        $content = Content::where('status', 'new')->first();
 
-        $voice = 'tom';
+        $contentId = $this->argument('content_id');
+
+        if ($contentId) {
+            $content = Content::find($contentId);
+        } else {
+            $content = Content::where('status', 'new')->first();
+        }
+
+        if (!$content) {
+            $this->error('No content found.');
+            return;
+        }
+
+        $voice = 'pat';
 
         $queueManager = app('queue');
         $queue = $queueManager->connection('rabbitmq');
@@ -55,7 +67,8 @@ class TTSSplitJobs extends Command
             // create job per sentence
             foreach (json_decode($content['sentences'], true) as $index => $sentence_data) {
                 $text = $sentence_data['content'];
-                if ($text !== '<spacer>') {
+                if (strpos($text, '<spacer ') !== 0) {
+                    // Process if the text doesn't start with "<spacer "
                     $jsonPayload = $jobTemplate;
                     $jsonPayload['content_id'] = $content['id'];
                     $jsonPayload['sentence_id'] = $index; // Add the index as 'sentence_id'
