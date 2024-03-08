@@ -66,7 +66,7 @@ def get_wav_and_spacer_paths_from_database(content_id):
                         else:
                             print("Invalid entry in filenames_json:", entry)
                     # Merge spacer contents and filenames
-                    combined_list = spacers + [{"content": filename, "count": count+len(spacers), "length": 0} for count, filename in enumerate(filenames, start=1)]
+                    combined_list = spacers + [{"filename": filename, "count": count+len(spacers), "length": 0} for count, filename in enumerate(filenames, start=1)]
 
                     # Sort combined list based on count
                     combined_list.sort(key=lambda x: x['count'])
@@ -96,29 +96,43 @@ def combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1):
     sample_rate = None
     total_samples = 0  # Variable to store the total number of samples
 
+    # First pass: Find the first filename entry to determine the sample rate
+    # Sample entry: {'filename': '/output/waves/0000000006-046-tom-40f171766d6cbc52ee9cf4d86f440767.wav', 'count': 83, 'length': 0}
     for wav_path in wav_paths:
-        frames, sr = sf.read(wav_path, dtype='float32')
+        # print(wav_path)
+        if isinstance(wav_path, dict) and 'filename' in wav_path:
+            frames, sample_rate = sf.read(wav_path['filename'], dtype='float32')
+            print("FOUND IT!")
+            break
 
-        if sample_rate is None:
-            sample_rate = sr
-            silence_samples = int(silence_duration * sample_rate)
-            combined_frames.append(np.zeros((int(silence_samples / 2), 1), dtype=np.float32))
-        elif sample_rate != sr:
-            raise ValueError("All WAV files must have the same sample rate.")
+    if sample_rate is None:
+        raise ValueError("No WAV file with a valid filename found.")
 
-        num_channels = 1 if len(frames.shape) == 1 else frames.shape[1]
+    silence_samples = int(silence_duration * sample_rate)
+    combined_frames.append(np.zeros((int(silence_samples / 2), 1), dtype=np.float32))
 
-        if len(frames.shape) == 1:
-            frames = frames.reshape(-1, 1)
-
-        combined_frames.append(frames)
-
-        # Accumulate the number of samples
-        total_samples += frames.shape[0]
+    # Second pass: Combine the WAV files and silence from spacers
+    for wav_path in wav_paths:
+        if isinstance(wav_path, dict) and 'filename' in wav_path:
+            filename = wav_path['filename']
+            if os.path.exists(filename):
+                print(f'Adding {filename} to the output file.')
+                frames, sr = sf.read(filename, dtype='float32')
+                if sample_rate != sr:
+                    raise ValueError("All WAV files must have the same sample rate.")
+                num_channels = 1 if len(frames.shape) == 1 else frames.shape[1]
+                if len(frames.shape) == 1:
+                    frames = frames.reshape(-1, 1)
+                combined_frames.append(frames)
+                total_samples += frames.shape[0]
+            else:
+                print(f'File {filename} does not exist.')
 
     combined_frames = np.concatenate(combined_frames, axis=0)
 
+    # Write the combined frames to the output file
     sf.write(output_path, combined_frames, sample_rate)
+
 
 def get_wav_duration(file_path):
     with wave.open(file_path, 'rb') as wav_file:
@@ -137,7 +151,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     wav_paths = get_wav_and_spacer_paths_from_database(args.content_id)
-    print(wav_paths)
+    # print(wav_paths)
 
     if not wav_paths:
         print("No filenames retrieved for the specified content ID.")
