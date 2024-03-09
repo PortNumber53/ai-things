@@ -6,7 +6,7 @@ import pika
 from dotenv import load_dotenv
 import torch
 import torchaudio
-import psycopg2
+from my_database import get_database_connection, update_postgres_meta
 from psycopg2 import sql
 from api import TextToSpeech, MODELS_DIR
 from utils.audio import load_voices
@@ -104,40 +104,6 @@ def callback(ch, method, properties, body):
     except Exception as e:
         logger.error(f"Error processing message: {e}")
 
-
-def update_postgres_meta(content_id, filename, sentence_id=None):
-    conn = get_postgres_connection()
-    if conn is None:
-        return
-
-    try:
-        cur = conn.cursor()
-        # Fetch existing meta JSON
-        cur.execute(sql.SQL("SELECT meta FROM contents WHERE id = %s"), (content_id,))
-        row = cur.fetchone()
-        if row:
-            existing_meta = row[0] or {}  # Handle None case
-            # Check if filename already exists in meta
-            if "filenames" in existing_meta and any(entry["filename"] == f'{filename}' for entry in existing_meta["filenames"]):
-                logger.warning(f"Filename {filename} already exists in meta for content_id {content_id}")
-                return
-            # Update meta with new filename
-            existing_meta.setdefault("filenames", []).append({"filename": f'{filename}', "sentence_id": sentence_id})
-            # Update the contents table with the new meta
-            cur.execute(sql.SQL("UPDATE contents SET meta = %s WHERE id = %s"),
-                        (json.dumps(existing_meta), content_id))
-            conn.commit()
-            logger.info(f"Meta updated for content_id {content_id} with filename {filename}")
-        else:
-            logger.error(f"No row found for content_id {content_id}")
-    except psycopg2.Error as e:
-        logger.error(f"Error updating PostgreSQL meta: {e}")
-    finally:
-        if conn:
-            conn.close()
-
-
-
 def process_job(job):
     global job_processing
     job_processing = True
@@ -172,7 +138,7 @@ def process_job(job):
     # Check if wave information already exists in meta JSON
     content_id = job.get("content_id")
     if content_id:
-        conn = get_postgres_connection()
+        conn = get_database_connection()
         if conn is not None:
             try:
                 cur = conn.cursor()
@@ -182,7 +148,6 @@ def process_job(job):
                     existing_meta = row[0] or {}
                     if "filenames" in existing_meta:
                         existing_filenames = [entry.get("filename", "") for entry in existing_meta["filenames"]]
-                        print(existing_filenames)
                         # Check if the current filename matches any existing filename
                         if filename in existing_filenames:
                             logger.warn(f"Wave information for {filename} already exists in meta for content_id {content_id}. Skipping processing.")

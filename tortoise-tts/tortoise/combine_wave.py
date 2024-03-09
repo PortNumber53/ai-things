@@ -1,13 +1,19 @@
-import json
 import os
-import numpy as np
-import soundfile as sf
+import json
 import argparse
 import wave
 import re
+import numpy as np
+import soundfile as sf
+import psycopg2
 from my_database import get_database_connection
+from dotenv import load_dotenv  # Import load_dotenv function
+
+# Load environment variables from .env file
+load_dotenv()
 
 BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output/')
+
 
 def get_wav_and_spacer_paths_from_database(content_id):
     try:
