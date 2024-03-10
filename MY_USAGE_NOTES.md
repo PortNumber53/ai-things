@@ -30,3 +30,12 @@ TITLE: Spaghettification: The Bizarre Phenomenon in Black Holes\n\nCONTENT:\n\nI
 
 and this is the generate SRT file we need to fix:
 ```
+
+
+
+## PIPER
+```
+yay -S espeak-ng
+
+echo "TEST" | piper --debug --model ljspeech.onnx -c ljspeech.onnx.json  --output_file /output/waves/audio-45266.wav && play /output/waves/audio-45266.wav
+```
