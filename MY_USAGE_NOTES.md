@@ -31,9 +31,14 @@ TITLE: Spaghettification: The Bizarre Phenomenon in Black Holes\n\nCONTENT:\n\nI
 and this is the generate SRT file we need to fix:
 ```
 
+## To play mp3
 
+```
+yay -S sox
+```
 
 ## PIPER
+
 ```
 yay -S espeak-ng
 
