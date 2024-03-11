@@ -105,7 +105,7 @@ class TTSPiper extends Command
         if (file_exists($outputFile) && time() - filemtime($outputFile) <= 60) {
             // Update content status
             $content->status = 'wav.generated';
-            $content->save();
+            $content->updated_at = date('Y-m-d H:i:s', time());
 
             // Store filename in meta field
             $meta = json_decode($content->meta, true);
