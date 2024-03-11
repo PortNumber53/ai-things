@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\Content; // Assuming your Content model is located here
+use App\Models\Content;
 
 class TTSPiper extends Command
 {
