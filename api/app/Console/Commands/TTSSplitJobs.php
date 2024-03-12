@@ -61,7 +61,7 @@ class TTSSplitJobs extends Command
 
     private function processContent(Content $content)
     {
-        $voice = 'pat';
+        $voice = 'jenny';
 
         if (!empty($content['title'])) {
             $this->createJob($content, $content['title'], 0);
@@ -89,7 +89,7 @@ class TTSSplitJobs extends Command
     {
         $jobTemplate = [
             'text' => $text,
-            'voice' => 'pat',
+            'voice' => 'jenny',
             'filename' => $this->generateFilename($content, $text, $index),
             'content_id' => $content->id,
             'sentence_id' => $index
@@ -104,7 +104,7 @@ class TTSSplitJobs extends Command
             "%010d-%03d-%s-%s.wav",
             $content->id,
             $index,
-            'pat',
+            'jenny',
             md5($text)
         );
     }
