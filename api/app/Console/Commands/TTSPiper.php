@@ -5,18 +5,22 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use App\Models\Content;
+use Illuminate\Contracts\Queue\Queue;
 use App\Jobs\ProcessWavFile;
 
 class TTSPiper extends Command
 {
+    protected $queue;
+
     protected $signature = 'tts:Piper {content_id? : The content ID}';
     protected $description = 'Execute the piper shell command with dynamic parameters';
     protected $content;
 
-    public function __construct(Content $content)
+    public function __construct(Content $content, Queue $queue)
     {
         parent::__construct();
         $this->content = $content;
+        $this->queue = $queue;
     }
 
     public function handle()
@@ -44,9 +48,12 @@ class TTSPiper extends Command
             } else {
                 $this->error('Error executing piper command or output file not found or older than 1 minute.');
             }
-            // Dispatch the job
-            ProcessWavFile::dispatch($this->content->id, config('app.hostname'))
-                ->onQueue('wav_ready');
+
+            $job_payload = json_encode([
+                'content_id' => $this->content->id,
+                'hostname' => config('app.hostname'),
+            ]);
+            $this->queue->pushRaw($job_payload, 'wav_ready');
 
             $this->info("Job dispatched to process the WAV file.");
         } catch (\Exception $e) {
