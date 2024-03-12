@@ -50,6 +50,7 @@ class TTSPiper extends Command
                 if (isset($payload['content_id'])) {
                     $this->processContent($payload['content_id']);
                     // return; // Exit the loop after processing the message
+                    $message->delete();
                 }
             }
 
