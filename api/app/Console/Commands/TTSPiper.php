@@ -59,7 +59,6 @@ class TTSPiper extends Command
         }
     }
 
-
     private function processContent($content_id)
     {
         $this->content = $content_id ?

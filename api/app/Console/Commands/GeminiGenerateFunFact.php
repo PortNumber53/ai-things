@@ -93,7 +93,7 @@ PROMPT),
             $text = str_replace('***', '', $text);
             $text = str_replace('**', '', $text);
             $responseData['candidates'][0]['content']['parts'][0]['text'] = $text;
-            dump($text);
+            $this->line($text);
 
             $responsePart = explode("\n", $text);
             $previousLineWasSpacer = false; // Flag to track if the previous line was a spacer
