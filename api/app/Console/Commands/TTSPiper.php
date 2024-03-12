@@ -69,12 +69,13 @@ class TTSPiper extends Command
 
     private function processText($rawText)
     {
-        return preg_replace('/^(TITLE:|CONTENT:)/m', '', $rawText);
+        return trim(preg_replace('/^(TITLE:|CONTENT:)/m', '', $rawText));
     }
 
     private function generateFilename($text, $index)
     {
-        return sprintf("%010d-%03d-%s-%s.wav", $this->content->id, $index, 'ljspeech', md5($text));
+        $voice = config('tts.voice');
+        return sprintf("%010d-%03d-%s-%s.wav", $this->content->id, $index, $voice, md5($text));
     }
 
     private function buildShellCommand($text, $outputFile)
