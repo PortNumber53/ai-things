@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use App\Models\Content;
+use App\Jobs\ProcessWavFile;
 
 class TTSPiper extends Command
 {
@@ -43,6 +44,11 @@ class TTSPiper extends Command
             } else {
                 $this->error('Error executing piper command or output file not found or older than 1 minute.');
             }
+            // Dispatch the job
+            ProcessWavFile::dispatch($this->content->id, config('app.hostname'))
+                ->onQueue('wav_ready');
+
+            $this->info("Job dispatched to process the WAV file.");
         } catch (\Exception $e) {
             Log::error($e->getMessage());
             $this->error('An error occurred. Please check the logs for more details.');
