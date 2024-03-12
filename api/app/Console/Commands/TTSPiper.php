@@ -27,39 +27,72 @@ class TTSPiper extends Command
     {
         try {
             $content_id = $this->argument('content_id');
-            $this->content = $content_id ? Content::find($content_id) : Content::where('status', 'new')->where('type', 'gemini.payload')->first();
 
-            if (!$this->content) {
-                throw new \Exception('Content not found.');
+            if (!$content_id) {
+                $this->processQueueMessage();
             }
-
-            $text = $this->extractTextFromMeta();
-
-            $filename = $this->generateFilename($text, 1);
-            $outputFile = config('app.output_folder') . "waves/$filename";
-
-            $command = $this->buildShellCommand($text, $outputFile);
-            $this->line($command);
-            shell_exec($command);
-
-            if ($this->isValidOutputFile($outputFile)) {
-                $this->updateContent($filename);
-                $this->info("Shell command executed. Output file: $outputFile");
-            } else {
-                $this->error('Error executing piper command or output file not found or older than 1 minute.');
-            }
-
-            $job_payload = json_encode([
-                'content_id' => $this->content->id,
-                'hostname' => config('app.hostname'),
-            ]);
-            $this->queue->pushRaw($job_payload, 'wav_ready');
-
-            $this->info("Job dispatched to process the WAV file.");
+            $this->processContent($content_id);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
             $this->error('An error occurred. Please check the logs for more details.');
         }
+    }
+
+
+    private function processQueueMessage()
+    {
+        while (true) {
+            $message = $this->queue->pop('generate_wav');
+
+            if ($message) {
+                $payload = json_decode($message->getRawBody(), true);
+
+                if (isset($payload['content_id'])) {
+                    $this->processContent($payload['content_id']);
+                    // return; // Exit the loop after processing the message
+                }
+            }
+
+            Log::info("No message found, sleeping");
+            // Sleep for 30 seconds before checking the queue again
+            sleep(30);
+        }
+    }
+
+
+    private function processContent($content_id)
+    {
+        $this->content = $content_id ?
+            Content::find($content_id) :
+            Content::where('status', 'new')->where('type', 'gemini.payload')->first();
+
+        if (!$this->content) {
+            throw new \Exception('Content not found.');
+        }
+
+        $text = $this->extractTextFromMeta();
+
+        $filename = $this->generateFilename($text, 1);
+        $outputFile = config('app.output_folder') . "waves/$filename";
+
+        $command = $this->buildShellCommand($text, $outputFile);
+        $this->line($command);
+        shell_exec($command);
+
+        if ($this->isValidOutputFile($outputFile)) {
+            $this->updateContent($filename);
+            $this->info("Shell command executed. Output file: $outputFile");
+        } else {
+            $this->error('Error executing piper command or output file not found or older than 1 minute.');
+        }
+
+        $job_payload = json_encode([
+            'content_id' => $this->content->id,
+            'hostname' => config('app.hostname'),
+        ]);
+        $this->queue->pushRaw($job_payload, 'wav_ready');
+
+        $this->info("Job dispatched to process the WAV file.");
     }
 
     private function extractTextFromMeta()
