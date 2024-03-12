@@ -32,7 +32,7 @@ class TTSPiper extends Command
             $text = $this->extractTextFromMeta();
 
             $filename = $this->generateFilename($text, 1);
-            $outputFile = config('app.output_folder') . "/waves/$filename";
+            $outputFile = config('app.output_folder') . "waves/$filename";
 
             $command = $this->buildShellCommand($text, $outputFile);
             $this->line($command);
@@ -69,7 +69,28 @@ class TTSPiper extends Command
 
     private function processText($rawText)
     {
-        return trim(preg_replace('/^(TITLE:|CONTENT:)/m', '', $rawText));
+        $lines = explode("\n", $rawText);
+
+        // Initialize a flag to indicate if we have encountered the title
+        $processedText = '';
+
+        // Loop through lines to process the text
+        foreach ($lines as $line) {
+           // Skip the line if it starts with "TITLE:"
+            if (strpos($line, 'TITLE:') === 0) {
+                continue;
+            }
+
+            // If the line contains "CONTENT:", remove the prefix and include the line
+            if (strpos($line, 'CONTENT:') === 0) {
+                $line = substr($line, strlen('CONTENT:'));
+                $processedText .= $line . "\n";
+                continue;
+            }
+
+            $processedText .= $line . "\n";
+        }
+        return trim($processedText);
     }
 
     private function generateFilename($text, $index)
@@ -84,7 +105,7 @@ class TTSPiper extends Command
         $config_file = config('tts.config_file');
 
         return sprintf(
-            'echo %s | piper --debug --model %s -c %s --output_file %s',
+            'echo %s | piper --debug --sentence-silence 1 --model %s -c %s --output_file %s',
             escapeshellarg($text),
             $onnx_model,
             $config_file,

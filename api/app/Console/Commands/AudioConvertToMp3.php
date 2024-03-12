@@ -32,7 +32,7 @@ class AudioConvertToMp3 extends Command
             $inputFile = $filenameData['filename'];
             $sentenceId = $filenameData['sentence_id'] ?? null;
 
-            $inputFileWithPath = config('app.output_folder') . "/waves/$inputFile";
+            $inputFileWithPath = config('app.output_folder') . "waves/$inputFile";
 
             if (!File::exists($inputFileWithPath)) {
                 $this->error("Input file does not exist: $inputFileWithPath");
@@ -40,7 +40,7 @@ class AudioConvertToMp3 extends Command
             }
 
             $outputFile = pathinfo($inputFile, PATHINFO_FILENAME) . '.mp3';
-            $outputFullPath = config('app.output_folder') . "/waves/$outputFile";
+            $outputFullPath = config('app.output_folder') . "waves/$outputFile";
 
             $command = "ffmpeg -y -i $inputFileWithPath -acodec libmp3lame $outputFullPath";
             exec($command, $output, $returnCode);
