@@ -150,7 +150,7 @@ def process_job(job):
                         existing_filenames = [entry.get("filename", "") for entry in existing_meta["filenames"]]
                         # Check if the current filename matches any existing filename
                         if filename in existing_filenames:
-                            logger.warn(f"Wave information for {filename} already exists in meta for content_id {content_id}. Skipping processing.")
+                            logger.warning(f"Wave information for {filename} already exists in meta for content_id {content_id}. Skipping processing.")
                             job_processing = False
                             return
             except psycopg2.Error as e:
