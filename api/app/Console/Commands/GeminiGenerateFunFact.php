@@ -28,6 +28,44 @@ class GeminiGenerateFunFact extends Command
      */
     public function handle()
     {
+        // Register signal handlers
+        pcntl_signal(SIGINT, [$this, 'handleTerminationSignal']);
+        pcntl_signal(SIGHUP, [$this, 'handleTerminationSignal']);
+
+        while (true) {
+            $this->generateFunFact();
+
+            // Check for any pending signals
+            pcntl_signal_dispatch();
+
+            sleep(10);
+        }
+        return 0;
+    }
+
+    public function handleTerminationSignal($signal)
+    {
+        // Handle termination signal
+        switch ($signal) {
+            case SIGINT:
+                $this->info('Received SIGINT (Ctrl+C). Stopping script gracefully...');
+                break;
+            case SIGHUP:
+                $this->info('Received SIGHUP. Stopping script gracefully...');
+                break;
+            default:
+                $this->info('Received termination signal. Stopping script gracefully...');
+                break;
+        }
+
+        // Perform any cleanup operations here
+
+        // Exit the script
+        exit(0);
+    }
+
+    private function generateFunFact()
+    {
         $apiKey = config('gemini.api_key');
 
         // API Endpoint
@@ -140,7 +178,6 @@ PROMPT),
         } else {
             $this->error('Failed to parse response data.');
         }
-        return 0;
     }
 
     /**
