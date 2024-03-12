@@ -187,4 +187,5 @@ return [
         // 'Example' => App\Facades\Example::class,
     ])->toArray(),
 
+    'output_folder' => env('OUTPUT_FOLDER', '/output/'),
 ];

@@ -8,7 +8,7 @@ use App\Models\Content;
 
 class TTSPiper extends Command
 {
-    protected $signature = 'tts:Piper {contentId? : The content ID}';
+    protected $signature = 'tts:Piper {content_id? : The content ID}';
     protected $description = 'Execute the piper shell command with dynamic parameters';
     protected $content;
 
@@ -21,7 +21,7 @@ class TTSPiper extends Command
     public function handle()
     {
         try {
-            $content_id = $this->argument('contentId');
+            $content_id = $this->argument('content_id');
             $this->content = $content_id ? Content::find($content_id) : Content::where('status', 'new')->where('type', 'gemini.payload')->first();
 
             if (!$this->content) {
@@ -31,7 +31,7 @@ class TTSPiper extends Command
             $text = $this->extractTextFromMeta();
 
             $filename = $this->generateFilename($text, 1);
-            $outputFile = '/output/waves/' . $filename;
+            $outputFile = config('app.output_folder') . "/waves/$filename";
 
             $command = $this->buildShellCommand($text, $outputFile);
             $this->line($command);
