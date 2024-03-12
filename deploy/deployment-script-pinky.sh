@@ -29,6 +29,7 @@ sudo systemctl daemon-reload
 
 # Run migrations
 cd ${DEPLOYMENT_PATH}/api
+composer install --no-ansi
 ./artisan migrate --force
 
 
