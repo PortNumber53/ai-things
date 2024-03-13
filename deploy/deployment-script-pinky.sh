@@ -25,6 +25,7 @@ cd /etc/systemd/system/
 
 sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/convert_to_mp3.service convert_to_mp3.service
 sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/gemini_generate_fun_facts.service gemini_generate_fun_facts.service
+sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/generate_wav.service
 sudo systemctl daemon-reload
 
 # Run migrations
@@ -40,3 +41,4 @@ sudo systemctl enable --now convert_to_mp3.service
 # Restart services
 sudo systemctl restart gemini_generate_fun_facts.service
 sudo systemctl restart convert_to_mp3.service
+sudo systemctl start generate_wav.service
