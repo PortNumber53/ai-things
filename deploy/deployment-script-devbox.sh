@@ -34,7 +34,7 @@ cd ${DEPLOYMENT_PATH}/api
 composer install --no-ansi
 
 # Enable services
-sudo systemctl disable --now tortoise.service
+# sudo systemctl disable --now tortoise.service
 
 # Restart services
 # sudo systemctl stop tortoise.service
