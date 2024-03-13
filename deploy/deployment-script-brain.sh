@@ -21,7 +21,6 @@ echo "Updating release symlink"
 cd ${DEPLOYMENT_PATH}/api
 ln -sfn ${DEPLOY_BASE_PATH}storage storage
 
-
 cd ${DEPLOY_BASE_PATH}
 ln -sfn ${DEPLOYMENT_PATH} ./current
 
