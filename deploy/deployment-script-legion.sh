@@ -27,6 +27,10 @@ sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/tortoise.service to
 sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/tortoise.service
 sudo systemctl daemon-reload
 
+# Run migrations
+cd ${DEPLOYMENT_PATH}/api
+composer install --no-ansi
+
 # Enable services
 # sudo systemctl disable --now tortoise.service
 

@@ -33,6 +33,10 @@ sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/laravel-worker@.serv
 sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/ai_generate_fun_facts.service
 sudo systemctl daemon-reload
 
+# Run migrations
+cd ${DEPLOYMENT_PATH}/api
+composer install --no-ansi
+
 # Enable services
 sudo systemctl disable --now laravel-worker@text_fun_facts.service
 
