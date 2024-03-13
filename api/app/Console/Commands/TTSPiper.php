@@ -12,7 +12,7 @@ class TTSPiper extends Command
 {
     protected $queue;
 
-    protected $signature = 'tts:Piper {content_id? : The content ID}';
+    protected $signature = 'tts:Piper {content_id? : The content ID} {--sleep=30 : Sleep time in seconds}';
     protected $description = 'Execute the piper shell command with dynamic parameters';
     protected $content;
 
@@ -27,9 +27,10 @@ class TTSPiper extends Command
     {
         try {
             $content_id = $this->argument('content_id');
+            $sleep = $this->option('sleep');
 
             if (!$content_id) {
-                $this->processQueueMessage();
+                $this->processQueueMessage($sleep);
             }
             $this->processContent($content_id);
         } catch (\Exception $e) {
@@ -39,7 +40,7 @@ class TTSPiper extends Command
     }
 
 
-    private function processQueueMessage()
+    private function processQueueMessage($sleep)
     {
         while (true) {
             $message = $this->queue->pop('generate_wav');
@@ -56,7 +57,7 @@ class TTSPiper extends Command
 
             Log::info("No message found, sleeping");
             // Sleep for 30 seconds before checking the queue again
-            sleep(30);
+            sleep($sleep);
         }
     }
 
