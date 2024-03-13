@@ -25,6 +25,8 @@ cd /etc/systemd/system/
 
 sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/tortoise.service tortoise.service
 sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/tortoise.service
+sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/generate_wav.service
+
 sudo systemctl daemon-reload
 
 # Run migrations
@@ -36,3 +38,4 @@ composer install --no-ansi
 
 # Restart services
 # sudo systemctl stop tortoise.service
+sudo systemctl start generate_wav.service
