@@ -7,7 +7,7 @@ Type=simple
 User=grimlock
 Group=grimlock
 WorkingDirectory=/deploy/ai-things/current/api
-ExecStart=/usr/bin/bash -c "source /usr/etc/profile.d/conda.sh && conda activate tortoise && /usr/bin/php /deploy/ai-things/current/api/artisan tts:Piper --sleep=30"
+ExecStart=/usr/bin/bash -c "source /home/grimlock/miniforge3/etc/profile.d/conda.sh && conda activate speech && /usr/bin/php /deploy/ai-things/current/api/artisan tts:Piper --sleep=30"
 Restart=always
 RestartSec=3
 StandardOutput=syslog
