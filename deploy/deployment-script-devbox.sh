@@ -23,8 +23,9 @@ ln -sfn ${DEPLOYMENT_PATH} ./current
 echo "-Preparing systemd files"
 cd /etc/systemd/system/
 
-sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/tortoise.service tortoise.service
-sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/tortoise.servicesudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/generate_wav.service
+sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/tortoise.service tortoise.service
+sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/tortoise.service
+sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/generate_wav.service
 
 sudo systemctl daemon-reload
 
