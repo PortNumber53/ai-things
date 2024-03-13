@@ -39,7 +39,7 @@ composer install --no-ansi
 
 # Enable services
 sudo systemctl disable --now laravel-worker@text_fun_facts.service
-sudo systemctl disable --now generate_wav.service
+# sudo systemctl disable --now generate_wav.service
 
 # Restart services
 sudo systemctl stop laravel-worker@text_fun_facts.service
