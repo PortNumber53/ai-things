@@ -82,6 +82,12 @@ class TTSPiper extends Command
         if ($this->isValidOutputFile($outputFile)) {
             $this->updateContent($filename);
             $this->info("Shell command executed. Output file: $outputFile");
+
+            $job_payload = json_encode([
+                'content_id' => $this->content->id,
+                'hostname' => config('app.hostname'),
+            ]);
+            $this->queue->pushRaw($job_payload, 'generate_mp3');
         } else {
             $this->error('Error executing piper command or output file not found or older than 1 minute.');
         }
