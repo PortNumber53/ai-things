@@ -37,4 +37,4 @@ composer install --no-ansi
 sudo systemctl enable --now gemini_generate_fun_facts.service
 
 # Restart services
-sudo systemctl stop gemini_generate_fun_facts.service
+sudo systemctl restart gemini_generate_fun_facts.service
