@@ -49,15 +49,15 @@ class AudioConvertToMp3 extends Command
 
     private function processContent($content_id)
     {
-        $content = $content_id ? Content::find($content_id) : Content::where('status', 'wav.generated')
+        $this->content = $content_id ? Content::find($content_id) : Content::where('status', 'wav.generated')
             ->where('type', 'gemini.payload')->first();
 
-        if (!$content) {
+        if (!$this->content) {
             $this->error('Content not found.');
             return 1;
         }
 
-        $meta = json_decode($content->meta, true);
+        $meta = json_decode($this->content->meta, true);
         $filenames = $meta['filenames'] ?? [];
 
         $convertedFiles = [];
@@ -91,11 +91,11 @@ class AudioConvertToMp3 extends Command
         }
 
         if (!empty($convertedFiles)) {
-            $content->status = 'mp3.generated';
+            $this->content->status = 'mp3.generated';
             $meta['filenames'] = $convertedFiles;
-            $content->meta = json_encode($meta);
+            $this->content->meta = json_encode($meta);
 
-            $content->save();
+            $this->content->save();
 
             $job_payload = json_encode([
                 'content_id' => $this->content->id,
