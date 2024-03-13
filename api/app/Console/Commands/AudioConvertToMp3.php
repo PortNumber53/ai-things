@@ -36,11 +36,13 @@ class AudioConvertToMp3 extends Command
     {
         while (true) {
             $message = $this->queue->pop('generate_mp3');
-            $payload = json_decode($message->getRawBody(), true);
+            if ($message) {
+                $payload = json_decode($message->getRawBody(), true);
 
-            if (isset($payload['content_id'])) {
-                $this->processContent($payload['content_id']);
-                $message->delete();
+                if (isset($payload['content_id'])) {
+                    $this->processContent($payload['content_id']);
+                    $message->delete();
+                }
             }
         }
     }
