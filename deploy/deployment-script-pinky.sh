@@ -23,8 +23,8 @@ ln -sfn ${DEPLOYMENT_PATH} ./current
 echo "-Preparing systemd files"
 cd /etc/systemd/system/
 
+sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/convert_to_mp3.service convert_to_mp3.service
 sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/gemini_generate_fun_facts.service gemini_generate_fun_facts.service
-sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/gemini_generate_fun_facts.service
 sudo systemctl daemon-reload
 
 # Run migrations
@@ -35,6 +35,8 @@ composer install --no-ansi
 
 # Enable services
 sudo systemctl enable --now gemini_generate_fun_facts.service
+sudo systemctl enable --now convert_to_mp3.service
 
 # Restart services
 sudo systemctl restart gemini_generate_fun_facts.service
+sudo systemctl restart convert_to_mp3.service
