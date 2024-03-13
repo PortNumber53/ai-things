@@ -96,6 +96,12 @@ class AudioConvertToMp3 extends Command
             $content->meta = json_encode($meta);
 
             $content->save();
+
+            $job_payload = json_encode([
+                'content_id' => $this->content->id,
+                'hostname' => config('app.hostname'),
+            ]);
+            $this->queue->pushRaw($job_payload, 'generate_srt');
         }
     }
 }
