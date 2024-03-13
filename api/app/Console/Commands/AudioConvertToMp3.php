@@ -72,7 +72,7 @@ class AudioConvertToMp3 extends Command
             }
 
             $outputFile = pathinfo($inputFile, PATHINFO_FILENAME) . '.mp3';
-            $outputFullPath = config('app.output_folder') . "waves/$outputFile";
+            $outputFullPath = config('app.output_folder') . "mp3/$outputFile";
 
             $command = "ffmpeg -y -i $inputFileWithPath -acodec libmp3lame $outputFullPath";
             exec($command, $output, $returnCode);
