@@ -88,7 +88,7 @@ class TTSPiper extends Command
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, 'generate_mp3');
+            $this->queue->pushRaw($job_payload, 'generate_srt');
         } else {
             $this->error('Error executing piper command or output file not found or older than 1 minute.');
         }
