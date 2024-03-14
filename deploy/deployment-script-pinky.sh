@@ -36,7 +36,7 @@ composer install --no-ansi
 
 # Enable services
 sudo systemctl enable --now gemini_generate_fun_facts.service
-sudo systemctl disable --now convert_to_mp3.service
+# sudo systemctl disable --now convert_to_mp3.service
 
 # Restart services
 sudo systemctl restart gemini_generate_fun_facts.service
