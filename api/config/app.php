@@ -188,6 +188,8 @@ return [
     ])->toArray(),
 
     'hostname' => env('HOSTNAME', 'dummy'),
+    'output_folder' => env('OUTPUT_FOLDER'),
+
     'subtitle_folder' => env('OUTPUT_FOLDER', '/subtitles'),
     'subtitle_script' => 'python subtitle.py',
 ];
