@@ -6,8 +6,7 @@ After=network.target
 Type=simple
 User=grimlock
 Group=grimlock
-WorkingDirectory=/deploy/
-ai-things/current/auto-subtitles-generator
+WorkingDirectory=/deploy/ai-things/current/auto-subtitles-generator
 ExecStart=/usr/bin/bash -c "source /home/grimlock/miniforge3/etc/profile.d/conda.sh && conda activate speech && /usr/bin/php /deploy/ai-things/current/api/artisan job:GenerateSrt --sleep=30"
 Restart=always
 RestartSec=3
