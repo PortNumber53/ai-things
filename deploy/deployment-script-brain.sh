@@ -32,6 +32,7 @@ sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/laravel-worker@.serv
 sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/ai_generate_fun_facts.service
 sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/generate_wav.service
 sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/generate_srt.service
+
 sudo systemctl daemon-reload
 
 # Run migrations

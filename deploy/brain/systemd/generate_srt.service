@@ -1,5 +1,5 @@
 [Unit]
-Description=Laravel Artisan Command for Generating Fun Facts
+Description=Laravel Artisan Command for Generating SRT files
 After=network.target
 
 [Service]
