@@ -17,7 +17,7 @@ DEVICE = "cpu"  # Force using CPU for inference
 loaded_model = whisper.load_model("small", device=DEVICE)
 
 def inference(loaded_model, input_file, task, content_id):
-    save_dir = os.path.join(BASE_OUTPUT_FOLDER, "subtitles")
+    save_dir = os.path.join(BASE_OUTPUT_FOLDER, "/subtitles")
     os.makedirs(save_dir, exist_ok=True)
 
     with open(f"{save_dir}/input_{content_id}.mp3", "wb") as f:
