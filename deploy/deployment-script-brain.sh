@@ -45,4 +45,4 @@ sudo systemctl disable --now laravel-worker@text_fun_facts.service
 
 # Restart services
 sudo systemctl stop laravel-worker@text_fun_facts.service
-sudo systemctl start generate_wav.service
+sudo systemctl restart generate_wav.service
