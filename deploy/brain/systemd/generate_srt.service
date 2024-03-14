@@ -1,0 +1,19 @@
+[Unit]
+Description=Laravel Artisan Command for Generating Fun Facts
+After=network.target
+
+[Service]
+Type=simple
+User=grimlock
+Group=grimlock
+WorkingDirectory=/deploy/
+ai-things/current/auto-subtitles-generator
+ExecStart=/usr/bin/bash -c "source /home/grimlock/miniforge3/etc/profile.d/conda.sh && conda activate speech && /usr/bin/php /deploy/ai-things/current/api/artisan tts:Piper --sleep=30"
+Restart=always
+RestartSec=3
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=generate_srt
+
+[Install]
+WantedBy=multi-user.target
