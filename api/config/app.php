@@ -189,5 +189,5 @@ return [
 
     'hostname' => env('HOSTNAME', 'dummy'),
     'subtitle_script' => env('OUTPUT_FOLDER', '/output'),
-    'subtitle_script' => 'python /deploy/ai-things/current/auto-subtitles-generator/subtitle.py',
+    'subtitle_script' => 'python subtitle.py',
 ];
