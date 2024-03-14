@@ -130,9 +130,9 @@ class JobGenerateSrt extends Command
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, 'wav_ready');
+            $this->queue->pushRaw($job_payload, 'srt_ready');
 
-            $this->info("Job dispatched to process the WAV file.");
+            $this->info("Job dispatched to generate the SRT file.");
         }
     }
 }

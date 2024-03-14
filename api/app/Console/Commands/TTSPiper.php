@@ -99,7 +99,7 @@ class TTSPiper extends Command
         ]);
         $this->queue->pushRaw($job_payload, 'wav_ready');
 
-        $this->info("Job dispatched to process the WAV file.");
+        $this->info("Job dispatched to generate the WAV file.");
     }
 
     private function extractTextFromMeta()
@@ -123,7 +123,7 @@ class TTSPiper extends Command
 
         // Loop through lines to process the text
         foreach ($lines as $line) {
-           // Skip the line if it starts with "TITLE:"
+            // Skip the line if it starts with "TITLE:"
             if (strpos($line, 'TITLE:') === 0) {
                 continue;
             }
