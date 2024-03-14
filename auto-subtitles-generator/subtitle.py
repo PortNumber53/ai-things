@@ -10,7 +10,7 @@ import whisper
 load_dotenv()
 
 # Access the BASE_OUTPUT_FOLDER environment variable, with a default of "output" if not found
-BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output/')
+BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output')
 
 DEVICE = "cpu"  # Force using CPU for inference
 

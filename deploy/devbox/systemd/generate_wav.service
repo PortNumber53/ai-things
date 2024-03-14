@@ -12,7 +12,7 @@ Restart=always
 RestartSec=3
 StandardOutput=syslog
 StandardError=syslog
-SyslogIdentifier=laravel-fun-facts
+SyslogIdentifier=generate_wav
 
 [Install]
 WantedBy=multi-user.target

@@ -12,7 +12,7 @@ from dotenv import load_dotenv  # Import load_dotenv function
 # Load environment variables from .env file
 load_dotenv()
 
-BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output/')
+BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output')
 
 
 def get_wav_and_spacer_paths_from_database(content_id):
@@ -48,7 +48,7 @@ def get_wav_and_spacer_paths_from_database(content_id):
                     for entry in sorted(filenames_json, key=lambda x: x.get('sentence_id', 0)):
                         if isinstance(entry, dict):
                             filename = entry.get('filename')
-                            filename = os.path.join(BASE_OUTPUT_FOLDER, 'waves', filename)
+                            filename = os.path.join(BASE_OUTPUT_FOLDER, '/waves', filename)
                             if filename:
                                 filenames.append(filename)
                         else:
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     if not wav_paths:
         print("No filenames retrieved for the specified content ID.")
     else:
-        output_path = os.path.join(BASE_OUTPUT_FOLDER, 'waves', f'output_combined_with_silence_{args.content_id}.wav')
+        output_path = os.path.join(BASE_OUTPUT_FOLDER, '/waves', f'output_combined_with_silence_{args.content_id}.wav')
         try:
             output_path, duration = combine_wav_files_with_silence(wav_paths, output_path, silence_duration=1)
             print(f"Combined WAV files saved to: {output_path}")

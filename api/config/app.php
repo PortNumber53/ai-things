@@ -188,5 +188,6 @@ return [
     ])->toArray(),
 
     'hostname' => env('HOSTNAME', 'dummy'),
-    'output_folder' => env('OUTPUT_FOLDER', '/output/'),
+    'output_folder' => env('OUTPUT_FOLDER', '/output'),
+    'subtitle_script' => 'python /home/grimlock/ai/ai-things/auto-subtitles-generator/subtitle.py',
 ];

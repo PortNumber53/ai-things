@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 job_processing = False
 
 # Set the base output folder
-BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output/')
+BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output')
 
 def signal_handler(sig, frame):
     global job_processing
@@ -161,7 +161,7 @@ def process_job(job):
     if torch.backends.mps.is_available():
         args.use_deepspeed = False
 
-    args.output_path = os.path.join(args.output_path, 'waves')
+    args.output_path = os.path.join(args.output_path, '/waves')
     os.makedirs(os.path.join(BASE_OUTPUT_FOLDER, args.output_path), exist_ok=True)
 
     # Initialize TextToSpeech instance
