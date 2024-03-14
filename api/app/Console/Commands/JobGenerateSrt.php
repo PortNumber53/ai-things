@@ -108,7 +108,7 @@ class JobGenerateSrt extends Command
                 $output = shell_exec($command);
                 $this->info("Command output: " . $output);
 
-                $subtitle_base_path = config('app.output_folder') . '/subtitles';
+                $subtitle_base_path = config('app.subtitle_folder');
                 $vtt_file_path = "$subtitle_base_path/transcription_{$this->content->id}.vtt";
                 $srt_file_path = "$subtitle_base_path/transcription_{$this->content->id}.srt";
 
