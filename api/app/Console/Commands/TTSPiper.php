@@ -74,7 +74,7 @@ class TTSPiper extends Command
         $text = $this->extractTextFromMeta();
 
         $filename = $this->generateFilename($text, 1);
-        $outputFile = config('app.output_folder') . "waves/$filename";
+        $outputFile = config('app.output_folder') . "/waves/$filename";
 
         $command = $this->buildShellCommand($text, $outputFile);
         $this->line($command);
