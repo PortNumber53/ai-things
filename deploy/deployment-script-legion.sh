@@ -39,5 +39,5 @@ composer install --no-ansi
 
 # Restart services
 # sudo systemctl stop tortoise.service
-sudo systemctl stop generate_wav.service
-sudo systemctl stop generate_srt.service
+sudo systemctl restart generate_wav.service
+sudo systemctl restart generate_srt.service
