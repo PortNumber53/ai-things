@@ -44,3 +44,10 @@ yay -S espeak-ng
 
 echo "TEST" | piper --debug --model ljspeech.onnx -c ljspeech.onnx.json  --output_file /output/waves/audio-45266.wav && play /output/waves/audio-45266.wav
 ```
+
+
+
+Stable Difusion
+```
+./webui.sh --listen --api
+```
