@@ -7,15 +7,15 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Content;
 use Illuminate\Contracts\Queue\Queue;
 
-class JobGenerateSrt extends Command
+class JobFixSubtitles extends Command
 {
-    protected $signature = 'job:GenerateSrt
+    protected $signature = 'job:FixSubtitles
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
         ';
-    protected $description = 'Listens to queue and runs AudioConvertToMp3';
-    protected $queue;
+    protected $description = 'Fix subtitles file by removing line breaks';
     protected $content;
+    protected $queue;
 
     public function __construct(Content $content, Queue $queue)
     {
@@ -24,9 +24,6 @@ class JobGenerateSrt extends Command
         $this->queue = $queue;
     }
 
-    /**
-     * Execute the console command.
-     */
     public function handle()
     {
         try {
@@ -43,10 +40,11 @@ class JobGenerateSrt extends Command
         }
     }
 
+
     private function processQueueMessage($sleep)
     {
         while (true) {
-            $message = $this->queue->pop('generate_srt');
+            $message = $this->queue->pop('srt_ready');
 
             if ($message) {
                 $payload = json_decode($message->getRawBody(), true);
@@ -59,7 +57,7 @@ class JobGenerateSrt extends Command
                     } else {
                         Log::info("[" . gethostname() . "] - Message received on a different host. Re-queuing or ignoring.");
                         // You can re-queue the message here if needed
-                        $this->queue->push('generate_srt', $payload);
+                        $this->queue->push('str_fixed', $payload);
                         // Or you can simply ignore the message
                     }
                 }
@@ -76,51 +74,42 @@ class JobGenerateSrt extends Command
     {
         $this->content = $content_id ?
             Content::find($content_id) :
-            Content::where('status', 'new')->where('type', 'gemini.payload')->first();
+            Content::where('status', 'str_ready')->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {
             throw new \Exception('Content not found.');
         }
-
         try {
             $meta = json_decode($this->content->meta, true);
-            $filenames = $meta['filenames'];
+            $subtitles = $meta['subtitles'];
+            $srt_contents = $subtitles['srt'];
+            print_r($srt_contents);
 
-            foreach ($filenames as $filename_data) {
-                $wav_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'waves', $filename_data['filename']);
-                // We run a shell script using shell_exec
-                $this->info("Running shell script");
-                $command = sprintf('%s %s %s %s', config('app.subtitle_script'), $wav_file_path, 'Transcribe', $this->content->id);
-                $this->info("Running command: $command");
-                $output = shell_exec($command);
-                $this->info("Command output: " . $output);
+            $meta['subtitles']['srt'] = $this->fixSubtitle($srt_contents);
 
-                $subtitle_base_path = config('app.subtitle_folder');
-                $vtt_file_path = "$subtitle_base_path/transcription_{$this->content->id}.vtt";
-                $srt_file_path = "$subtitle_base_path/transcription_{$this->content->id}.srt";
-
-                dump($vtt_file_path);
-                dump($srt_file_path);
-
-                $vtt_file_contents = file_get_contents($vtt_file_path);
-                $srt_file_contents = file_get_contents($srt_file_path);
-
-                $meta['subtitles'] = [
-                    'vtt' => $vtt_file_contents,
-                    'srt' => $srt_file_contents,
-                ];
-                $this->content->status = 'str_ready';
-                $this->content->meta = json_encode($meta);
-                $this->content->save();
-            }
+            $this->content->status = 'subtitle.fixed';
+            $this->content->meta = json_encode($meta);
+            $this->content->save();
+        } catch (\Exception $e) {
+            print_r($e->getLine());
+            print_r($e->getMessage());
+            die("Exception\n");
         } finally {
             $job_payload = json_encode([
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, 'srt_ready');
+            $this->queue->pushRaw($job_payload, 'subtitle.fixed');
 
             $this->info("Job dispatched to generate the SRT file.");
         }
+    }
+
+    private function fixSubtitle($srt_contents)
+    {
+        $fixed_str = '';
+
+        $fixed_str .= $srt_contents;
+        return $fixed_str;
     }
 }
