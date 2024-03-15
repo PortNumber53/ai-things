@@ -1,5 +1,5 @@
 [Unit]
-Description=Laravel Artisan Command for Generating Fun Facts using Gemini
+Description=Laravel Artisan Command for converting WAV to MP3
 After=network.target
 
 [Service]
@@ -10,8 +10,6 @@ WorkingDirectory=/deploy/ai-things/current/api
 ExecStart=/usr/bin/php /deploy/ai-things/current/api/artisan audio:ConvertToMp3
 Restart=always
 RestartSec=3
-StandardOutput=syslog
-StandardError=syslog
 SyslogIdentifier=convert_to_mp3
 
 [Install]

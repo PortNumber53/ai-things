@@ -26,6 +26,7 @@ cd /etc/systemd/system/
 sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/tortoise.service tortoise.service
 sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/tortoise.service
 sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/generate_wav.service
+sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/generate_srt.service
 
 sudo systemctl daemon-reload
 
@@ -39,3 +40,4 @@ composer install --no-ansi
 # Restart services
 # sudo systemctl stop tortoise.service
 sudo systemctl restart generate_wav.service
+sudo systemctl restart generate_srt.service

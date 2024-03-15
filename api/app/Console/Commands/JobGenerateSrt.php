@@ -122,6 +122,7 @@ class JobGenerateSrt extends Command
                     'vtt' => $vtt_file_contents,
                     'srt' => $srt_file_contents,
                 ];
+                $this->content->status = 'str_ready';
                 $this->content->meta = json_encode($meta);
                 $this->content->save();
             }

@@ -10,8 +10,6 @@ WorkingDirectory=/deploy/ai-things/current/api
 ExecStart=/usr/bin/php /deploy/ai-things/current/api/artisan Ai:GenerateFunFacts --sleep=30
 Restart=always
 RestartSec=3
-StandardOutput=syslog
-StandardError=syslog
 SyslogIdentifier=laravel-fun-facts
 
 [Install]

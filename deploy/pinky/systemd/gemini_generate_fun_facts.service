@@ -10,8 +10,6 @@ WorkingDirectory=/deploy/ai-things/current/api
 ExecStart=/usr/bin/php /deploy/ai-things/current/api/artisan Gemini:GenerateFunFact
 Restart=always
 RestartSec=3
-StandardOutput=syslog
-StandardError=syslog
 SyslogIdentifier=gemini_fun_fact
 
 [Install]
