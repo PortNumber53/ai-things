@@ -53,11 +53,11 @@ class TTSPiper extends Command
                     // return; // Exit the loop after processing the message
                     $message->delete();
                 }
+            } else {
+                Log::info("No message found, sleeping");
+                // Sleep for 30 seconds before checking the queue again
+                sleep($sleep);
             }
-
-            Log::info("No message found, sleeping");
-            // Sleep for 30 seconds before checking the queue again
-            sleep($sleep);
         }
     }
 

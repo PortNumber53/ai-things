@@ -87,7 +87,7 @@ class JobFixSubtitles extends Command
 
             $meta['subtitles']['srt'] = $this->fixSubtitle($srt_contents);
 
-            $this->content->status = 'subtitle.fixed';
+            $this->content->status = 'subtitle_fixed';
             $this->content->meta = json_encode($meta);
             $this->content->save();
         } catch (\Exception $e) {
@@ -99,7 +99,7 @@ class JobFixSubtitles extends Command
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, 'subtitle.fixed');
+            $this->queue->pushRaw($job_payload, 'subtitle_fixed');
 
             $this->info("Job dispatched to generate the SRT file.");
         }

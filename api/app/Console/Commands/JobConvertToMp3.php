@@ -8,13 +8,15 @@ use Illuminate\Contracts\Queue\Queue;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
-class AudioConvertToMp3 extends Command
+class JobConvertToMp3 extends Command
 {
-    protected $queue;
-
-    protected $signature = 'audio:ConvertToMp3 {content_id? : The content ID}';
+    protected $signature = 'job:ConvertToMp3
+        {content_id? : The content ID}
+        {--sleep=30 : Sleep time in seconds}
+        ';
     protected $description = 'Convert audio file(s) to mp3 using ffmpeg';
     protected $content;
+    protected $queue;
 
     public function __construct(Content $content, Queue $queue)
     {
@@ -26,6 +28,8 @@ class AudioConvertToMp3 extends Command
     public function handle()
     {
         $content_id = $this->argument('content_id');
+        $sleep = $this->option('sleep');
+
         if (!$content_id) {
             $this->processQueueMessage();
         }
@@ -49,7 +53,7 @@ class AudioConvertToMp3 extends Command
 
     private function processContent($content_id)
     {
-        $this->content = $content_id ? Content::find($content_id) : Content::where('status', 'wav.generated')
+        $this->content = $content_id ? Content::find($content_id) : Content::where('status', 'subtitle_fixed')
             ->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {
@@ -101,7 +105,7 @@ class AudioConvertToMp3 extends Command
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, 'generate_srt');
+            $this->queue->pushRaw($job_payload, 'generate_image');
         }
     }
 }
