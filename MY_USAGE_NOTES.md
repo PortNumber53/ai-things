@@ -49,5 +49,6 @@ echo "TEST" | piper --debug --model ljspeech.onnx -c ljspeech.onnx.json  --outpu
 
 Stable Difusion
 ```
+yay -S bc
 ./webui.sh --listen --api --use-cpu GFPGAN BSRGAN ESRGAN SCUNet CodeFormer --all
 ```

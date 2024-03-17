@@ -100,3 +100,26 @@ pip install -r requirements.txt
 
 
 ```
+
+
+
+
+###
+
+```
+conda create -n speech python=3.11
+
+pip install piper-tts
+```
+
+
+sudo mkdir -pv /storage/ai/
+sudo chown -Rv grimlock:grimlock /storage
+
+
+
+sudo mkdir -p /deploy/ai-things
+sudo chown -Rv grimlock:grimlock /deploy/
+
+sudo mkdir -pv sudo mkdir -pv /output/waves /output/mp3 /output/subtitles /output/results /output/funfacts
+sudo chown -Rv grimlock:grimlock /output/
