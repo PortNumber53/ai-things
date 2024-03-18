@@ -2,73 +2,39 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
+use App\Console\Commands\Base\BaseJobCommand;
 use Illuminate\Support\Facades\Log;
 use App\Models\Content;
 use Illuminate\Contracts\Queue\Queue;
 use App\Jobs\ProcessWavFile;
 
-class TTSPiper extends Command
+class JobGenerateWav extends BaseJobCommand
 {
     protected $queue;
 
-    protected $signature = 'tts:Piper {content_id? : The content ID} {--sleep=30 : Sleep time in seconds}';
+    protected $signature = 'job:GenerateWav
+        {content_id? : The content ID}
+        {--sleep=30 : Sleep time in seconds}
+        ';
     protected $description = 'Execute the piper shell command with dynamic parameters';
     protected $content;
 
-    public function __construct(Content $content, Queue $queue)
-    {
-        parent::__construct();
-        $this->content = $content;
-        $this->queue = $queue;
-    }
+    protected const QUEUE_INPUT  = 'generate_wav';
+    protected const QUEUE_OUTPUT = 'generate_srt';
 
-    public function handle()
-    {
-        try {
-            $content_id = $this->argument('content_id');
-            $sleep = $this->option('sleep');
-
-            if (!$content_id) {
-                $this->processQueueMessage($sleep);
-            }
-            $this->processContent($content_id);
-        } catch (\Exception $e) {
-            Log::error($e->getMessage());
-            $this->error('An error occurred. Please check the logs for more details.');
-        }
-    }
-
-
-    private function processQueueMessage($sleep)
-    {
-        while (true) {
-            $message = $this->queue->pop('generate_wav');
-
-            if ($message) {
-                $payload = json_decode($message->getRawBody(), true);
-
-                if (isset($payload['content_id'])) {
-                    $this->processContent($payload['content_id']);
-                    // return; // Exit the loop after processing the message
-                    $message->delete();
-                }
-            } else {
-                Log::info("No message found, sleeping");
-                // Sleep for 30 seconds before checking the queue again
-                sleep($sleep);
-            }
-        }
-    }
-
-    private function processContent($content_id)
+    protected function processContent($content_id)
     {
         $this->content = $content_id ?
             Content::find($content_id) :
-            Content::where('status', 'new')->where('type', 'gemini.payload')->first();
+            Content::where('status', self::QUEUE_INPUT)->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {
             throw new \Exception('Content not found.');
+        } else {
+            if ($this->content->status != self::QUEUE_INPUT) {
+                $this->error("content is not at the right status");
+                return 1;
+            }
         }
 
         $text = $this->extractTextFromMeta();
@@ -88,7 +54,7 @@ class TTSPiper extends Command
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, 'generate_srt');
+            $this->queue->pushRaw($job_payload, self::QUEUE_OUTPUT);
         } else {
             $this->error('Error executing piper command or output file not found or older than 1 minute.');
         }
@@ -97,9 +63,9 @@ class TTSPiper extends Command
             'content_id' => $this->content->id,
             'hostname' => config('app.hostname'),
         ]);
-        $this->queue->pushRaw($job_payload, 'wav_ready');
+        $this->queue->pushRaw($job_payload, self::QUEUE_OUTPUT);
 
-        $this->info("Job dispatched to generate the WAV file.");
+        $this->info("Job dispatched to generate the SRT file.");
     }
 
     private function extractTextFromMeta()
@@ -167,7 +133,7 @@ class TTSPiper extends Command
 
     private function updateContent($filename)
     {
-        $this->content->status = 'wav.generated';
+        $this->content->status = self::QUEUE_OUTPUT;
         $this->content->updated_at = now();
 
         $meta = json_decode($this->content->meta, true);

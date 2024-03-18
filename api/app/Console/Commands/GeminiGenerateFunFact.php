@@ -2,12 +2,12 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
+use App\Console\Commands\Base\BaseJobCommand;
 use Illuminate\Support\Facades\Http;
 use App\Models\Content;
 use GuzzleHttp\Client;
 
-class GeminiGenerateFunFact extends Command
+class GeminiGenerateFunFact extends BaseJobCommand
 {
     /**
      * The name and signature of the console command.
@@ -22,6 +22,12 @@ class GeminiGenerateFunFact extends Command
      * @var string
      */
     protected $description = 'Generate JSON payload content about a random fun fact';
+
+    protected $queue;
+    protected $content;
+
+    protected const QUEUE_OUTPUT = 'generate_wav';
+
 
     /**
      * Execute the console command.
@@ -164,14 +170,21 @@ PROMPT),
             }
 
             // Save data to database
-            $content = Content::create([
+            $this->content = Content::create([
                 'title' => $title,
-                'status' => 'new',
+                'status' => self::QUEUE_OUTPUT,
                 'type' => 'gemini.payload',
                 'sentences' => json_encode($paragraphs),
                 'count' => $count,
                 'meta' => json_encode(['gemini_response' => $responseData]),
             ]);
+            dump($this->content);
+
+            $job_payload = json_encode([
+                'content_id' => $this->content->id,
+                'hostname' => config('app.hostname'),
+            ]);
+            $this->queue->pushRaw($job_payload, self::QUEUE_OUTPUT);
 
             // Display success message
             $this->info('Fun fact generated successfully.');

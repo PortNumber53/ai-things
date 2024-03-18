@@ -2,15 +2,15 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
+use App\Console\Commands\Base\BaseJobCommand;
 use App\Models\Content;
 use Illuminate\Contracts\Queue\Queue;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
-class JobConvertToMp3 extends Command
+class JobGenerateMp3 extends BaseJobCommand
 {
-    protected $signature = 'job:ConvertToMp3
+    protected $signature = 'job:GenerateMp3
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
         ';
@@ -18,42 +18,12 @@ class JobConvertToMp3 extends Command
     protected $content;
     protected $queue;
 
-    public function __construct(Content $content, Queue $queue)
+    protected const QUEUE_INPUT  = 'generate_mp3';
+    protected const QUEUE_OUTPUT = 'fix_subtitle';
+
+    protected function processContent($content_id)
     {
-        parent::__construct();
-        $this->content = $content;
-        $this->queue = $queue;
-    }
-
-    public function handle()
-    {
-        $content_id = $this->argument('content_id');
-        $sleep = $this->option('sleep');
-
-        if (!$content_id) {
-            $this->processQueueMessage();
-        }
-        $this->processContent($content_id);
-    }
-
-    private function processQueueMessage()
-    {
-        while (true) {
-            $message = $this->queue->pop('generate_mp3');
-            if ($message) {
-                $payload = json_decode($message->getRawBody(), true);
-
-                if (isset($payload['content_id'])) {
-                    $this->processContent($payload['content_id']);
-                    $message->delete();
-                }
-            }
-        }
-    }
-
-    private function processContent($content_id)
-    {
-        $this->content = $content_id ? Content::find($content_id) : Content::where('status', 'subtitle_fixed')
+        $this->content = $content_id ? Content::find($content_id) : Content::where('status', self::QUEUE_INPUT)
             ->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {
@@ -70,7 +40,7 @@ class JobConvertToMp3 extends Command
             $inputFile = $filenameData['filename'];
             $sentenceId = $filenameData['sentence_id'] ?? null;
 
-            $inputFileWithPath = config('app.output_folder') . "waves/$inputFile";
+            $inputFileWithPath = config('app.output_folder') . "/waves/$inputFile";
 
             if (!File::exists($inputFileWithPath)) {
                 $this->error("Input file does not exist: $inputFileWithPath");
@@ -78,7 +48,7 @@ class JobConvertToMp3 extends Command
             }
 
             $outputFile = pathinfo($inputFile, PATHINFO_FILENAME) . '.mp3';
-            $outputFullPath = config('app.output_folder') . "mp3/$outputFile";
+            $outputFullPath = config('app.output_folder') . "/mp3/$outputFile";
 
             $command = "ffmpeg -y -i $inputFileWithPath -acodec libmp3lame $outputFullPath";
             exec($command, $output, $returnCode);
@@ -95,7 +65,7 @@ class JobConvertToMp3 extends Command
         }
 
         if (!empty($convertedFiles)) {
-            $this->content->status = 'mp3.generated';
+            $this->content->status = self::QUEUE_OUTPUT;
             $meta['filenames'] = $convertedFiles;
             $this->content->meta = json_encode($meta);
 
@@ -105,7 +75,7 @@ class JobConvertToMp3 extends Command
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, 'generate_image');
+            $this->queue->pushRaw($job_payload, self::QUEUE_OUTPUT);
         }
     }
 }

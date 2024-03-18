@@ -7,9 +7,14 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Content;
 use Illuminate\Contracts\Queue\Queue;
 
-class JobFixSubtitles extends BaseJobCommand
+class JobUploadPodcastToYoutube extends BaseJobCommand
 {
-    protected $signature = 'job:FixSubtitles
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'job:UploadPodcastToYoutube
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
         ';
@@ -17,8 +22,9 @@ class JobFixSubtitles extends BaseJobCommand
     protected $content;
     protected $queue;
 
-    protected const QUEUE_INPUT  = 'fix_subtitle';
-    protected const QUEUE_OUTPUT = 'generate_image';
+    protected const QUEUE_INPUT  = 'podcast_ready';
+    protected const QUEUE_OUTPUT = 'upload.tiktok';
+
 
     protected function processContent($content_id)
     {
@@ -37,19 +43,12 @@ class JobFixSubtitles extends BaseJobCommand
 
         try {
             $meta = json_decode($this->content->meta, true);
-            $subtitles = $meta['subtitles'];
-            $srt_contents = $subtitles['srt'];
-            print_r($srt_contents);
+            $filenames = $meta['filenames'];
 
-            $meta['subtitles']['srt'] = $this->fixSubtitle($srt_contents);
 
             $this->content->status = self::QUEUE_OUTPUT;
-            $this->content->meta = json_encode($meta);
+
             $this->content->save();
-        } catch (\Exception $e) {
-            print_r($e->getLine());
-            print_r($e->getMessage());
-            die("Exception\n");
         } finally {
             $job_payload = json_encode([
                 'content_id' => $this->content->id,
@@ -59,13 +58,5 @@ class JobFixSubtitles extends BaseJobCommand
 
             $this->info("Job dispatched to generate the SRT file.");
         }
-    }
-
-    private function fixSubtitle($srt_contents)
-    {
-        $fixed_str = '';
-
-        $fixed_str .= $srt_contents;
-        return $fixed_str;
     }
 }

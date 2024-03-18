@@ -43,5 +43,5 @@ sudo systemctl enable --now gemini_generate_fun_facts.service
 # Restart services
 sudo systemctl restart gemini_generate_fun_facts.service
 sudo systemctl stop convert_to_mp3.service
-sudo systemctl restart generate_wav.service
-sudo systemctl restart generate_srt.service
+sudo systemctl stop generate_wav.service
+sudo systemctl stop generate_srt.service

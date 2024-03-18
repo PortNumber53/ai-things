@@ -7,18 +7,18 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Content;
 use Illuminate\Contracts\Queue\Queue;
 
-class JobFixSubtitles extends BaseJobCommand
+class JobGeneratePodcast extends BaseJobCommand
 {
-    protected $signature = 'job:FixSubtitles
+    protected $signature = 'job:GeneratePodcast
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
         ';
-    protected $description = 'Fix subtitles file by removing line breaks';
-    protected $content;
+    protected $description = 'Generate PodCast but running remotion';
     protected $queue;
+    protected $content;
 
-    protected const QUEUE_INPUT  = 'fix_subtitle';
-    protected const QUEUE_OUTPUT = 'generate_image';
+    protected const QUEUE_INPUT  = 'generate_podcast';
+    protected const QUEUE_OUTPUT = 'podcast_ready';
 
     protected function processContent($content_id)
     {
@@ -37,19 +37,12 @@ class JobFixSubtitles extends BaseJobCommand
 
         try {
             $meta = json_decode($this->content->meta, true);
-            $subtitles = $meta['subtitles'];
-            $srt_contents = $subtitles['srt'];
-            print_r($srt_contents);
+            $filenames = $meta['filenames'];
 
-            $meta['subtitles']['srt'] = $this->fixSubtitle($srt_contents);
 
             $this->content->status = self::QUEUE_OUTPUT;
-            $this->content->meta = json_encode($meta);
+
             $this->content->save();
-        } catch (\Exception $e) {
-            print_r($e->getLine());
-            print_r($e->getMessage());
-            die("Exception\n");
         } finally {
             $job_payload = json_encode([
                 'content_id' => $this->content->id,
@@ -57,15 +50,7 @@ class JobFixSubtitles extends BaseJobCommand
             ]);
             $this->queue->pushRaw($job_payload, self::QUEUE_OUTPUT);
 
-            $this->info("Job dispatched to generate the SRT file.");
+            $this->info("Job dispatched to upload podcast file.");
         }
-    }
-
-    private function fixSubtitle($srt_contents)
-    {
-        $fixed_str = '';
-
-        $fixed_str .= $srt_contents;
-        return $fixed_str;
     }
 }
