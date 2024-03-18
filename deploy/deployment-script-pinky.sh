@@ -27,6 +27,7 @@ sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/convert_to_mp3.servi
 sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/gemini_generate_fun_facts.service gemini_generate_fun_facts.service
 sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/generate_wav.service
 sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/generate_srt.service
+sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/generate_ mp3.service
 
 sudo systemctl daemon-reload
 
@@ -40,10 +41,10 @@ composer install --no-ansi
 sudo systemctl enable --now gemini_generate_fun_facts.service
 sudo systemctl enable --now generate_wav.service
 sudo systemctl enable --now generate_srt.service
-# sudo systemctl disable --now convert_to_mp3.service
+sudo systemctl enable --now generate_mp3.service
 
 # Restart services
+sudo systemctl stop gemini_generate_fun_facts.service
 sudo systemctl restart generate_wav.service
 sudo systemctl restart generate_srt.service
-sudo systemctl stop gemini_generate_fun_facts.service
-sudo systemctl stop convert_to_mp3.service
+sudo systemctl restart generate_mp3.service

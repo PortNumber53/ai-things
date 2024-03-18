@@ -32,6 +32,7 @@ sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/laravel-worker@.serv
 sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/ai_generate_fun_facts.service
 sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/generate_wav.service
 sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/generate_srt.service
+sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/generate_mp3.service
 
 sudo systemctl daemon-reload
 
@@ -41,10 +42,13 @@ composer install --no-ansi
 
 # Enable services
 sudo systemctl disable --now laravel-worker@text_fun_facts.service
-# sudo systemctl disable --now generate_wav.service
+sudo systemctl enable --now generate_wav.service
+sudo systemctl enable --now generate_srt.service
+sudo systemctl enable --now generate_mp3.service
 
 # Restart services
 sudo systemctl stop ai_generate_fun_facts.service
 sudo systemctl stop laravel-worker@text_fun_facts.service
 sudo systemctl restart generate_wav.service
 sudo systemctl restart generate_srt.service
+sudo systemctl restart generate_mp3.service

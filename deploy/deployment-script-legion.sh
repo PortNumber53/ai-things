@@ -27,6 +27,7 @@ sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/tortoise.service to
 sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/tortoise.service
 sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/generate_wav.service
 sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/generate_srt.service
+sudo ln -sfn /deploy/ai-things/current/deploy/legion/systemd/generate_mp3.service
 
 sudo systemctl daemon-reload
 
@@ -36,8 +37,12 @@ composer install --no-ansi
 
 # Enable services
 # sudo systemctl disable --now tortoise.service
+sudo systemctl enable --now generate_wav.service
+sudo systemctl enable --now generate_srt.service
+sudo systemctl enable --now generate_mp3.service
 
 # Restart services
 # sudo systemctl stop tortoise.service
 sudo systemctl restart generate_wav.service
 sudo systemctl restart generate_srt.service
+sudo systemctl restart generate_mp3.service
