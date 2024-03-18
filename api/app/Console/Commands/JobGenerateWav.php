@@ -19,6 +19,8 @@ class JobGenerateWav extends BaseJobCommand
     protected $description = 'Execute the piper shell command with dynamic parameters';
     protected $content;
 
+    protected const IGNORE_HOST_CHECK = true;
+
     protected const QUEUE_INPUT  = 'generate_wav';
     protected const QUEUE_OUTPUT = 'generate_srt';
 
