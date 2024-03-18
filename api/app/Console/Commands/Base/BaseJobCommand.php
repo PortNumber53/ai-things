@@ -17,7 +17,7 @@ abstract class BaseJobCommand extends Command
     protected $queue;
     protected $content;
 
-    protected const IGNORE_HOST_CHECK = false;
+    protected $ignore_host_check = false;
 
     protected $queue_input  = 'queue_input';
     protected $queue_output = 'queue_output';
@@ -68,7 +68,7 @@ abstract class BaseJobCommand extends Command
             $payload = json_decode($message->getRawBody(), true);
 
             if (isset($payload['content_id']) && isset($payload['hostname'])) {
-                if (!self::IGNORE_HOST_CHECK && $payload['hostname'] === $hostname) {
+                if (!$this->ignore_host_check && $payload['hostname'] === $hostname) {
                     $this->processContent($payload['content_id']);
                     $message->delete(); // Message processed on the correct host, delete it
                 } else {
