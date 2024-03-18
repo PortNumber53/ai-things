@@ -27,7 +27,7 @@ sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/convert_to_mp3.servi
 sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/gemini_generate_fun_facts.service gemini_generate_fun_facts.service
 sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/generate_wav.service
 sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/generate_srt.service
-sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/generate_ mp3.service
+sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/generate_mp3.service
 
 sudo systemctl daemon-reload
 

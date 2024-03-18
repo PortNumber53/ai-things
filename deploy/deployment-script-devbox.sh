@@ -28,6 +28,7 @@ sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/gemini_generate_fun
 sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/tortoise.service
 sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/generate_wav.service
 sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/generate_srt.service
+sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/generate_mp3.service
 
 sudo systemctl daemon-reload
 
