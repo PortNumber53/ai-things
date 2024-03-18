@@ -69,7 +69,7 @@ abstract class BaseJobCommand extends Command
                 } else {
                     Log::info("[{$hostname}] - Message received on a different host. Re-queuing or ignoring.");
                     // You can re-queue the message here if needed
-                    $this->queue->push($this->queue_input, $payload);
+                    $this->queue->pushRaw($this->queue_input, $payload);
                     // Or you can simply ignore the message
                 }
             }
