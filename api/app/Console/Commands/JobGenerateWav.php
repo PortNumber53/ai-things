@@ -57,17 +57,11 @@ class JobGenerateWav extends BaseJobCommand
                 'hostname' => config('app.hostname'),
             ]);
             $this->queue->pushRaw($job_payload, $this->queue_output);
+
+            $this->info("Job dispatched to generate the SRT file.");
         } else {
             $this->error('Error executing piper command or output file not found or older than 1 minute.');
         }
-
-        $job_payload = json_encode([
-            'content_id' => $this->content->id,
-            'hostname' => config('app.hostname'),
-        ]);
-        $this->queue->pushRaw($job_payload, $this->queue_output);
-
-        $this->info("Job dispatched to generate the SRT file.");
     }
 
     private function extractTextFromMeta()

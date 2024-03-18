@@ -14,8 +14,6 @@ class JobGenerateSrt extends BaseJobCommand
         {--sleep=30 : Sleep time in seconds}
         ';
     protected $description = 'Listens to queue and runs AudioConvertToMp3';
-    protected $queue;
-    protected $content;
 
     protected $queue_input  = 'generate_srt';
     protected $queue_output = 'generate_mp3';

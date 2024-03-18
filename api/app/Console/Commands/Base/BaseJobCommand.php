@@ -9,11 +9,6 @@ use Illuminate\Contracts\Queue\Queue;
 
 abstract class BaseJobCommand extends Command
 {
-    // protected $signature = 'job:BaseCommand
-    //     {content_id? : The content ID}
-    //     {--sleep=30 : Sleep time in seconds}
-    //     ';
-    // protected $description = 'Define some description';
     protected $queue;
     protected $content;
 
