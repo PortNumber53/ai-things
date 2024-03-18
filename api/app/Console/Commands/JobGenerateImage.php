@@ -24,7 +24,7 @@ class JobGenerateImage extends BaseJobCommand
 
     protected function processContent($content_id)
     {
-        $this->content = $content_id ? Content::find($content_id) : Content::where('status', self: $queue_input)
+        $this->content = $content_id ? Content::find($content_id) : Content::where('status', $this->queue_input)
             ->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {

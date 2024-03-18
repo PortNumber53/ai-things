@@ -24,7 +24,7 @@ class JobGenerateSrt extends BaseJobCommand
     {
         $this->content = $content_id ?
             Content::find($content_id) :
-            Content::where('status', self: $queue_input)->where('type', 'gemini.payload')->first();
+            Content::where('status', $this->queue_input)->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {
             throw new \Exception('Content not found.');
