@@ -18,12 +18,12 @@ class JobGenerateMp3 extends BaseJobCommand
     protected $content;
     protected $queue;
 
-    protected const QUEUE_INPUT  = 'generate_mp3';
-    protected const QUEUE_OUTPUT = 'fix_subtitle';
+    protected $queue_input  = 'generate_mp3';
+    protected $queue_output = 'fix_subtitle';
 
     protected function processContent($content_id)
     {
-        $this->content = $content_id ? Content::find($content_id) : Content::where('status', self::QUEUE_INPUT)
+        $this->content = $content_id ? Content::find($content_id) : Content::where('status', self: $queue_input)
             ->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {
@@ -65,7 +65,7 @@ class JobGenerateMp3 extends BaseJobCommand
         }
 
         if (!empty($convertedFiles)) {
-            $this->content->status = self::QUEUE_OUTPUT;
+            $this->content->status = self::$queue_output;
             $meta['filenames'] = $convertedFiles;
             $this->content->meta = json_encode($meta);
 
@@ -75,7 +75,7 @@ class JobGenerateMp3 extends BaseJobCommand
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, self::QUEUE_OUTPUT);
+            $this->queue->pushRaw($job_payload, self::$queue_output);
         }
     }
 }

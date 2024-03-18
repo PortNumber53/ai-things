@@ -17,14 +17,14 @@ class JobGenerateSrt extends BaseJobCommand
     protected $queue;
     protected $content;
 
-    protected const QUEUE_INPUT  = 'generate_srt';
-    protected const QUEUE_OUTPUT = 'generate_mp3';
+    protected $queue_input  = 'generate_srt';
+    protected $queue_output = 'generate_mp3';
 
     protected function processContent($content_id)
     {
         $this->content = $content_id ?
             Content::find($content_id) :
-            Content::where('status', self::QUEUE_INPUT)->where('type', 'gemini.payload')->first();
+            Content::where('status', self: $queue_input)->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {
             throw new \Exception('Content not found.');
@@ -57,7 +57,7 @@ class JobGenerateSrt extends BaseJobCommand
                     'vtt' => $vtt_file_contents,
                     'srt' => $srt_file_contents,
                 ];
-                $this->content->status = self::QUEUE_OUTPUT;
+                $this->content->status = self::$queue_output;
                 $this->content->meta = json_encode($meta);
                 $this->content->save();
             }
@@ -66,7 +66,7 @@ class JobGenerateSrt extends BaseJobCommand
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, self::QUEUE_OUTPUT);
+            $this->queue->pushRaw($job_payload, self::$queue_output);
 
             $this->info("Job dispatched to generate the MP3 file.");
         }

@@ -17,19 +17,19 @@ class JobGeneratePodcast extends BaseJobCommand
     protected $queue;
     protected $content;
 
-    protected const QUEUE_INPUT  = 'generate_podcast';
-    protected const QUEUE_OUTPUT = 'podcast_ready';
+    protected $queue_input  = 'generate_podcast';
+    protected $queue_output = 'podcast_ready';
 
     protected function processContent($content_id)
     {
         $this->content = $content_id ?
             Content::find($content_id) :
-            Content::where('status', self::QUEUE_INPUT)->where('type', 'gemini.payload')->first();
+            Content::where('status', self::$queue_input)->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {
             throw new \Exception('Content not found.');
         } else {
-            if ($this->content->status != self::QUEUE_INPUT) {
+            if ($this->content->status != self::$queue_input) {
                 $this->error("content is not at the right status");
                 return 1;
             }
@@ -40,7 +40,7 @@ class JobGeneratePodcast extends BaseJobCommand
             $filenames = $meta['filenames'];
 
 
-            $this->content->status = self::QUEUE_OUTPUT;
+            $this->content->status = self::$queue_output;
 
             $this->content->save();
         } finally {
@@ -48,7 +48,7 @@ class JobGeneratePodcast extends BaseJobCommand
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, self::QUEUE_OUTPUT);
+            $this->queue->pushRaw($job_payload, self::$queue_output);
 
             $this->info("Job dispatched to upload podcast file.");
         }

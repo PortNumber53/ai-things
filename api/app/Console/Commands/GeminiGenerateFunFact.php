@@ -26,7 +26,7 @@ class GeminiGenerateFunFact extends BaseJobCommand
     protected $queue;
     protected $content;
 
-    protected const QUEUE_OUTPUT = 'generate_wav';
+    protected $queue_output = 'generate_wav';
 
 
     /**
@@ -172,7 +172,7 @@ PROMPT),
             // Save data to database
             $this->content = Content::create([
                 'title' => $title,
-                'status' => self::QUEUE_OUTPUT,
+                'status' => self::$queue_output,
                 'type' => 'gemini.payload',
                 'sentences' => json_encode($paragraphs),
                 'count' => $count,
@@ -184,7 +184,7 @@ PROMPT),
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, self::QUEUE_OUTPUT);
+            $this->queue->pushRaw($job_payload, self::$queue_output);
 
             // Display success message
             $this->info('Fun fact generated successfully.');

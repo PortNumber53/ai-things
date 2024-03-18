@@ -19,8 +19,8 @@ abstract class BaseJobCommand extends Command
 
     protected const IGNORE_HOST_CHECK = false;
 
-    protected const QUEUE_INPUT  = 'queue_input';
-    protected const QUEUE_OUTPUT = 'queue_output';
+    protected $queue_input  = 'queue_input';
+    protected $queue_output = 'queue_output';
 
     public function __construct(Content $content, Queue $queue)
     {
@@ -49,8 +49,8 @@ abstract class BaseJobCommand extends Command
     protected function processQueueMessages($sleep)
     {
         while (true) {
-            $this->line("Checking queue: " . self::QUEUE_INPUT);
-            $message = $this->queue->pop(self::QUEUE_INPUT);
+            $this->line("Checking queue: " . self::$queue_input);
+            $message = $this->queue->pop(self::$queue_input);
 
             if ($message) {
                 $this->processMessage($message);
@@ -74,7 +74,7 @@ abstract class BaseJobCommand extends Command
                 } else {
                     Log::info("[{$hostname}] - Message received on a different host. Re-queuing or ignoring.");
                     // You can re-queue the message here if needed
-                    $this->queue->push(self::QUEUE_INPUT, $payload);
+                    $this->queue->push(self::$queue_input, $payload);
                     // Or you can simply ignore the message
                 }
             }

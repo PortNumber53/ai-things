@@ -22,20 +22,20 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
     protected $content;
     protected $queue;
 
-    protected const QUEUE_INPUT  = 'podcast_ready';
-    protected const QUEUE_OUTPUT = 'upload.tiktok';
+    protected $queue_input  = 'podcast_ready';
+    protected $queue_output = 'upload.tiktok';
 
 
     protected function processContent($content_id)
     {
         $this->content = $content_id ?
             Content::find($content_id) :
-            Content::where('status', self::QUEUE_INPUT)->where('type', 'gemini.payload')->first();
+            Content::where('status', self::$queue_input)->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {
             throw new \Exception('Content not found.');
         } else {
-            if ($this->content->status != self::QUEUE_INPUT) {
+            if ($this->content->status != self::$queue_input) {
                 $this->error("content is not at the right status");
                 return 1;
             }
@@ -46,7 +46,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
             $filenames = $meta['filenames'];
 
 
-            $this->content->status = self::QUEUE_OUTPUT;
+            $this->content->status = self::$queue_output;
 
             $this->content->save();
         } finally {
@@ -54,7 +54,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, self::QUEUE_OUTPUT);
+            $this->queue->pushRaw($job_payload, self::$queue_output);
 
             $this->info("Job dispatched to generate the SRT file.");
         }

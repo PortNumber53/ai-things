@@ -19,12 +19,12 @@ class JobGenerateImage extends BaseJobCommand
     protected $content;
     protected $queue;
 
-    protected const QUEUE_INPUT  = 'generate_image';
-    protected const QUEUE_OUTPUT = 'generate_podcast';
+    protected $queue_input  = 'generate_image';
+    protected $queue_output = 'generate_podcast';
 
     protected function processContent($content_id)
     {
-        $this->content = $content_id ? Content::find($content_id) : Content::where('status', self::QUEUE_INPUT)
+        $this->content = $content_id ? Content::find($content_id) : Content::where('status', self: $queue_input)
             ->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {
@@ -39,14 +39,14 @@ class JobGenerateImage extends BaseJobCommand
             $images = $meta['images'] ?? [];
 
 
-            $this->content->status = self::QUEUE_OUTPUT;
+            $this->content->status = self::$queue_output;
             $this->content->save();
         } finally {
             $job_payload = json_encode([
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, self::QUEUE_OUTPUT);
+            $this->queue->pushRaw($job_payload, self::$queue_output);
 
             $this->info("Job dispatched to upload the podcast.");
         }

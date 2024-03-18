@@ -19,8 +19,8 @@ class JobSetupPodcast extends BaseJobCommand
     protected $content;
     protected $queue;
 
-    protected const QUEUE_INPUT  = 'generate_mp3';
-    protected const QUEUE_OUTPUT = 'fix_subtitle';
+    protected $queue_input  = 'generate_mp3';
+    protected $queue_output = 'fix_subtitle';
 
     protected function processContent($content_id)
     {
