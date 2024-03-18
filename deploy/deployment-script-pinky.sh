@@ -43,6 +43,6 @@ sudo systemctl enable --now generate_wav.service
 
 # Restart services
 sudo systemctl restart generate_wav.service
+sudo systemctl restart generate_srt.service
 sudo systemctl stop gemini_generate_fun_facts.service
 sudo systemctl stop convert_to_mp3.service
-sudo systemctl stop generate_srt.service
