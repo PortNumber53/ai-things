@@ -68,7 +68,7 @@ abstract class BaseJobCommand extends Command
             $payload = json_decode($message->getRawBody(), true);
 
             if (isset($payload['content_id']) && isset($payload['hostname'])) {
-                if (!$this->ignore_host_check && $payload['hostname'] === $hostname) {
+                if ($this->ignore_host_check || $payload['hostname'] === $hostname) {
                     $this->processContent($payload['content_id']);
                     $message->delete(); // Message processed on the correct host, delete it
                 } else {
@@ -83,9 +83,4 @@ abstract class BaseJobCommand extends Command
             // Handle the error, maybe retry or log
         }
     }
-
-    // protected function processContent($content_id)
-    // {
-    //     // Your content processing logic here
-    // }
 }
