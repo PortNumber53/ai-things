@@ -172,7 +172,7 @@ PROMPT),
             // Save data to database
             $this->content = Content::create([
                 'title' => $title,
-                'status' => self::$queue_output,
+                'status' => $this->queue_output,
                 'type' => 'gemini.payload',
                 'sentences' => json_encode($paragraphs),
                 'count' => $count,
@@ -184,7 +184,7 @@ PROMPT),
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, self::$queue_output);
+            $this->queue->pushRaw($job_payload, $this->queue_output);
 
             // Display success message
             $this->info('Fun fact generated successfully.');

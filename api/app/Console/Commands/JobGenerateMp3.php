@@ -65,7 +65,7 @@ class JobGenerateMp3 extends BaseJobCommand
         }
 
         if (!empty($convertedFiles)) {
-            $this->content->status = self::$queue_output;
+            $this->content->status = $this->queue_output;
             $meta['filenames'] = $convertedFiles;
             $this->content->meta = json_encode($meta);
 
@@ -75,7 +75,7 @@ class JobGenerateMp3 extends BaseJobCommand
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, self::$queue_output);
+            $this->queue->pushRaw($job_payload, $this->queue_output);
         }
     }
 }

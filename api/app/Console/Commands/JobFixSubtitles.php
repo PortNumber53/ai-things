@@ -24,12 +24,12 @@ class JobFixSubtitles extends BaseJobCommand
     {
         $this->content = $content_id ?
             Content::find($content_id) :
-            Content::where('status', self::$queue_input)->where('type', 'gemini.payload')->first();
+            Content::where('status', $this->queue_input)->where('type', 'gemini.payload')->first();
 
         if (!$this->content) {
             throw new \Exception('Content not found.');
         } else {
-            if ($this->content->status != self::$queue_input) {
+            if ($this->content->status != $this->queue_input) {
                 $this->error("content is not at the right status");
                 return 1;
             }
@@ -43,7 +43,7 @@ class JobFixSubtitles extends BaseJobCommand
 
             $meta['subtitles']['srt'] = $this->fixSubtitle($srt_contents);
 
-            $this->content->status = self::$queue_output;
+            $this->content->status = $this->queue_output;
             $this->content->meta = json_encode($meta);
             $this->content->save();
         } catch (\Exception $e) {
@@ -55,7 +55,7 @@ class JobFixSubtitles extends BaseJobCommand
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, self::$queue_output);
+            $this->queue->pushRaw($job_payload, $this->queue_output);
 
             $this->info("Job dispatched to generate the SRT file.");
         }

@@ -57,7 +57,7 @@ class JobGenerateSrt extends BaseJobCommand
                     'vtt' => $vtt_file_contents,
                     'srt' => $srt_file_contents,
                 ];
-                $this->content->status = self::$queue_output;
+                $this->content->status = $this->queue_output;
                 $this->content->meta = json_encode($meta);
                 $this->content->save();
             }
@@ -66,7 +66,7 @@ class JobGenerateSrt extends BaseJobCommand
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, self::$queue_output);
+            $this->queue->pushRaw($job_payload, $this->queue_output);
 
             $this->info("Job dispatched to generate the MP3 file.");
         }

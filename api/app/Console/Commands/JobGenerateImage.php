@@ -39,14 +39,14 @@ class JobGenerateImage extends BaseJobCommand
             $images = $meta['images'] ?? [];
 
 
-            $this->content->status = self::$queue_output;
+            $this->content->status = $this->queue_output;
             $this->content->save();
         } finally {
             $job_payload = json_encode([
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, self::$queue_output);
+            $this->queue->pushRaw($job_payload, $this->queue_output);
 
             $this->info("Job dispatched to upload the podcast.");
         }

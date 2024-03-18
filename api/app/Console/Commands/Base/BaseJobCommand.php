@@ -49,8 +49,8 @@ abstract class BaseJobCommand extends Command
     protected function processQueueMessages($sleep)
     {
         while (true) {
-            $this->line("Checking queue: " . self::$queue_input);
-            $message = $this->queue->pop(self::$queue_input);
+            $this->line("Checking queue: " . $this->queue_input);
+            $message = $this->queue->pop($this->queue_input);
 
             if ($message) {
                 $this->processMessage($message);
@@ -74,7 +74,7 @@ abstract class BaseJobCommand extends Command
                 } else {
                     Log::info("[{$hostname}] - Message received on a different host. Re-queuing or ignoring.");
                     // You can re-queue the message here if needed
-                    $this->queue->push(self::$queue_input, $payload);
+                    $this->queue->push($this->queue_input, $payload);
                     // Or you can simply ignore the message
                 }
             }
