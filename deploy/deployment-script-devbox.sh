@@ -24,6 +24,7 @@ echo "-Preparing systemd files"
 cd /etc/systemd/system/
 
 sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/tortoise.service tortoise.service
+sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/gemini_generate_fun_facts.service gemini_generate_fun_facts.service
 sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/tortoise.service
 sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/generate_wav.service
 sudo ln -sfn /deploy/ai-things/current/deploy/devbox/systemd/generate_srt.service
@@ -36,8 +37,11 @@ composer install --no-ansi
 
 # Enable services
 # sudo systemctl disable --now tortoise.service
+sudo systemctl enable --now gemini_generate_fun_facts.service
+
 
 # Restart services
+sudo systemctl restart gemini_generate_fun_facts.service
 # sudo systemctl stop tortoise.service
 sudo systemctl stop generate_wav.service
 sudo systemctl stop generate_srt.service

@@ -1,0 +1,16 @@
+[Unit]
+Description=Laravel Artisan Command for Generating Fun Facts using Gemini
+After=network.target
+
+[Service]
+Type=simple
+User=grimlock
+Group=grimlock
+WorkingDirectory=/deploy/ai-things/current/api
+ExecStart=/usr/bin/php /deploy/ai-things/current/api/artisan Gemini:GenerateFunFact
+Restart=always
+RestartSec=3
+SyslogIdentifier=gemini_fun_fact
+
+[Install]
+WantedBy=multi-user.target
