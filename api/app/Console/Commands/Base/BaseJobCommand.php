@@ -47,6 +47,7 @@ abstract class BaseJobCommand extends Command
     protected function processQueueMessages($sleep)
     {
         while (true) {
+            $this->line("Checking queue: " . self::QUEUE_INPUT);
             $message = $this->queue->pop(self::QUEUE_INPUT);
 
             if ($message) {
