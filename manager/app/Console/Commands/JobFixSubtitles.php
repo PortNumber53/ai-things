@@ -45,19 +45,19 @@ class JobFixSubtitles extends BaseJobCommand
 
             $this->content->status = $this->queue_output;
             $this->content->meta = json_encode($meta);
-            $this->content->save();
+            // $this->content->save();
         } catch (\Exception $e) {
             print_r($e->getLine());
             print_r($e->getMessage());
             die("Exception\n");
         } finally {
-            $job_payload = json_encode([
-                'content_id' => $this->content->id,
-                'hostname' => config('app.hostname'),
-            ]);
-            $this->queue->pushRaw($job_payload, $this->queue_output);
+            // $job_payload = json_encode([
+            //     'content_id' => $this->content->id,
+            //     'hostname' => config('app.hostname'),
+            // ]);
+            // $this->queue->pushRaw($job_payload, $this->queue_output);
 
-            $this->info("Job dispatched to generate the SRT file.");
+            // $this->info("Job dispatched to generate the SRT file.");
         }
     }
 
