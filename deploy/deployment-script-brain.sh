@@ -18,7 +18,7 @@ sudo systemctl disable --now laravel-worker@text_fun_facts.service
 
 
 echo "Updating release symlink"
-cd ${DEPLOYMENT_PATH}/api
+cd ${DEPLOYMENT_PATH}/manager
 ln -sfn ${DEPLOY_BASE_PATH}storage storage
 
 cd ${DEPLOY_BASE_PATH}
@@ -37,7 +37,7 @@ sudo ln -sfn /deploy/ai-things/current/deploy/brain/systemd/generate_mp3.service
 sudo systemctl daemon-reload
 
 # Run migrations
-cd ${DEPLOYMENT_PATH}/api
+cd ${DEPLOYMENT_PATH}/manager
 composer install --no-ansi
 
 # Enable services
