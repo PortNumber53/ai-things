@@ -21,9 +21,7 @@ class JobGenerateMp3 extends BaseJobCommand
     protected $queue_input  = 'generate_mp3';
     protected $queue_output = 'fix_subtitle';
 
-    protected function processContent($command = "ffmpeg -i {$outputFullPath} 2>&1 | grep Duration";
-                $output = shell_exec($command);
-                $content_id)
+    protected function processContent($content_id)
     {
         $this->content = $content_id ? Content::find($content_id) : Content::where('status', $this->queue_input)
             ->where('type', 'gemini.payload')->first();
@@ -59,6 +57,8 @@ class JobGenerateMp3 extends BaseJobCommand
 
                 $totalSeconds = 0;
                 // Get mp3 duration using ffmpeg
+                $command = "ffmpeg -i {$outputFullPath} 2>&1 | grep Duration";
+                $output = shell_exec($command);
                 $durationRegex = '/Duration: (\d+):(\d+):(\d+\.\d+)/';
                 if (preg_match($durationRegex, $output, $matches)) {
                     $hours = intval($matches[1]);
