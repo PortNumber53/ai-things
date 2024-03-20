@@ -51,13 +51,13 @@ class JobFixSubtitles extends BaseJobCommand
             $this->error($e->getMessage());
             return 1;
         } finally {
-            // $job_payload = json_encode([
-            //     'content_id' => $this->content->id,
-            //     'hostname' => config('app.hostname'),
-            // ]);
-            // $this->queue->pushRaw($job_payload, $this->queue_output);
+            $job_payload = json_encode([
+                'content_id' => $this->content->id,
+                'hostname' => config('app.hostname'),
+            ]);
+            $this->queue->pushRaw($job_payload, $this->queue_output);
 
-            // $this->info("Job dispatched to generate the SRT file.");
+            $this->info("Job dispatched to generate the Image file.");
         }
     }
 
@@ -81,32 +81,33 @@ class JobFixSubtitles extends BaseJobCommand
         // Reassemble the fixed subtitle contents
         $fixed_str = implode("\n\n", $subtitle_blocks);
 
-
-        // print_r($fixed_str);
-        // Implement logic to fix subtitles (e.g., remove line breaks)
-        // Example:
-        // $fixed_str = str_replace("\n", ' ', $srt_contents);
-        // return $fixed_str;
-
-
-
-        // die("----------\n\nend of fixing subtitles\n\n");
-
-        // For now, just return the original contents
         return $fixed_str;
     }
 
 
     private function fixVttSubtitle($vtt_contents)
     {
+        // Split the contents into subtitle blocks
+        $subtitle_blocks = explode("\n\n", $vtt_contents);
 
+        // Iterate through each subtitle block
+        foreach ($subtitle_blocks as &$block) {
+            // Remove leading whitespace
+            $block = preg_replace('/^\s*/m', '', $block);
 
-        
-        print_r($vtt_contents);
-        die("----------\n\nend of fixing subtitles\n\n");
+            // Remove line breaks within each block
+            $block = preg_replace('/\n(?![0-9]{2}:[0-9]{2}\.[0-9]{3} --> [0-9]{2}:[0-9]{2}\.[0-9]{3})/', ' ', $block);
 
-        // For now, just return the original contents
-        return $vtt_contents;
+            // Add a newline after the timestamp
+            $block = preg_replace('/([0-9]{2}:[0-9]{2}\.[0-9]{3} --> [0-9]{2}:[0-9]{2}\.[0-9]{3})/', "$1\n", $block);
+
+            // Trim leading whitespace before the sentence
+            $block = preg_replace('/(?<=\n)[ \t]+/', '', $block);
+        }
+
+        // Reassemble the fixed subtitle contents
+        $fixed_vtt = implode("\n\n", $subtitle_blocks);
+
+        return $fixed_vtt;
     }
-
 }
