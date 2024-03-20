@@ -37,8 +37,51 @@ class JobGeneratePodcast extends BaseJobCommand
 
         try {
             $meta = json_decode($this->content->meta, true);
+
+            $title = $this->content->title;
             $filenames = $meta['filenames'];
 
+            $mp3_filename = $meta['filenames'][0]['filename'];
+            $duration = number_format($meta['filenames'][0]['duration'], 1);
+            dump($mp3_filename);
+            $source_mp3_path = config('app.output_folder') . "/mp3/{$mp3_filename}";
+            $target_mp3_path = config('app.base_app_folder') . "/podcast/public/audio.mp3";
+            file_put_contents($target_mp3_path, file_get_contents($source_mp3_path));
+
+            $image_filename = $meta['images'][0];
+            dump($image_filename);
+
+            $source_image_path = config('app.output_folder') . "/images/{$image_filename}";
+            $target_image_path = config('app.base_app_folder') . "/podcast/public/image.jpg";
+            file_put_contents($target_image_path, file_get_contents($source_image_path));
+
+            $srt_subtitles = $meta['subtitles']['srt'];
+
+            // Save $srt_subtitles to temp file
+            $srt_temp_file = config('app.base_app_folder') . '/podcast/public/podcast.srt';
+            dump($srt_temp_file);
+            file_put_contents($srt_temp_file, $srt_subtitles);
+
+            $podcast_template_file = config('app.base_app_folder') . '/podcast/src/Root_template.tsx';
+            $podcast_generated_file = config('app.base_app_folder') . '/podcast/src/Root.tsx';
+
+            $podcast_template_contents = file_get_contents($podcast_template_file);
+            $podcast_template_contents = str_replace('__REPLACE_WITH_TITLE__', $title, $podcast_template_contents);
+            $podcast_template_contents = str_replace('__REPLACE_WITH_MP3__', 'audio.mp3', $podcast_template_contents);
+            $podcast_template_contents = str_replace('__REPLACE_WITH_IMAGE__', 'image.jpg', $podcast_template_contents);
+            $podcast_template_contents = str_replace('__REPLACE_WITH_SUBTITLES__', 'podcast.srt', $podcast_template_contents);
+            $podcast_template_contents = str_replace('__DURATION__', $duration, $podcast_template_contents);
+
+
+            print_r($podcast_template_contents);
+            file_put_contents($podcast_generated_file, $podcast_template_contents);
+
+
+            // Run remotion to generate the podcast
+            $command = "cd " . config('app.base_app_folder') . "/podcast/ && npm run build";
+            print_r($command);
+            $output = shell_exec($command);
+            print_r($output);
 
             $this->content->status = $this->queue_output;
 

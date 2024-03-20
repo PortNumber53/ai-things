@@ -49,10 +49,10 @@ abstract class BaseJobCommand extends Command
 
             if ($message) {
                 $this->processMessage($message);
+            } else {
+                $this->line("No message found, sleeping");
+                sleep($sleep);
             }
-
-            $this->line("No message found, sleeping");
-            sleep($sleep);
         }
     }
 

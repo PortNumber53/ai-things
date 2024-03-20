@@ -189,6 +189,7 @@ return [
 
     'hostname' => env('HOSTNAME', 'dummy'),
     'output_folder' => env('BASE_OUTPUT_FOLDER'),
+    'base_app_folder' => env('BASE_APP_FOLDER'),
 
     'subtitle_folder' => env('BASE_OUTPUT_FOLDER') . '/subtitles',
     'subtitle_script' => (env('APP_ENV') === 'production') ? 'python /deploy/ai-things/current/auto-subtitles-generator/subtitle.py' : 'python /home/grimlock/ai/ai-things/auto-subtitles-generator/subtitle.py',

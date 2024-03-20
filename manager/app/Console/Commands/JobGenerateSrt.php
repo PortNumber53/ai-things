@@ -33,7 +33,7 @@ class JobGenerateSrt extends BaseJobCommand
             $filenames = $meta['filenames'];
 
             foreach ($filenames as $filename_data) {
-                $wav_file_path = sprintf('%s/%s/%s', config('app.output_folder'), '/waves', $filename_data['filename']);
+                $wav_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'waves', $filename_data['filename']);
                 // We run a shell script using shell_exec
                 $this->info("Running shell script");
                 $command = sprintf('%s %s %s %s', config('app.subtitle_script'), $wav_file_path, 'Transcribe', $this->content->id);

@@ -21,7 +21,9 @@ class JobGenerateMp3 extends BaseJobCommand
     protected $queue_input  = 'generate_mp3';
     protected $queue_output = 'fix_subtitle';
 
-    protected function processContent($content_id)
+    protected function processContent($command = "ffmpeg -i {$outputFullPath} 2>&1 | grep Duration";
+                $output = shell_exec($command);
+                $content_id)
     {
         $this->content = $content_id ? Content::find($content_id) : Content::where('status', $this->queue_input)
             ->where('type', 'gemini.payload')->first();
@@ -54,9 +56,21 @@ class JobGenerateMp3 extends BaseJobCommand
             exec($command, $output, $returnCode);
 
             if ($returnCode === 0 && File::exists($outputFullPath) && time() - File::lastModified($outputFullPath) < 60) {
+
+                $totalSeconds = 0;
+                // Get mp3 duration using ffmpeg
+                $durationRegex = '/Duration: (\d+):(\d+):(\d+\.\d+)/';
+                if (preg_match($durationRegex, $output, $matches)) {
+                    $hours = intval($matches[1]);
+                    $minutes = intval($matches[2]);
+                    $seconds = floatval($matches[3]);
+                    $totalSeconds = ($hours * 3600) + ($minutes * 60) + $seconds;
+                    $this->info("Duration in seconds: $totalSeconds");
+                }
+
                 $this->info("Audio file converted successfully: $outputFullPath");
                 $this->info("Audio MP3 file created properly.");
-                $convertedFiles[$key] = ['filename' => $outputFile, 'sentence_id' => $sentenceId];
+                $convertedFiles[$key] = ['filename' => $outputFile, 'sentence_id' => $sentenceId, 'duration' => $totalSeconds];
                 $this->line("Removed $inputFileWithPath");
                 unlink($inputFileWithPath);
             } else {
@@ -68,7 +82,6 @@ class JobGenerateMp3 extends BaseJobCommand
             $this->content->status = $this->queue_output;
             $meta['filenames'] = $convertedFiles;
             $this->content->meta = json_encode($meta);
-
             $this->content->save();
 
             $job_payload = json_encode([
