@@ -20,6 +20,8 @@ class JobFixSubtitles extends BaseJobCommand
     protected $queue_input  = 'fix_subtitle';
     protected $queue_output = 'generate_image';
 
+    protected $ignore_host_check = true;
+
     protected function processContent($content_id)
     {
         $this->content = $content_id ?
