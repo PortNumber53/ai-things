@@ -38,7 +38,7 @@ class JobGeneratePodcast extends BaseJobCommand
         try {
             $meta = json_decode($this->content->meta, true);
 
-            $title = $this->content->title;
+            $title = sprintf("%010d.jpg", $this->content->id) . " - {$this->content->title}";
             $filenames = $meta['filenames'];
 
             $mp3_filename = $meta['filenames'][0]['filename'];
