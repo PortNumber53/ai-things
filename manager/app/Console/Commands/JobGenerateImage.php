@@ -126,6 +126,6 @@ class JobGenerateImage extends BaseJobCommand
         $this->line($full_path);
         file_put_contents($full_path, $image_data);
 
-        return $full_path;
+        return $filename;
     }
 }
