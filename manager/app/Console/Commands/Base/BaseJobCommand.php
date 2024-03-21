@@ -48,7 +48,12 @@ abstract class BaseJobCommand extends Command
             $message = $this->queue->pop($this->queue_input);
 
             if ($message) {
-                $this->processMessage($message);
+                try {
+                    $this->processMessage($message);
+                } catch (\Exception $e) {
+                    Log::error("Error processing message: " . $e->getMessage());
+                    // Handle retries or logging based on your requirements
+                }
             } else {
                 $this->line("No message found, sleeping");
                 sleep($sleep);
@@ -59,24 +64,21 @@ abstract class BaseJobCommand extends Command
     protected function processMessage($message)
     {
         $hostname = gethostname();
-        try {
-            $payload = json_decode($message->getRawBody(), true);
+        $payload = json_decode($message->getRawBody(), true);
 
-            if (isset($payload['content_id']) && isset($payload['hostname'])) {
-                if ($this->ignore_host_check || $payload['hostname'] === $hostname) {
-                    $this->processContent($payload['content_id']);
-                    $message->delete(); // Message processed on the correct host, delete it
-                } else {
-                    Log::info("[{$hostname}] - Message received on a different host. Re-queuing or ignoring.");
-                    // You can re-queue the message here if needed
-                    // $this->queue->pushRaw(json_encode($payload), $this->queue_input);
-                    // Or you can simply ignore the message
-                    // $message->delete(); // Message processed on the correct host, delete it
-                }
-            }
-        } catch (\Exception $e) {
-            Log::error("Error processing message: " . $e->getMessage());
-            // Handle the error, maybe retry or log
+        if (!isset($payload['content_id']) || !isset($payload['hostname'])) {
+            Log::warning("Invalid message format: " . json_encode($payload));
+            return;
         }
+
+        if (!$this->ignore_host_check && $payload['hostname'] !== $hostname) {
+            Log::info("[{$hostname}] - Message received on a different host. Re-queuing or ignoring.");
+            // Handle re-queuing or ignoring the message based on your requirements
+            return;
+        }
+
+        $this->processContent($payload['content_id']);
+        $message->delete();
     }
+
 }
