@@ -44,7 +44,7 @@ class JobGenerateMp3 extends BaseJobCommand
 
             if (!File::exists($inputFileWithPath)) {
                 $this->error("Input file does not exist: $inputFileWithPath");
-                continue;
+                return false;
             }
 
             $outputFile = pathinfo($inputFile, PATHINFO_FILENAME) . '.mp3';
