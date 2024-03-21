@@ -36,24 +36,25 @@ class JobGenerateImage extends BaseJobCommand
 
         try {
             // Fetch placeholder image from picsum.photos
-            $imageData = Http::get('https://picsum.photos/1280/800')->body();
+            // $imageData = Http::get('https://picsum.photos/1280/800')->body();
 
             // Generate filename
             $filename = sprintf("%010d.jpg", $this->content->id);
+            $full_path = $this->generateImage($filename);
 
             // Define output path
-            $outputPath = config('app.output_folder') . "/images/$filename";
+            // $outputPath = config('app.output_folder') . "/images/$filename";
 
             // Save image to output folder
-            file_put_contents($outputPath, $imageData);
+            // file_put_contents($outputPath, $imageData);
 
             // Update meta.images data point
             $meta = json_decode($this->content->meta, true);
-            $meta['images'][] = $filename;
+            $meta['images'][] = $full_path;
             $this->content->meta = json_encode($meta);
 
             $this->content->status = $this->queue_output;
-            $this->content->save();
+            // $this->content->save();
         } catch (\Exception $e) {
             $this->error('Error occurred: ' . $e->getMessage());
             return 1;
@@ -62,9 +63,50 @@ class JobGenerateImage extends BaseJobCommand
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, $this->queue_output);
+            // $this->queue->pushRaw($job_payload, $this->queue_output);
 
             $this->info("Job dispatched to upload the podcast.");
         }
+    }
+
+
+    protected function generateImage($filename)
+    {
+        $url = "http://192.168.70.87:7860";
+
+        $data = array(
+            "prompt" => "puppy dog",
+            "steps" => 5
+        );
+
+        // Initialize cURL session
+        $ch = curl_init();
+
+        // Set cURL options
+        curl_setopt($ch, CURLOPT_URL, $url . "/sdapi/v1/txt2img");
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        // Execute cURL request
+        $response = curl_exec($ch);
+
+        // Check for errors
+        if (curl_errno($ch)) {
+            echo 'Curl error: ' . curl_error($ch);
+        }
+
+        // Close cURL session
+        curl_close($ch);
+
+        // Decode and save the image.
+        $output = json_decode($response, true);
+        $image_data = base64_decode($output['images'][0]);
+
+        $full_path = config('app.output_folder') . "/images/{$filename}";
+        $this->line($full_path);
+        file_put_contents($full_path, $image_data);
+
+        return $full_path;
     }
 }
