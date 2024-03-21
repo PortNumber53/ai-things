@@ -59,7 +59,7 @@ class JobGenerateImage extends BaseJobCommand
             $this->content->status = $this->queue_output;
             // $this->content->save();
         } catch (\Exception $e) {
-            $this->error('Error occurred: ' . $e->getMessage());
+            $this->error('Error occurred: ' . $e->getMessage() . ':' . $e->getLine());
             return 1;
         } finally {
             $job_payload = json_encode([
@@ -78,8 +78,15 @@ class JobGenerateImage extends BaseJobCommand
         $url = "http://192.168.70.87:7860";
 
         $data = array(
-            "prompt" => "puppy dog",
-            "steps" => 5
+            "prompt" => $this->content->title,
+            "steps" => 30,
+            "width" => 800,
+            "height" => 600,
+            // "negative_prompt" => "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
+            // "enable_hr" => true,
+            // "restore_faces" => true,
+            // "hr_upscaler" => "Nearest",
+            // "denoising_strength" => 0.7,
         );
 
         // Initialize cURL session
@@ -91,7 +98,15 @@ class JobGenerateImage extends BaseJobCommand
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-        // Execute cURL request
+
+        curl_setopt(
+            $ch,
+            CURLOPT_HTTPHEADER,
+            array(
+                'Content-Type: application/json',
+                'Content-Length: ' . strlen(json_encode($data))
+            )
+        );        // Execute cURL request
         $response = curl_exec($ch);
 
         // Check for errors
@@ -102,6 +117,7 @@ class JobGenerateImage extends BaseJobCommand
         // Close cURL session
         curl_close($ch);
 
+        // dump($response);
         // Decode and save the image.
         $output = json_decode($response, true);
         $image_data = base64_decode($output['images'][0]);
