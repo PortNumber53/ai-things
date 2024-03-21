@@ -57,7 +57,7 @@ class JobGenerateImage extends BaseJobCommand
             $this->content->meta = json_encode($meta);
 
             $this->content->status = $this->queue_output;
-            // $this->content->save();
+            $this->content->save();
         } catch (\Exception $e) {
             $this->error('Error occurred: ' . $e->getMessage() . ':' . $e->getLine());
             return 1;
@@ -66,7 +66,7 @@ class JobGenerateImage extends BaseJobCommand
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            // $this->queue->pushRaw($job_payload, $this->queue_output);
+            $this->queue->pushRaw($job_payload, $this->queue_output);
 
             $this->info("Job dispatched to upload the podcast.");
         }
