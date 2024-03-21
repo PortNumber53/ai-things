@@ -72,7 +72,8 @@ abstract class BaseJobCommand extends Command
         }
 
         if (!$this->ignore_host_check && $payload['hostname'] !== $hostname) {
-            Log::info("[{$hostname}] - Message received on a different host. Re-queuing or ignoring.");
+            $payload_hostname = $payload['hostname'];
+            Log::info("[{$hostname}] - Message received on a different host [{$payload_hostname}]. Re-queuing or ignoring.");
             // Handle re-queuing or ignoring the message based on your requirements
             return;
         }
