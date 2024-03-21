@@ -50,6 +50,9 @@ class JobGenerateImage extends BaseJobCommand
 
             // Update meta.images data point
             $meta = json_decode($this->content->meta, true);
+            if (!isset($meta['images'])) {
+                $meta['images'] = [];
+            }
             $meta['images'][] = $full_path;
             $this->content->meta = json_encode($meta);
 
