@@ -193,4 +193,5 @@ return [
 
     'subtitle_folder' => env('BASE_OUTPUT_FOLDER') . '/subtitles',
     'subtitle_script' => (env('APP_ENV') === 'production') ? 'python /deploy/ai-things/current/auto-subtitles-generator/subtitle.py' : 'python /home/grimlock/ai/ai-things/auto-subtitles-generator/subtitle.py',
+    'youtube_upload' => (env('APP_ENV') === 'production') ? 'python /deploy/ai-things/current/auto-subtitles-generator/upload_video.py' : 'python /home/grimlock/ai/ai-things/auto-subtitles-generator/upload_video.py',
 ];

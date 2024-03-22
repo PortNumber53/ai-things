@@ -17,6 +17,8 @@ abstract class BaseJobCommand extends Command
     protected $queue_input  = 'queue_input';
     protected $queue_output = 'queue_output';
 
+    protected $message_hostname;
+
     public function __construct(Content $content, Queue $queue)
     {
         parent::__construct();
@@ -78,8 +80,8 @@ abstract class BaseJobCommand extends Command
             return;
         }
 
+        $this->message_hostname = $payload['hostname'];
         $this->processContent($payload['content_id']);
         $message->delete();
     }
-
 }

@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 
-
 class JobGenerateImage extends BaseJobCommand
 {
     protected $signature = 'job:GenerateImage
@@ -23,6 +22,8 @@ class JobGenerateImage extends BaseJobCommand
 
     protected $queue_input  = 'generate_image';
     protected $queue_output = 'generate_podcast';
+
+    protected $ignore_host_check = true;
 
     protected function processContent($content_id)
     {
@@ -125,6 +126,18 @@ class JobGenerateImage extends BaseJobCommand
         $full_path = config('app.output_folder') . "/images/{$filename}";
         $this->line($full_path);
         file_put_contents($full_path, $image_data);
+
+        $hostname = gethostname();
+        if ($this->message_hostname !== $hostname) {
+            // We need to scp the image to the intented host
+            $this->line("Uploading image to the server...");
+            $command = "scp -v {$full_path} {$this->message_hostname}:{$full_path}";
+            exec($command, $output, $returnCode);
+            print_r($output);
+            if ($returnCode === 0) {
+                $this->info("Image moved to {$this->message_hostname}");
+            }
+        }
 
         return $filename;
     }
