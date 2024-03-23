@@ -49,6 +49,6 @@ sudo systemctl enable --now generate_mp3.service
 # Restart services
 sudo systemctl stop ai_generate_fun_facts.service
 sudo systemctl stop laravel-worker@text_fun_facts.service
-sudo systemctl restart generate_wav.service
-sudo systemctl restart generate_srt.service
-sudo systemctl restart generate_mp3.service
+sudo systemctl stop generate_wav.service
+sudo systemctl stop generate_srt.service
+sudo systemctl stop generate_mp3.service
