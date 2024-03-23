@@ -14,7 +14,8 @@ class GeminiGenerateFunFact extends BaseJobCommand
      *
      * @var string
      */
-    protected $signature = 'Gemini:GenerateFunFact';
+    protected $signature = 'Gemini:GenerateFunFact
+        {content_id? : The content ID}';
 
     /**
      * The console command description.
@@ -34,19 +35,30 @@ class GeminiGenerateFunFact extends BaseJobCommand
      */
     public function handle()
     {
-        // Register signal handlers
-        pcntl_signal(SIGINT, [$this, 'handleTerminationSignal']);
-        pcntl_signal(SIGHUP, [$this, 'handleTerminationSignal']);
+        $content_id = $this->argument('content_id');
+        if (empty($content_id)) {
+            // Register signal handlers
+            pcntl_signal(SIGINT, [$this, 'handleTerminationSignal']);
+            pcntl_signal(SIGHUP, [$this, 'handleTerminationSignal']);
+            while (true) {
+                $this->generateFunFact();
 
-        while (true) {
-            $this->generateFunFact();
+                // Check for any pending signals
+                pcntl_signal_dispatch();
 
-            // Check for any pending signals
-            pcntl_signal_dispatch();
-
-            sleep(10);
+                sleep(10);
+            }
+            return 0;
         }
-        return 0;
+
+        // Create content with specificied ID (should not override existing content)
+        $existing_content = Content::where('id', $content_id)->first();
+        if (!$existing_content) {
+            $this->generateFunFact($content_id);
+        } else {
+            dump($existing_content);
+            $this->error("Found existing content");
+        }
     }
 
     public function handleTerminationSignal($signal)
@@ -70,7 +82,7 @@ class GeminiGenerateFunFact extends BaseJobCommand
         exit(0);
     }
 
-    private function generateFunFact()
+    private function generateFunFact($content_id = false)
     {
         $apiKey = config('gemini.api_key');
 
@@ -169,15 +181,19 @@ PROMPT),
                 }
             }
 
-            // Save data to database
-            $this->content = Content::create([
+            $content_create_payload = [
                 'title' => $title,
                 'status' => $this->queue_output,
                 'type' => 'gemini.payload',
                 'sentences' => json_encode($paragraphs),
                 'count' => $count,
                 'meta' => json_encode(['gemini_response' => $responseData]),
-            ]);
+            ];
+            if ($content_id === false) {
+                $content_create_payload['id'] = $content_id;
+            }
+            // Save data to database
+            $this->content = Content::create($content_create_payload);
             dump($this->content);
 
             $job_payload = json_encode([
