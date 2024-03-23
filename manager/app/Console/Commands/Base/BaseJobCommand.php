@@ -68,7 +68,7 @@ abstract class BaseJobCommand extends Command
         $hostname = gethostname();
         $payload = json_decode($message->getRawBody(), true);
 
-        if (!isset($payload['content_id']) || !isset($payload['hostname'])) {
+        if (!isset($payload['content_id'])) {
             Log::warning("Invalid message format: " . json_encode($payload));
             return;
         }
