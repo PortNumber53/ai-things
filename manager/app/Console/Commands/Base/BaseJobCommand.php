@@ -73,14 +73,15 @@ abstract class BaseJobCommand extends Command
             return;
         }
 
-        if (!$this->ignore_host_check && $payload['hostname'] !== $hostname) {
+        $this->message_hostname = data_get($payload, 'hostname');
+        if (!$this->ignore_host_check && $this->message_hostname !== $hostname) {
             $payload_hostname = $payload['hostname'];
-            Log::info("[{$hostname}] - Message received on a different host [{$payload_hostname}]. Re-queuing or ignoring.");
+            Log::info("[{$this->message_hostname}] - Message received on a different host [{$this->message_hostname}]. Re-queuing or ignoring.");
             // Handle re-queuing or ignoring the message based on your requirements
             return;
         }
 
-        $this->message_hostname = $payload['hostname'];
+        // $this->message_hostname = $payload['hostname'];
         $this->processContent($payload['content_id']);
         $message->delete();
     }
