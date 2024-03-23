@@ -27,7 +27,7 @@ class GeminiGenerateFunFact extends BaseJobCommand
     protected $queue;
     protected $content;
 
-    protected $queue_output = 'generate_wav';
+    protected $queue_output = 'funfact.created';
 
 
     /**

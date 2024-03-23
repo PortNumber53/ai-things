@@ -22,12 +22,12 @@ class ContentQueryCommand extends Command
     public function handle()
     {
         // Output the initial message
-        $this->info("Fetching contents with status 'new' and type 'gemini.payload'...");
+        $this->info("Fetching contents with status 'funfact.created' and type 'gemini.payload'...");
 
         $start = $this->argument('start');
         $end = $this->argument('end');
 
-        $query = Content::where('status', 'new')
+        $query = Content::where('status', 'funfact.created')
             ->where('type', 'gemini.payload');
 
         if ($start !== null && $end !== null) {
@@ -42,7 +42,7 @@ class ContentQueryCommand extends Command
                 $job_payload = json_encode([
                     'content_id' => $content->id,
                 ]);
-                $this->queue->pushRaw($job_payload, 'generate_wav');
+                $this->queue->pushRaw($job_payload, 'wav.generate');
             }
         });
 

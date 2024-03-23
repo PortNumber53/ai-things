@@ -21,8 +21,8 @@ class JobGenerateWav extends BaseJobCommand
 
     protected $ignore_host_check = true;
 
-    protected $queue_input  = 'generate_wav';
-    protected $queue_output = 'generate_srt';
+    protected $queue_input  = 'funfact.created';
+    protected $queue_output = 'wav.generated';
 
     private const PRE_SILENCE = 2;
     private const POST_SILENCE = 5;
