@@ -24,6 +24,9 @@ class JobGenerateWav extends BaseJobCommand
     protected $queue_input  = 'generate_wav';
     protected $queue_output = 'generate_srt';
 
+    private const PRE_SILENCE = 2;
+    private const POST_SILENCE = 5;
+
     protected function processContent($content_id)
     {
         $this->content = $content_id ?
@@ -44,7 +47,7 @@ class JobGenerateWav extends BaseJobCommand
         $filename = $this->generateFilename($text, 1);
         $outputFile = config('app.output_folder') . "/waves/$filename";
 
-        $command = $this->buildShellCommand($text, $outputFile);
+        $command = $this->buildShellCommand($text, $filename);
         $this->line($command);
         shell_exec($command);
 
@@ -108,18 +111,35 @@ class JobGenerateWav extends BaseJobCommand
         return sprintf("%010d-%03d-%s-%s.wav", $this->content->id, $index, $voice, md5($text));
     }
 
-    private function buildShellCommand($text, $outputFile)
+    private function buildShellCommand($text, $filename)
     {
+        $preFile = config('app.output_folder') . "/waves/pre-$filename";
+        $outputFile = config('app.output_folder') . "/waves/$filename";
+
         $onnx_model = config('tts.onnx_model');
         $config_file = config('tts.config_file');
 
-        return sprintf(
-            'echo %s | piper --debug --sentence-silence 1 --model %s -c %s --output_file %s',
+        // Original command to generate WAV file
+        $originalCommand = sprintf(
+            'echo %s | piper --debug --sentence-silence 0.7 --model %s -c %s --output_file %s',
             escapeshellarg($text),
             $onnx_model,
             $config_file,
-            $outputFile
+            $preFile
         );
+
+        // Command to add silence at the end of the generated WAV file
+        $soxCommand = sprintf(
+            'sox %s %s pad %d %d',
+            escapeshellarg($preFile),
+            escapeshellarg($outputFile),
+            self::PRE_SILENCE,
+            self::POST_SILENCE
+        );
+        print_r($soxCommand);
+
+        // Combine the original command and the silence addition command
+        return $originalCommand . ' && ' . $soxCommand;
     }
 
     private function isValidOutputFile($outputFile)
@@ -133,7 +153,10 @@ class JobGenerateWav extends BaseJobCommand
         $this->content->updated_at = now();
 
         $meta = json_decode($this->content->meta, true);
-        $meta['filenames'][] = [
+        if (!isset($meta['wav'])) {
+            $meta['wavs'] = [];
+        }
+        $meta['wavs'][] = [
             'filename' => $filename,
             'sentence_id' => 0
         ];
