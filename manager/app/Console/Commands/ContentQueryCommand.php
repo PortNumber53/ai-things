@@ -42,7 +42,7 @@ class ContentQueryCommand extends Command
                 $job_payload = json_encode([
                     'content_id' => $content->id,
                 ]);
-                $this->queue->pushRaw($job_payload, 'wav.generate');
+                $this->queue->pushRaw($job_payload, 'funfact.created');
             }
         });
 

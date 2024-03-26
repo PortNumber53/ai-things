@@ -38,11 +38,11 @@ class JobGeneratePodcast extends BaseJobCommand
         try {
             $meta = json_decode($this->content->meta, true);
 
-            $title = sprintf("%010d.jpg", $this->content->id) . " - {$this->content->title}";
-            $filenames = $meta['filenames'];
+            $title = sprintf("%07d", $this->content->id) . " - {$this->content->title}";
+            // $filenames = $meta['filenames'];
 
-            $mp3_filename = $meta['filenames'][0]['filename'];
-            $duration = number_format($meta['filenames'][0]['duration'], 1);
+            $mp3_filename = $meta['mp3s'][0]['mp3'];
+            $duration = number_format($meta['mp3s'][0]['duration'], 1);
             dump($mp3_filename);
             $source_mp3_path = config('app.output_folder') . "/mp3/{$mp3_filename}";
             $target_mp3_path = config('app.base_app_folder') . "/podcast/public/audio.mp3";
@@ -74,6 +74,7 @@ class JobGeneratePodcast extends BaseJobCommand
 
 
             print_r($podcast_template_contents);
+            $this->line("remotion file generated.");
             file_put_contents($podcast_generated_file, $podcast_template_contents);
 
 
@@ -83,9 +84,25 @@ class JobGeneratePodcast extends BaseJobCommand
             $output = shell_exec($command);
             print_r($output);
 
+
+            $podcast_filename = sprintf("%010d.mp4", $this->content->id);
+            $source_podcas_file = config('app.base_app_folder') . "/podcast/out/video.mp4";
+            $target_podcast_file = config('app.output_folder') . sprintf("/podcast/%s", $podcast_filename);
+
+            copy($source_podcas_file, $target_podcast_file);
+
+            if (!isset($meta['podcast'])) {
+                $meta['podcast'] = [];
+            }
+            $meta['podcast'][] = $podcast_filename;
+            $this->content->meta = json_encode($meta);
             $this->content->status = $this->queue_output;
 
             $this->content->save();
+        } catch (\Exception $e) {
+            print_r($e->getMessage());
+            print_r($e->getLine());
+            die("\n\n");
         } finally {
             $job_payload = json_encode([
                 'content_id' => $this->content->id,

@@ -32,7 +32,7 @@ class JobGenerateMp3 extends BaseJobCommand
         }
 
         $meta = json_decode($this->content->meta, true);
-        $filenames = $meta['filenames'] ?? [];
+        $filenames = $meta['wavs'] ?? [];
 
         $convertedFiles = [];
 
@@ -70,7 +70,7 @@ class JobGenerateMp3 extends BaseJobCommand
 
                 $this->info("Audio file converted successfully: $outputFullPath");
                 $this->info("Audio MP3 file created properly.");
-                $convertedFiles[$key] = ['filename' => $outputFile, 'sentence_id' => $sentenceId, 'duration' => $totalSeconds];
+                $convertedFiles[$key] = ['mp3' => $outputFile, 'sentence_id' => $sentenceId, 'duration' => $totalSeconds];
                 $this->line("Removed $inputFileWithPath");
                 unlink($inputFileWithPath);
             } else {
@@ -80,7 +80,7 @@ class JobGenerateMp3 extends BaseJobCommand
 
         if (!empty($convertedFiles)) {
             $this->content->status = $this->queue_output;
-            $meta['filenames'] = $convertedFiles;
+            $meta['mp3s'] = $convertedFiles;
             $this->content->meta = json_encode($meta);
             $this->content->save();
 
@@ -89,6 +89,8 @@ class JobGenerateMp3 extends BaseJobCommand
                 'hostname' => config('app.hostname'),
             ]);
             $this->queue->pushRaw($job_payload, $this->queue_output);
+
+            $this->info("Job dispatched to fix subtitles.");
         }
     }
 }

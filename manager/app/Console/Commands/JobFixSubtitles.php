@@ -57,7 +57,7 @@ class JobFixSubtitles extends BaseJobCommand
             ]);
             $this->queue->pushRaw($job_payload, $this->queue_output);
 
-            $this->info("Job dispatched to generate the Image file.");
+            $this->info("Job dispatched to generate the image file.");
         }
     }
 

@@ -56,8 +56,9 @@ class JobGenerateImage extends BaseJobCommand
             }
             $meta['images'][] = $full_path;
             $this->content->meta = json_encode($meta);
-
             $this->content->status = $this->queue_output;
+
+            dump($this->content->meta);
             $this->content->save();
         } catch (\Exception $e) {
             $this->error('Error occurred: ' . $e->getMessage() . ':' . $e->getLine());
@@ -69,76 +70,82 @@ class JobGenerateImage extends BaseJobCommand
             ]);
             $this->queue->pushRaw($job_payload, $this->queue_output);
 
-            $this->info("Job dispatched to upload the podcast.");
+            $this->info("Job dispatched to generate the podcast.");
         }
     }
 
 
     protected function generateImage($filename)
     {
-        $url = "http://192.168.70.87:7860";
+        try {
+            $url = 'http://192.168.70.87:7860';
+            $url = 'http://192.168.68.70:7860';
 
-        $data = array(
-            "prompt" => $this->content->title,
-            "steps" => 30,
-            "width" => 800,
-            "height" => 600,
-            // "negative_prompt" => "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
-            // "enable_hr" => true,
-            // "restore_faces" => true,
-            // "hr_upscaler" => "Nearest",
-            // "denoising_strength" => 0.7,
-        );
+            $data = array(
+                "prompt" => $this->content->title,
+                "steps" => 4,
+                "width" => 800,
+                "height" => 600,
+                // "negative_prompt" => "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
+                // "enable_hr" => true,
+                // "restore_faces" => true,
+                // "hr_upscaler" => "Nearest",
+                // "denoising_strength" => 0.7,
+            );
 
-        // Initialize cURL session
-        $ch = curl_init();
+            // Initialize cURL session
+            $ch = curl_init();
 
-        // Set cURL options
-        curl_setopt($ch, CURLOPT_URL, $url . "/sdapi/v1/txt2img");
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // Set cURL options
+            curl_setopt($ch, CURLOPT_URL, $url . "/sdapi/v1/txt2img");
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
 
-        curl_setopt(
-            $ch,
-            CURLOPT_HTTPHEADER,
-            array(
-                'Content-Type: application/json',
-                'Content-Length: ' . strlen(json_encode($data))
-            )
-        );        // Execute cURL request
-        $response = curl_exec($ch);
+            curl_setopt(
+                $ch,
+                CURLOPT_HTTPHEADER,
+                array(
+                    'Content-Type: application/json',
+                    'Content-Length: ' . strlen(json_encode($data))
+                )
+            );        // Execute cURL request
+            $response = curl_exec($ch);
 
-        // Check for errors
-        if (curl_errno($ch)) {
-            echo 'Curl error: ' . curl_error($ch);
-        }
-
-        // Close cURL session
-        curl_close($ch);
-
-        // dump($response);
-        // Decode and save the image.
-        $output = json_decode($response, true);
-        $image_data = base64_decode($output['images'][0]);
-
-        $full_path = config('app.output_folder') . "/images/{$filename}";
-        $this->line($full_path);
-        file_put_contents($full_path, $image_data);
-
-        $hostname = gethostname();
-        if ($this->message_hostname !== $hostname) {
-            // We need to scp the image to the intented host
-            $this->line("Uploading image to the server...");
-            $command = "scp -v {$full_path} {$this->message_hostname}:{$full_path}";
-            exec($command, $output, $returnCode);
-            print_r($output);
-            if ($returnCode === 0) {
-                $this->info("Image moved to {$this->message_hostname}");
+            // Check for errors
+            if (curl_errno($ch)) {
+                echo 'Curl error: ' . curl_error($ch);
             }
-        }
 
-        return $filename;
+            // Close cURL session
+            curl_close($ch);
+
+            dump($response);
+            // Decode and save the image.
+            $output = json_decode($response, true);
+            $image_data = base64_decode($output['images'][0]);
+
+            $full_path = config('app.output_folder') . "/images/{$filename}";
+            $this->line($full_path);
+            file_put_contents($full_path, $image_data);
+
+            $hostname = gethostname();
+            if ($this->message_hostname !== $hostname) {
+                // We need to scp the image to the intented host
+                $this->line("Uploading image to the server...");
+                $command = "scp -v {$full_path} {$this->message_hostname}:{$full_path}";
+                exec($command, $output, $returnCode);
+                print_r($output);
+                if ($returnCode === 0) {
+                    $this->info("Image moved to {$this->message_hostname}");
+                }
+            }
+
+            return $filename;
+        } catch (\Exception $e) {
+            print_r($e->getLine());
+            $this->error($e->getMessage());
+        }
     }
 }

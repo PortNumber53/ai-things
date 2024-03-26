@@ -30,7 +30,7 @@ class JobGenerateSrt extends BaseJobCommand
 
         try {
             $meta = json_decode($this->content->meta, true);
-            $filenames = $meta['filenames'];
+            $filenames = $meta['wavs'];
 
             foreach ($filenames as $filename_data) {
                 $wav_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'waves', $filename_data['filename']);
@@ -59,6 +59,10 @@ class JobGenerateSrt extends BaseJobCommand
                 $this->content->meta = json_encode($meta);
                 $this->content->save();
             }
+        } catch (\Exception $e) {
+            print_r($e->getMessage());
+            print_r($e->getLine());
+            die("\n\n");
         } finally {
             $job_payload = json_encode([
                 'content_id' => $this->content->id,

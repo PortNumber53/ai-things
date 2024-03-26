@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Console\Commands\Base\BaseJobCommand;
 use Illuminate\Support\Facades\Log;
 use App\Models\Content;
-use Illuminate\Contracts\Queue\Queue;
 
 class JobUploadPodcastToYoutube extends BaseJobCommand
 {
@@ -18,7 +17,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
         ';
-    protected $description = 'Fix subtitles file by removing line breaks';
+    protected $description = 'Uploads podcast to youtube';
     protected $content;
     protected $queue;
 
@@ -43,20 +42,108 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
 
         try {
             $meta = json_decode($this->content->meta, true);
-            $filenames = $meta['filenames'];
 
+            $description = $this->extractTextFromMeta();
 
-            $this->content->status = $this->queue_output;
+            print_r($this->content);
+            // Call script to upload video to youtube
+            $filename = config('app.output_folder') . sprintf("/podcast/%s", $meta['podcast'][0]);
+            $title = escapeshellarg(sprintf("%07d", $this->content->id) . " - {$this->content->title}");
+            $description = escapeshellarg($description);
+            $category = '27';
+            $keywords = '';
+            $privacy_status = 'public';
 
-            $this->content->save();
+            $command = "cd " . config('app.base_app_folder') . "/auto-subtitles-generator/ && " . sprintf(
+                '%s --file=%s --title=%s --description=%s --category=%s --keywords=%s --privacyStatus=%s',
+                config('app.youtube_upload'),
+                $filename,
+                $title,
+                $description,
+                $category,
+                $keywords,
+                $privacy_status
+            );
+            print_r($command);
+
+            exec($command, $output, $returnCode);
+
+            if ($returnCode === 0) {
+                $this->line("Upload done.");
+                print_r($output);
+                $output = implode("", $output);
+
+                $pattern = "/Video id '([^\']+)' was successfully uploaded/";
+
+                // Match the pattern against the output
+                if (preg_match($pattern, $output, $matches)) {
+                    // Extracted video ID will be in $matches[1]
+                    $videoId = $matches[1];
+                    $this->line("Video ID: {$videoId}");
+
+                    if (!isset($meta['podcast'])) {
+                        $meta['podcast'] = [];
+                    }
+                    $meta['video_id.v1'] = $videoId;
+                    $this->content->status = $this->queue_output;
+
+                    // $this->content->save();
+                } else {
+                    $this->error("Video ID not found.");
+                }
+            }
+        } catch (\Exception $e) {
+            print_r($e->getMessage());
+            print_r($e->getLine());
+            die("\n\n");
         } finally {
             $job_payload = json_encode([
                 'content_id' => $this->content->id,
                 'hostname' => config('app.hostname'),
             ]);
-            $this->queue->pushRaw($job_payload, $this->queue_output);
+            // $this->queue->pushRaw($job_payload, $this->queue_output);
 
-            $this->info("Job dispatched to generate the SRT file.");
+            $this->info("Job dispatched to publish it to Tiktok.");
         }
+    }
+
+
+    private function extractTextFromMeta()
+    {
+        $meta = json_decode($this->content->meta, true);
+        $rawText = $meta['gemini_response']['candidates'][0]['content']['parts'][0]['text'] ?? null;
+
+        if (!$rawText) {
+            throw new \Exception('Text not found in the meta field.');
+        }
+
+        return $this->processText($rawText);
+    }
+
+
+    private function processText($rawText)
+    {
+        $lines = explode("\n", $rawText);
+
+        // Initialize a flag to indicate if we have encountered the title
+        $processedText = '';
+
+        // Loop through lines to process the text
+        foreach ($lines as $line) {
+            // Skip the line if it starts with "TITLE:"
+            if (strpos($line, 'TITLE:') === 0) {
+                continue;
+            }
+
+            // If the line contains "CONTENT:", remove the prefix and include the line
+            if (strpos($line, 'CONTENT:') === 0) {
+                $line = substr($line, strlen('CONTENT:'));
+                $processedText .= $line . "\n";
+                continue;
+            }
+
+            $processedText .= $line . "\n";
+        }
+        return trim($processedText);
     }
 }
