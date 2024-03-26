@@ -29,6 +29,7 @@ class GeminiGenerateFunFact extends BaseJobCommand
 
     protected $queue_output = 'funfact.created';
 
+    protected $job_is_processing = false;
 
     /**
      * Execute the console command.
@@ -63,6 +64,10 @@ class GeminiGenerateFunFact extends BaseJobCommand
 
     public function handleTerminationSignal($signal)
     {
+        if ($this->job_is_processing) {
+            $this->warn("Job is processing, ignoring signal");
+            return;
+        }
         // Handle termination signal
         switch ($signal) {
             case SIGINT:
@@ -84,6 +89,7 @@ class GeminiGenerateFunFact extends BaseJobCommand
 
     private function generateFunFact($content_id = false)
     {
+        $this->job_is_processing = true;
         $apiKey = config('gemini.api_key');
 
         // API Endpoint
@@ -207,6 +213,7 @@ PROMPT),
         } else {
             $this->error('Failed to parse response data.');
         }
+        $this->job_is_processing = false;
     }
 
     /**

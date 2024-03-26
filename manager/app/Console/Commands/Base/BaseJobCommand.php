@@ -19,6 +19,8 @@ abstract class BaseJobCommand extends Command
 
     protected $message_hostname;
 
+    protected $job_is_processing = false;
+
     public function __construct(Content $content, Queue $queue)
     {
         parent::__construct();
@@ -43,8 +45,36 @@ abstract class BaseJobCommand extends Command
         }
     }
 
+    public function handleTerminationSignal($signal)
+    {
+        if ($this->job_is_processing) {
+            $this->warn("Job is processing, ignoring signal");
+            return;
+        }
+        // Handle termination signal
+        switch ($signal) {
+            case SIGINT:
+                $this->info('Received SIGINT (Ctrl+C). Stopping script gracefully...');
+                break;
+            case SIGHUP:
+                $this->info('Received SIGHUP. Stopping script gracefully...');
+                break;
+            default:
+                $this->info('Received termination signal. Stopping script gracefully...');
+                break;
+        }
+
+        // Perform any cleanup operations here
+
+        // Exit the script
+        exit(0);
+    }
+
     protected function processQueueMessages($sleep)
     {
+        // Register signal handlers
+        pcntl_signal(SIGINT, [$this, 'handleTerminationSignal']);
+        pcntl_signal(SIGHUP, [$this, 'handleTerminationSignal']);
         while (true) {
             $this->line("Checking queue: " . $this->queue_input);
             $message = $this->queue->pop($this->queue_input);
@@ -65,6 +95,7 @@ abstract class BaseJobCommand extends Command
 
     protected function processMessage($message)
     {
+        $this->job_is_processing = true;
         $hostname = gethostname();
         $payload = json_decode($message->getRawBody(), true);
 
@@ -84,5 +115,6 @@ abstract class BaseJobCommand extends Command
         // $this->message_hostname = $payload['hostname'];
         $this->processContent($payload['content_id']);
         $message->delete();
+        $this->job_is_processing = false;
     }
 }
