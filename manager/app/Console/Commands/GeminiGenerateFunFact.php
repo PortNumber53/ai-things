@@ -27,9 +27,11 @@ class GeminiGenerateFunFact extends BaseJobCommand
     protected $queue;
     protected $content;
 
-    protected $queue_output = 'funfact.created';
+    protected $queue_output = 'funfact_created';
 
     protected $job_is_processing = false;
+
+    protected $MAX_FUN_FACTS_WAITING = 100;
 
     /**
      * Execute the console command.
@@ -37,6 +39,20 @@ class GeminiGenerateFunFact extends BaseJobCommand
     public function handle()
     {
         $content_id = $this->argument('content_id');
+
+        $count = Content::whereJsonContains('meta->status->funfact_created', true)->count();
+        if ($count >= $this->MAX_FUN_FACTS_WAITING) {
+            $this->info("Too many fun facts ($count) to process, sleeping for 60");
+            sleep(60);
+            exit();
+        } else {
+            // $firstTrueRow = Content::whereJsonContains('meta->status->funfact_created', true)->first();
+            // $content_id = $firstTrueRow->id;
+            // Now $firstTrueRow contains the first row where 'funfact_created' is true
+        }
+
+
+
         if (empty($content_id)) {
             // Register signal handlers
             pcntl_signal(SIGINT, [$this, 'handleTerminationSignal']);
@@ -47,7 +63,7 @@ class GeminiGenerateFunFact extends BaseJobCommand
                 // Check for any pending signals
                 pcntl_signal_dispatch();
 
-                sleep(10);
+                sleep(2);
             }
             return 0;
         }
@@ -115,7 +131,13 @@ PROMPT),
         ];
 
         // Make HTTP POST request using GuzzleClient
-        $response = $this->makeRequest($url, $requestData, $apiKey);
+        try {
+            $response = $this->makeRequest($url, $requestData, $apiKey);
+        } catch (\Exception $e) {
+            dump($e->getLine());
+            dump($e->getMessage());
+            exit(1);
+        }
 
         // Check for errors
         if ($response->getStatusCode() !== 200) {
@@ -187,13 +209,21 @@ PROMPT),
                 }
             }
 
+
+            $meta_payload = [
+                'status' => [
+                    $this->queue_output => true,
+                ],
+                'gemini_response' => $responseData,
+            ];
+
             $content_create_payload = [
                 'title' => $title,
                 'status' => $this->queue_output,
                 'type' => 'gemini.payload',
                 'sentences' => json_encode($paragraphs),
                 'count' => $count,
-                'meta' => json_encode(['gemini_response' => $responseData]),
+                'meta' => json_encode($meta_payload),
             ];
             if ($content_id === false) {
                 $content_create_payload['id'] = $content_id;
