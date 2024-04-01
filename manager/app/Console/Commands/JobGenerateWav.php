@@ -41,7 +41,6 @@ class JobGenerateWav extends BaseJobCommand
                 sleep(60);
                 exit();
             } else {
-                dump("- get content");
                 $firstTrueRow = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
                     ->where(function ($query) {
                         $query->whereJsonDoesntContain("meta->status->{$this->queue_output}", false)
@@ -161,7 +160,7 @@ class JobGenerateWav extends BaseJobCommand
             self::PRE_SILENCE,
             self::POST_SILENCE
         );
-        print_r($soxCommand);
+        $this->line($soxCommand);
 
         // Combine the original command and the silence addition command
         return $originalCommand . ' && ' . $soxCommand;
