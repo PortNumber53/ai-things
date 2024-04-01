@@ -31,10 +31,12 @@ abstract class BaseJobCommand extends Command
     public function handle()
     {
         try {
+            $queue = $this->option('queue');
+
             $content_id = $this->argument('content_id');
             $sleep = $this->option('sleep');
 
-            if (!$content_id) {
+            if ($queue) {
                 $this->processQueueMessages($sleep);
             } else {
                 $this->processContent($content_id);

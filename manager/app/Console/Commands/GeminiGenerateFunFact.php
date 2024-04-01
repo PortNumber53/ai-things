@@ -40,7 +40,7 @@ class GeminiGenerateFunFact extends BaseJobCommand
     {
         $content_id = $this->argument('content_id');
 
-        $count = Content::whereJsonContains('meta->status->funfact_created', true)->count();
+        $count = Content::whereJsonContains("meta->status->{$this->queue_output}", true)->count();
         if ($count >= $this->MAX_FUN_FACTS_WAITING) {
             $this->info("Too many fun facts ($count) to process, sleeping for 60");
             sleep(60);

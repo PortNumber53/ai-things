@@ -15,23 +15,48 @@ class JobGenerateWav extends BaseJobCommand
     protected $signature = 'job:GenerateWav
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
+        {--queue : Process queue messages}
         ';
     protected $description = 'Execute the piper shell command with dynamic parameters';
     protected $content;
 
     protected $ignore_host_check = true;
 
-    protected $queue_input  = 'funfact.created';
-    protected $queue_output = 'wav.generated';
+    protected $queue_input  = 'funfact_created';
+    protected $queue_output = 'wav_generated';
 
     private const PRE_SILENCE = 2;
     private const POST_SILENCE = 5;
 
+    protected $MAX_WAV_WAITING = 100;
+
     protected function processContent($content_id)
     {
-        $this->content = $content_id ?
-            Content::find($content_id) :
-            Content::where('status', $this->queue_input)->where('type', 'gemini.payload')->first();
+        if (empty($content_id)) {
+            $count = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
+                ->whereJsonDoesntContain("meta->status->{$this->queue_output}", true)
+                ->count();
+            if ($count >= $this->MAX_WAV_WAITING) {
+                $this->info("Too many WAV ($count) to process, sleeping for 60");
+                sleep(60);
+                exit();
+            } else {
+                dump("- get content");
+                $firstTrueRow = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
+                    ->where(function ($query) {
+                        $query->whereJsonDoesntContain("meta->status->{$this->queue_output}", false)
+                            ->orWhereNull("meta->status->{$this->queue_output}");
+                    })
+                    ->first();
+                $content_id = $firstTrueRow->id;
+                // Now $firstTrueRow contains the first row ready to process
+            }
+        }
+
+        $this->content = Content::find($content_id);
+        if (empty($this->content)) {
+            $this->error("Content not found.");
+        }
 
         if (!$this->content) {
             throw new \Exception('Content not found.');
@@ -160,6 +185,10 @@ class JobGenerateWav extends BaseJobCommand
             'filename' => $filename,
             'sentence_id' => 0
         ];
+        if (!empty($meta["status"])) {
+            $meta["status"] = [];
+        }
+        $meta["status"][$this->queue_output] = true;
 
         $this->content->meta = json_encode($meta);
         $this->content->save();
