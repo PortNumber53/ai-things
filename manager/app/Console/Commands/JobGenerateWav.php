@@ -59,11 +59,6 @@ class JobGenerateWav extends BaseJobCommand
 
         if (!$this->content) {
             throw new \Exception('Content not found.');
-        } else {
-            if ($this->content->status != $this->queue_input) {
-                $this->error("content is not at the right status");
-                return 1;
-            }
         }
 
         $text = $this->extractTextFromMeta();
@@ -184,9 +179,11 @@ class JobGenerateWav extends BaseJobCommand
             'filename' => $filename,
             'sentence_id' => 0
         ];
-        if (!empty($meta["status"])) {
+        if (empty($meta["status"])) {
             $meta["status"] = [];
         }
+
+        $meta["status"]['funfact_created'] = true;
         $meta["status"][$this->queue_output] = true;
 
         $this->content->meta = json_encode($meta);
