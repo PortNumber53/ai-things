@@ -11,6 +11,8 @@ pipeline {
             steps {
                 // Checkout the code from your Git repository
                 checkout scm
+                git clean --dry-run
+                git clean -d
             }
         }
 
