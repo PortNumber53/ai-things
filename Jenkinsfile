@@ -12,7 +12,7 @@ pipeline {
                 // Checkout the code from your Git repository
                 checkout scm
                 sh 'git clean --dry-run'
-                sh 'git clean -d'
+                sh 'git clean -df'
             }
         }
 
