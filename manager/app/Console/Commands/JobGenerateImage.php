@@ -14,6 +14,7 @@ class JobGenerateImage extends BaseJobCommand
     protected $signature = 'job:GenerateImage
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
+        {--queue : Process queue messages}
         ';
 
     protected $description = 'Generate image for podcast';
@@ -27,12 +28,32 @@ class JobGenerateImage extends BaseJobCommand
 
     protected function processContent($content_id)
     {
-        $this->content = $content_id ? Content::find($content_id) : Content::where('status', $this->queue_input)
-            ->where('type', 'gemini.payload')->first();
+        if (empty($content_id)) {
+            $count = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
+                ->whereJsonDoesntContain("meta->status->{$this->queue_output}", true)
+                ->count();
+            if ($count >= $this->MAX_SRT_WAITING) {
+                $this->info("Too many SRT ($count) to process, sleeping for 60");
+                sleep(60);
+                exit();
+            } else {
+                $firstTrueRow = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
+                    ->where(function ($query) {
+                        $query->whereJsonDoesntContain("meta->status->{$this->queue_output}", false)
+                            ->orWhereNull("meta->status->{$this->queue_output}");
+                    })
+                    ->first();
+                $content_id = $firstTrueRow->id;
+                // Now $firstTrueRow contains the first row ready to process
+            }
+        }
 
+        $this->content = Content::find($content_id);
+        if (empty($this->content)) {
+            $this->error("Content not found.");
+        }
         if (!$this->content) {
-            $this->error('Content not found.');
-            return 1;
+            throw new \Exception('Content not found.');
         }
 
         try {
@@ -55,9 +76,10 @@ class JobGenerateImage extends BaseJobCommand
                 $meta['images'] = [];
             }
             $meta['images'][] = $full_path;
-            $this->content->meta = json_encode($meta);
             $this->content->status = $this->queue_output;
+            $meta["status"][$this->queue_output] = true;
 
+            $this->content->meta = json_encode($meta);
             dump($this->content->meta);
             $this->content->save();
         } catch (\Exception $e) {

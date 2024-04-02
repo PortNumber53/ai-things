@@ -12,27 +12,45 @@ class JobFixSubtitles extends BaseJobCommand
     protected $signature = 'job:FixSubtitles
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
+        {--queue : Process queue messages}
         ';
     protected $description = 'Fix subtitles file by removing line breaks';
     protected $content;
     protected $queue;
 
-    protected $queue_input  = 'fix_subtitle';
-    protected $queue_output = 'generate_image';
+    protected $queue_input  = 'srt_generated';
+    protected $queue_output = 'srt_fixed';
+
+    protected $MAX_FIX_SRT_WAITING = 100;
 
     protected function processContent($content_id)
     {
-        $this->content = $content_id ?
-            Content::find($content_id) :
-            Content::where('status', $this->queue_input)->where('type', 'gemini.payload')->first();
+        if (empty($content_id)) {
+            $count = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
+                ->whereJsonDoesntContain("meta->status->{$this->queue_output}", true)
+                ->count();
+            if ($count >= $this->MAX_FIX_SRT_WAITING) {
+                $this->info("Too many SRT ($count) to process, sleeping for 60");
+                sleep(60);
+                exit();
+            } else {
+                $firstTrueRow = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
+                    ->where(function ($query) {
+                        $query->whereJsonDoesntContain("meta->status->{$this->queue_output}", false)
+                            ->orWhereNull("meta->status->{$this->queue_output}");
+                    })
+                    ->first();
+                $content_id = $firstTrueRow->id;
+                // Now $firstTrueRow contains the first row ready to process
+            }
+        }
 
+        $this->content = Content::find($content_id);
+        if (empty($this->content)) {
+            $this->error("Content not found.");
+        }
         if (!$this->content) {
             throw new \Exception('Content not found.');
-        } else {
-            if ($this->content->status != $this->queue_input) {
-                $this->error("content is not at the right status");
-                return 1;
-            }
         }
 
         try {
@@ -45,6 +63,8 @@ class JobFixSubtitles extends BaseJobCommand
             $meta['subtitles']['vtt'] = $this->fixVttSubtitle($vtt_contents);
 
             $this->content->status = $this->queue_output;
+            $meta["status"][$this->queue_output] = true;
+
             $this->content->meta = json_encode($meta);
             $this->content->save();
         } catch (\Exception $e) {
