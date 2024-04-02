@@ -52,16 +52,19 @@ blacklist uvcvideo
 
 ```
 
-## Conda environment:
+## Speech Conda environment:
 
 ```
 conda create -n speech python=3.11
+
+conda activate speech
 
 pip install torch==2.2.0+cu121 -f https://download.pytorch.org/whl/torch_stable.html
 
 pip install nvitop psutil pynvml cachetools nvidia-ml-py termcolor
 
 
+yay -S ffmpeg sox
 ```
 
 
@@ -164,6 +167,24 @@ sudo chown -Rv grimlock:grimlock /deploy/
 
 sudo mkdir -pv sudo mkdir -pv /output/waves /output/mp3 /output/subtitles /output/results /output/funfacts
 sudo chown -Rv grimlock:grimlock /output/
+
+
+```
+
+
+
+
+## PHP Notes
+
+```
+/etc/php/conf.d/sockets.ini
+extension=sockets
+
+/etc/php/conf.d/iconv.ini
+extension=iconv
+
+/etc/php/conf.d/pdo_pgsql.ini
+extension=pdo_pgsql
 
 
 ```
