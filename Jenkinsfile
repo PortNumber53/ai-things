@@ -11,8 +11,8 @@ pipeline {
             steps {
                 // Checkout the code from your Git repository
                 checkout scm
-                git clean --dry-run
-                git clean -d
+                sh 'git clean --dry-run'
+                sh 'git clean -d'
             }
         }
 
@@ -49,7 +49,7 @@ pipeline {
             steps {
                 script {
                     // Deploy to multiple hosts
-                    def hosts = ['brain', 'pinky', 'devbox'] //, 'legion'
+                    def hosts = ['brain', 'pinky', 'devbox', 'legion'] //
                     def ENV_FILES = [
                         brain: 'ai-things-brain-env-prod-file',
                         pinky: 'ai-things-pinky-env-prod-file',
