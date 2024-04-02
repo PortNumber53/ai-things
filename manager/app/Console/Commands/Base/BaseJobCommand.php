@@ -49,10 +49,6 @@ abstract class BaseJobCommand extends Command
 
     public function handleTerminationSignal($signal)
     {
-        if ($this->job_is_processing) {
-            $this->warn("Job is processing, ignoring signal");
-            return;
-        }
         // Handle termination signal
         switch ($signal) {
             case SIGINT:
@@ -61,9 +57,22 @@ abstract class BaseJobCommand extends Command
             case SIGHUP:
                 $this->info('Received SIGHUP. Stopping script gracefully...');
                 break;
+            case SIGKILL:
+                $this->info('Received SIGKILL. Stopping script immediately...');
+                exit(1); // Terminate immediately without performing any cleanup
+                break;
             default:
                 $this->info('Received termination signal. Stopping script gracefully...');
                 break;
+        }
+
+        if ($this->job_is_processing) {
+            $this->warn("Job is processing, waiting for it to finish...");
+            // Loop until job finishes processing
+            while ($this->job_is_processing) {
+                // Sleep for a short duration to avoid tight looping
+                usleep(100000); // Sleep for 100 milliseconds
+            }
         }
 
         // Perform any cleanup operations here
@@ -76,8 +85,12 @@ abstract class BaseJobCommand extends Command
     {
         // Register signal handlers
         pcntl_signal(SIGINT, [$this, 'handleTerminationSignal']);
+        pcntl_signal(SIGTERM, [$this, 'handleTerminationSignal']);
         pcntl_signal(SIGHUP, [$this, 'handleTerminationSignal']);
-        while (true) {
+
+        $running = true;
+
+        while ($running) {
             $this->line("Checking queue: " . $this->queue_input);
             $message = $this->queue->pop($this->queue_input);
 
@@ -92,6 +105,9 @@ abstract class BaseJobCommand extends Command
                 $this->line("No message found, sleeping");
                 sleep($sleep);
             }
+
+            // Check if we received the termination signal
+            pcntl_signal_dispatch();
         }
     }
 
