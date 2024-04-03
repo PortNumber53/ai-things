@@ -46,6 +46,7 @@ class JobGenerateWav extends BaseJobCommand
                         $query->whereJsonDoesntContain("meta->status->{$this->queue_output}", false)
                             ->orWhereNull("meta->status->{$this->queue_output}");
                     })
+                    ->orderBy('id')
                     ->first();
                 $content_id = $firstTrueRow->id;
                 // Now $firstTrueRow contains the first row ready to process
