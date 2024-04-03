@@ -6,7 +6,7 @@ google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
 httplib2
-numpy==1.23.3
+numpy
 pytube==15.0.0
 streamlit==1.13.0
 streamlit_lottie==0.0.3
