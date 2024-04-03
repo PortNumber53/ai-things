@@ -89,10 +89,6 @@ class JobGenerateWav extends BaseJobCommand
             }
         }
 
-
-        die("\n\n");
-
-
         $this->content = Content::where('id', $content_id)->first();
         if (empty($this->content)) {
             $this->error("Content not found.");
