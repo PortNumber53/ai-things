@@ -53,6 +53,11 @@ class JobGenerateWav extends BaseJobCommand
 
                 // Execute the query and retrieve the first result
                 $firstTrueRow = $query->first();
+                if (!$firstTrueRow) {
+                    $this->error("No content to process, sleeping 60 sec");
+                    sleep(60);
+                    exit(1);
+                }
                 $content_id = $firstTrueRow->id;
                 // Now $firstTrueRow contains the first row ready to process
             }
