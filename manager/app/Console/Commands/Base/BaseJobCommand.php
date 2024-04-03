@@ -17,6 +17,9 @@ abstract class BaseJobCommand extends Command
     protected $queue_input  = 'queue_input';
     protected $queue_output = 'queue_output';
 
+    protected $flags_true = [];
+    protected $flags_false = [];
+
     protected $message_hostname;
 
     protected $job_is_processing = false;
@@ -134,5 +137,17 @@ abstract class BaseJobCommand extends Command
         $this->processContent($payload['content_id']);
         $message->delete();
         $this->job_is_processing = false;
+    }
+
+    protected function dq($query)
+    {
+        // print SQL query (with ? placeholders)
+        $this->line($query->toSql());
+
+        // print SQL query parameter value array
+        print_r($query->getBindings());
+
+        // print raw SQL query
+        dump(vsprintf(str_replace(['?'], ['\'%s\''], $query->toSql()), $query->getBindings()));
     }
 }
