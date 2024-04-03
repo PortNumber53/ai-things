@@ -39,19 +39,19 @@ class JobGenerateWav extends BaseJobCommand
 
     protected function processContent($content_id)
     {
-        $base_query = Content::where('status', 'gemini.payload');
+        $base_query = Content::where('type', 'gemini.payload');
         foreach ($this->flags_true as $flag_true) {
             $base_query->whereJsonContains('meta->status->' . $flag_true, true);
         }
 
-        $count_query = $base_query;
+        $count_query = clone ($base_query);
         foreach ($this->flags_false as $flag_false) {
             $count_query->whereJsonContains('meta->status->' . $flag_false, true);
         }
         $this->line("Count query");
         $this->dq($count_query);
 
-        $work_query = $base_query;
+        $work_query = clone ($base_query);
         foreach ($this->flags_false as $flag_false) {
             $work_query->where(function ($query) use ($flag_false) {
                 $query->where('meta->status->' . $flag_false, '!=', true)
@@ -79,6 +79,9 @@ class JobGenerateWav extends BaseJobCommand
 
                 // Execute the query and retrieve the first result
                 $firstTrueRow = $query->first();
+
+                $this->dq($query);
+                dump($firstTrueRow);
                 if (!$firstTrueRow) {
                     $this->error("No content to process, sleeping 60 sec");
                     sleep(60);
