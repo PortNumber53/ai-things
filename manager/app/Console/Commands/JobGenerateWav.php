@@ -41,24 +41,26 @@ class JobGenerateWav extends BaseJobCommand
                 sleep(60);
                 exit();
             } else {
-                $firstTrueRow = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
+                $query = Content::where('meta->status->' . $this->queue_input, true)
                     ->where(function ($query) {
-                        $query->whereJsonDoesntContain("meta->status->{$this->queue_output}", false)
-                            ->orWhereNull("meta->status->{$this->queue_output}");
+                        $query->where('meta->status->' . $this->queue_output, '!=', true)
+                            ->orWhereNull('meta->status->' . $this->queue_output);
                     })
-                    ->orderBy('id')
-                    ->first();
+                    ->orderBy('id');
+
+                // Print the generated SQL query
+                // $this->line($query->toSql());
+
+                // Execute the query and retrieve the first result
+                $firstTrueRow = $query->first();
                 $content_id = $firstTrueRow->id;
                 // Now $firstTrueRow contains the first row ready to process
             }
         }
 
-        $this->content = Content::find($content_id)->first();
+        $this->content = Content::where('id', $content_id)->first();
         if (empty($this->content)) {
             $this->error("Content not found.");
-        }
-
-        if (!$this->content) {
             throw new \Exception('Content not found.');
         }
 
@@ -173,19 +175,15 @@ class JobGenerateWav extends BaseJobCommand
         $this->content->updated_at = now();
 
         $meta = json_decode($this->content->meta, true);
-        if (!isset($meta['wav'])) {
-            $meta['wavs'] = [];
-        }
-        $meta['wavs'][] = [
+        $meta['wav'] = [
             'filename' => $filename,
             'sentence_id' => 0
         ];
-        if (empty($meta["status"])) {
-            $meta["status"] = [];
+        if (empty($meta['status'])) {
+            $meta['status'] = [];
         }
 
-        // $meta["status"]['funfact_created'] = true;
-        $meta["status"][$this->queue_output] = true;
+        $meta['status'][$this->queue_output] = true;
 
         $this->content->meta = json_encode($meta);
         $this->content->save();
