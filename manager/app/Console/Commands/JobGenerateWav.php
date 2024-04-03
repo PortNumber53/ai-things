@@ -177,7 +177,8 @@ class JobGenerateWav extends BaseJobCommand
         $meta = json_decode($this->content->meta, true);
         $meta['wav'] = [
             'filename' => $filename,
-            'sentence_id' => 0
+            'sentence_id' => 0,
+            'hostname' => config('app.hostname'),
         ];
         if (empty($meta['status'])) {
             $meta['status'] = [];
