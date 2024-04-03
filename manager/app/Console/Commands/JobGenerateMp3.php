@@ -31,47 +31,79 @@ class JobGenerateMp3 extends BaseJobCommand
                 ->whereJsonDoesntContain("meta->status->{$this->queue_output}", true)
                 ->count();
             if ($count >= $this->MAX_MP3_WAITING) {
-                $this->info("Too many MP3 ($count) to process, sleeping for 60");
+                $this->info("Too many WAV ($count) to process, sleeping for 60");
                 sleep(60);
                 exit();
             } else {
-                $firstTrueRow = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
+                $query = Content::where('meta->status->' . $this->queue_input, true)
                     ->where(function ($query) {
-                        $query->whereJsonDoesntContain("meta->status->{$this->queue_output}", false)
-                            ->orWhereNull("meta->status->{$this->queue_output}");
+                        $query->where('meta->status->' . $this->queue_output, '!=', true)
+                            ->orWhereNull('meta->status->' . $this->queue_output);
                     })
-                    ->first();
+                    ->orderBy('id');
+
+                // Print the generated SQL query
+                // $this->line($query->toSql());
+
+                // Execute the query and retrieve the first result
+                $firstTrueRow = $query->first();
                 $content_id = $firstTrueRow->id;
                 // Now $firstTrueRow contains the first row ready to process
             }
         }
 
-        $this->content = Content::find($content_id);
-        if (!$this->content) {
-            $this->error('Content not found.');
-            return 1;
+        $current_host = config('app.hostname');
+
+        $this->content = Content::where('id', $content_id)->first();
+        dump($this->content);
+        if (empty($this->content)) {
+            $this->error("Content not found.");
+            throw new \Exception('Content not found.');
         }
 
         $meta = json_decode($this->content->meta, true);
-        $filenames = $meta['wavs'] ?? [];
-        if (empty($meta["status"])) {
-            $meta["status"] = [];
-        }
+        $filenames = [$meta['wav']]; // Fake support for multiple wav files
 
         $convertedFiles = [];
 
-        foreach ($filenames as $key => $filenameData) {
-            $inputFile = $filenameData['filename'];
+        foreach ($filenames as $key => $filename_data) {
+            dump($filename_data);
+            $input_file = $filename_data['filename'];
+
+            $wav_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'waves', $filename_data['filename']);
+
+            $file_in_host = data_get($filename_data, 'hostname');
+            $file_in_host = 'pinky';
+            $this->line("Host we are: {$current_host}");
+            $this->line("File is in host: {$file_in_host}");
+            if (empty($file_in_host)) {
+                $this->error("We don't know where the file is");
+            } else {
+                if ($current_host != $file_in_host) {
+                    $this->warn("We need to copy the file here");
+
+                    $command = "rsync -ravp --progress {$file_in_host}:{$wav_file_path} {$wav_file_path}";
+                    $this->line($command);
+                    exec($command, $output, $returnCode);
+                    print_r($output);
+                    if ($returnCode === 0) {
+                        $this->info("wav copied to {$this->message_hostname}");
+                    }
+                }
+            }
+
+
+
             $sentenceId = $filenameData['sentence_id'] ?? null;
 
-            $inputFileWithPath = config('app.output_folder') . "/waves/$inputFile";
+            $inputFileWithPath = config('app.output_folder') . "/waves/$input_file";
 
             if (!File::exists($inputFileWithPath)) {
                 $this->error("Input file does not exist: $inputFileWithPath");
                 return false;
             }
 
-            $outputFile = pathinfo($inputFile, PATHINFO_FILENAME) . '.mp3';
+            $outputFile = pathinfo($input_file, PATHINFO_FILENAME) . '.mp3';
             $outputFullPath = config('app.output_folder') . "/mp3/$outputFile";
 
             $command = "ffmpeg -y -i $inputFileWithPath -acodec libmp3lame $outputFullPath";
@@ -94,9 +126,14 @@ class JobGenerateMp3 extends BaseJobCommand
 
                 $this->info("Audio file converted successfully: $outputFullPath");
                 $this->info("Audio MP3 file created properly.");
-                $convertedFiles[$key] = ['mp3' => $outputFile, 'sentence_id' => $sentenceId, 'duration' => $totalSeconds];
-                $this->line("Removed $inputFileWithPath");
-                unlink($inputFileWithPath);
+                $convertedFiles[$key] = [
+                    'mp3' => $outputFile,
+                    'sentence_id' => $sentenceId,
+                    'duration' => $totalSeconds,
+                    'hostname' => config('app.hostname'),
+                ];
+                // $this->line("Removed $inputFileWithPath");
+                // unlink($inputFileWithPath);
             } else {
                 $this->error("Failed to convert or create audio MP3 file.");
             }
