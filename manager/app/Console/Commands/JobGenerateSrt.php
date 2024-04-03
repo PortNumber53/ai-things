@@ -113,12 +113,6 @@ class JobGenerateSrt extends BaseJobCommand
                 $meta["status"][$this->queue_output] = true;
 
                 $this->content->meta = json_encode($meta);
-
-
-                dump($this->content);
-                die();
-
-                // $this->content->save();
             }
         } catch (\Exception $e) {
             print_r($e->getMessage());
