@@ -83,7 +83,7 @@ class JobGenerateSrt extends BaseJobCommand
                         exec($command, $output, $returnCode);
                         print_r($output);
                         if ($returnCode === 0) {
-                            $this->info("Image moved to {$this->message_hostname}");
+                            $this->info("wav copied to {$this->message_hostname}");
                         }
                     }
                 }
