@@ -19,24 +19,51 @@ class JobGenerateSrt extends BaseJobCommand
     protected $queue_input  = 'wav_generated';
     protected $queue_output = 'srt_generated';
 
+    protected $flags_true = [
+        'funfact_created',
+        'wav_generated',
+    ];
+    protected $flags_false = [
+        'srt_generated',
+    ];
+
     protected $MAX_SRT_WAITING = 100;
 
     protected function processContent($content_id)
     {
+        $base_query = Content::where('type', 'gemini.payload');
+        foreach ($this->flags_true as $flag_true) {
+            $base_query->whereJsonContains('meta->status->' . $flag_true, true);
+        }
+
+        $count_query = clone ($base_query);
+        foreach ($this->flags_false as $flag_false) {
+            $count_query->whereJsonContains('meta->status->' . $flag_false, true);
+        }
+        $this->line("Count query");
+        $this->dq($count_query);
+
+        $work_query = clone ($base_query);
+        foreach ($this->flags_false as $flag_false) {
+            $work_query->where(function ($query) use ($flag_false) {
+                $query->where('meta->status->' . $flag_false, '!=', true)
+                    ->orWhereNull('meta->status->' . $flag_false);
+            });
+        }
+        $this->line("Work query");
+        $this->dq($work_query);
+
+
+
         if (empty($content_id)) {
-            $count = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
-                ->whereJsonDoesntContain("meta->status->{$this->queue_output}", true)
+            $count = $count_query
                 ->count();
             if ($count >= $this->MAX_SRT_WAITING) {
-                $this->info("Too many WAV ($count) to process, sleeping for 60");
+                $this->info("Too many SRT waiting ($count) to process, sleeping for 60");
                 sleep(60);
                 exit();
             } else {
-                $query = Content::where('meta->status->' . $this->queue_input, true)
-                    ->where(function ($query) {
-                        $query->where('meta->status->' . $this->queue_output, '!=', true)
-                            ->orWhereNull('meta->status->' . $this->queue_output);
-                    })
+                $query = $work_query
                     ->orderBy('id');
 
                 // Print the generated SQL query
@@ -54,8 +81,6 @@ class JobGenerateSrt extends BaseJobCommand
             }
         }
 
-        $current_host = config('app.hostname');
-
         $this->content = Content::where('id', $content_id)->first();
         if (empty($this->content)) {
             $this->error("Content not found.");
@@ -63,8 +88,12 @@ class JobGenerateSrt extends BaseJobCommand
         }
 
 
+        $current_host = config('app.hostname');
         try {
+            // dump($this->content);
             $meta = json_decode($this->content->meta, true);
+            // dump($meta);
+            // die("STOP HERE");
 
             $filenames = [$meta['wav']]; // Fake array of wavs
             if (empty($meta["status"])) {
