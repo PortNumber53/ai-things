@@ -52,7 +52,7 @@ class JobGenerateWav extends BaseJobCommand
             }
         }
 
-        $this->content = Content::find($content_id);
+        $this->content = Content::find($content_id)->first();
         if (empty($this->content)) {
             $this->error("Content not found.");
         }
@@ -183,7 +183,7 @@ class JobGenerateWav extends BaseJobCommand
             $meta["status"] = [];
         }
 
-        $meta["status"]['funfact_created'] = true;
+        // $meta["status"]['funfact_created'] = true;
         $meta["status"][$this->queue_output] = true;
 
         $this->content->meta = json_encode($meta);
