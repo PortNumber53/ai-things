@@ -28,39 +28,66 @@ class JobGenerateSrt extends BaseJobCommand
                 ->whereJsonDoesntContain("meta->status->{$this->queue_output}", true)
                 ->count();
             if ($count >= $this->MAX_SRT_WAITING) {
-                $this->info("Too many SRT ($count) to process, sleeping for 60");
+                $this->info("Too many WAV ($count) to process, sleeping for 60");
                 sleep(60);
                 exit();
             } else {
-                $firstTrueRow = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
+                $query = Content::where('meta->status->' . $this->queue_input, true)
                     ->where(function ($query) {
-                        $query->whereJsonDoesntContain("meta->status->{$this->queue_output}", false)
-                            ->orWhereNull("meta->status->{$this->queue_output}");
+                        $query->where('meta->status->' . $this->queue_output, '!=', true)
+                            ->orWhereNull('meta->status->' . $this->queue_output);
                     })
-                    ->first();
+                    ->orderBy('id');
+
+                // Print the generated SQL query
+                // $this->line($query->toSql());
+
+                // Execute the query and retrieve the first result
+                $firstTrueRow = $query->first();
                 $content_id = $firstTrueRow->id;
                 // Now $firstTrueRow contains the first row ready to process
             }
         }
 
-        $this->content = Content::find($content_id);
+        $current_host = config('app.hostname');
+
+        $this->content = Content::where('id', $content_id)->first();
         if (empty($this->content)) {
             $this->error("Content not found.");
-        }
-        if (!$this->content) {
             throw new \Exception('Content not found.');
         }
+
 
         try {
             $meta = json_decode($this->content->meta, true);
 
-            $filenames = $meta['wavs'];
+            $filenames = [$meta['wav']]; // Fake array of wavs
             if (empty($meta["status"])) {
                 $meta["status"] = [];
             }
 
             foreach ($filenames as $filename_data) {
                 $wav_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'waves', $filename_data['filename']);
+
+                $file_in_host = data_get($filename_data, 'hostname');
+                $this->line("Host we are: {$current_host}");
+                $this->line("File is in host: {$file_in_host}");
+                if (empty($file_in_host)) {
+                    $this->error("We don't know where the file is");
+                } else {
+                    if ($current_host != $file_in_host) {
+                        $this->warn("We need to copy the file here");
+
+                        $command = "rsync -ravp --progress {$file_in_host}:{$wav_file_path} {$wav_file_path}";
+                        $this->line($command);
+                        exec($command, $output, $returnCode);
+                        print_r($output);
+                        if ($returnCode === 0) {
+                            $this->info("Image moved to {$this->message_hostname}");
+                        }
+                    }
+                }
+
                 // We run a shell script using shell_exec
                 $this->info("Running shell script");
                 $command = sprintf('%s %s %s %s', config('app.subtitle_script'), $wav_file_path, 'Transcribe', $this->content->id);
@@ -86,7 +113,12 @@ class JobGenerateSrt extends BaseJobCommand
                 $meta["status"][$this->queue_output] = true;
 
                 $this->content->meta = json_encode($meta);
-                $this->content->save();
+
+
+                dump($this->content);
+                die();
+
+                // $this->content->save();
             }
         } catch (\Exception $e) {
             print_r($e->getMessage());
