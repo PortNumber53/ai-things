@@ -34,24 +34,36 @@ class JobFixSubtitles extends BaseJobCommand
                 sleep(60);
                 exit();
             } else {
-                $firstTrueRow = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
+                $query = Content::where('meta->status->' . $this->queue_input, true)
                     ->where(function ($query) {
-                        $query->whereJsonDoesntContain("meta->status->{$this->queue_output}", false)
-                            ->orWhereNull("meta->status->{$this->queue_output}");
+                        $query->where('meta->status->' . $this->queue_output, '!=', true)
+                            ->orWhereNull('meta->status->' . $this->queue_output);
                     })
-                    ->first();
+                    ->orderBy('id');
+
+                // Print the generated SQL query
+                // $this->line($query->toSql());
+
+                // Execute the query and retrieve the first result
+                $firstTrueRow = $query->first();
+                if (!$firstTrueRow) {
+                    $this->error("No content to process, sleeping 60 sec");
+                    sleep(60);
+                    exit(1);
+                }
                 $content_id = $firstTrueRow->id;
                 // Now $firstTrueRow contains the first row ready to process
             }
         }
 
-        $this->content = Content::find($content_id);
+        $current_host = config('app.hostname');
+
+        $this->content = Content::where('id', $content_id)->first();
         if (empty($this->content)) {
             $this->error("Content not found.");
-        }
-        if (!$this->content) {
             throw new \Exception('Content not found.');
         }
+
 
         try {
             $meta = json_decode($this->content->meta, true);
@@ -68,6 +80,7 @@ class JobFixSubtitles extends BaseJobCommand
             $this->content->meta = json_encode($meta);
             $this->content->save();
         } catch (\Exception $e) {
+            $this->error($e->getLine());
             $this->error($e->getMessage());
             return 1;
         } finally {
