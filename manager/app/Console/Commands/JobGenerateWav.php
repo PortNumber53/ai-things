@@ -195,8 +195,10 @@ class JobGenerateWav extends BaseJobCommand
         );
         $this->line($soxCommand);
 
+        $removeCommand = "rm " . escapeshellarg($preFile);
+
         // Combine the original command and the silence addition command
-        return $originalCommand . ' && ' . $soxCommand;
+        return $originalCommand . ' && ' . $soxCommand  && ' && ' . $removeCommand;
     }
 
     private function isValidOutputFile($outputFile)
