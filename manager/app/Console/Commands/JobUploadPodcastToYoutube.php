@@ -16,6 +16,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
     protected $signature = 'job:UploadPodcastToYoutube
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
+        {--queue : Process queue messages}
         ';
     protected $description = 'Uploads podcast to youtube';
     protected $content;
@@ -24,21 +25,83 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
     protected $queue_input  = 'podcast_ready';
     protected $queue_output = 'upload.tiktok';
 
+    protected $flags_true = [
+        'funfact_created',
+        'wav_generated',
+        'mp3_generated',
+        'srt_generated',
+        'srt_fixed',
+        'thumbnail_generated',
+        'podcast_ready',
+    ];
+    protected $flags_false = [
+        'youtube_uploaded',
+    ];
+
+    protected $MAX_YOUTUBE_WAITING = 100;
+
 
     protected function processContent($content_id)
     {
-        $this->content = $content_id ?
-            Content::find($content_id) :
-            Content::where('status', $this->queue_input)->where('type', 'gemini.payload')->first();
+        $current_host = config('app.hostname');
 
-        if (!$this->content) {
-            throw new \Exception('Content not found.');
-        } else {
-            if ($this->content->status != $this->queue_input) {
-                $this->error("content is not at the right status");
-                return 1;
+        $base_query = Content::where('type', 'gemini.payload');
+        foreach ($this->flags_true as $flag_true) {
+            $base_query->whereJsonContains('meta->status->' . $flag_true, true);
+        }
+
+        $count_query = clone ($base_query);
+        foreach ($this->flags_false as $flag_false) {
+            $count_query->whereJsonContains('meta->status->' . $flag_false, true);
+        }
+        $this->line("Count query");
+        $this->dq($count_query);
+
+        $work_query = clone ($base_query);
+        foreach ($this->flags_false as $flag_false) {
+            $work_query->where(function ($query) use ($flag_false) {
+                $query->where('meta->status->' . $flag_false, '!=', true)
+                    ->orWhereNull('meta->status->' . $flag_false);
+            });
+        }
+        $this->line("Work query");
+        $this->dq($work_query);
+
+
+
+        if (empty($content_id)) {
+            $count = $count_query
+                ->count();
+            if ($count >= $this->MAX_YOUTUBE_WAITING) {
+                $this->info("Too many podcasts waiting ($count) to be uploaded, sleeping for 60");
+                sleep(60);
+                exit();
+            } else {
+                $query = $work_query
+                    ->orderBy('id');
+
+                // Print the generated SQL query
+                // $this->line($query->toSql());
+
+                // Execute the query and retrieve the first result
+                $firstTrueRow = $query->first();
+                if (!$firstTrueRow) {
+                    $this->error("No content to process, sleeping 60 sec");
+                    sleep(60);
+                    exit(1);
+                }
+                $content_id = $firstTrueRow->id;
+                // Now $firstTrueRow contains the first row ready to process
             }
         }
+
+        $this->content = Content::where('id', $content_id)->first();
+        if (empty($this->content)) {
+            $this->error("Content not found.");
+            throw new \Exception('Content not found.');
+        }
+        dump($this->content);
+
 
         try {
             $meta = json_decode($this->content->meta, true);
@@ -85,7 +148,10 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
                         $meta['podcast'] = [];
                     }
                     $meta['video_id.v1'] = $videoId;
+                    $meta["status"][$this->queue_output] = true;
+
                     $this->content->status = $this->queue_output;
+                    dump($this->content->meta);
 
                     // $this->content->save();
                 } else {
