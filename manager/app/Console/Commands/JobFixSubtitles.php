@@ -30,7 +30,7 @@ class JobFixSubtitles extends BaseJobCommand
                 ->whereJsonDoesntContain("meta->status->{$this->queue_output}", true)
                 ->count();
             if ($count >= $this->MAX_FIX_SRT_WAITING) {
-                $this->info("Too many SRT ($count) to process, sleeping for 60");
+                $this->info("Too many fixed SRT ($count) waiting for processing, sleeping for 60");
                 sleep(60);
                 exit();
             } else {
