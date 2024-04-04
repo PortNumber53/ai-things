@@ -22,37 +22,78 @@ class JobGenerateImage extends BaseJobCommand
     protected $queue;
 
     protected $queue_input  = 'generate_image';
-    protected $queue_output = 'generate_podcast';
+    protected $queue_output = 'thumbnail_generated';
+
+    protected $flags_true = [
+        'funfact_created',
+    ];
+    protected $flags_false = [
+        'thumbnail_generated',
+    ];
 
     protected $ignore_host_check = true;
 
+    protected $MAX_IMG_WAITING = 100;
+
     protected function processContent($content_id)
     {
+        $current_host = config('app.hostname');
+
+        $base_query = Content::where('type', 'gemini.payload');
+        foreach ($this->flags_true as $flag_true) {
+            $base_query->whereJsonContains('meta->status->' . $flag_true, true);
+        }
+
+        $count_query = clone ($base_query);
+        foreach ($this->flags_false as $flag_false) {
+            $count_query->whereJsonContains('meta->status->' . $flag_false, true);
+        }
+        $this->line("Count query");
+        $this->dq($count_query);
+
+        $work_query = clone ($base_query);
+        foreach ($this->flags_false as $flag_false) {
+            $work_query->where(function ($query) use ($flag_false) {
+                $query->where('meta->status->' . $flag_false, '!=', true)
+                    ->orWhereNull('meta->status->' . $flag_false);
+            });
+        }
+        $this->line("Work query");
+        $this->dq($work_query);
+
+
+
         if (empty($content_id)) {
-            $count = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
-                ->whereJsonDoesntContain("meta->status->{$this->queue_output}", true)
+            $count = $count_query
                 ->count();
-            if ($count >= $this->MAX_SRT_WAITING) {
-                $this->info("Too many SRT ($count) to process, sleeping for 60");
+            if ($count >= $this->MAX_IMG_WAITING) {
+                $this->info("Too many IMG ($count) to process, sleeping for 60");
                 sleep(60);
                 exit();
             } else {
-                $firstTrueRow = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
-                    ->where(function ($query) {
-                        $query->whereJsonDoesntContain("meta->status->{$this->queue_output}", false)
-                            ->orWhereNull("meta->status->{$this->queue_output}");
-                    })
-                    ->first();
+                $query = $work_query
+                    ->orderBy('id');
+
+                // Print the generated SQL query
+                // $this->line($query->toSql());
+
+                // Execute the query and retrieve the first result
+                $firstTrueRow = $query->first();
+
+                $this->dq($query);
+                dump($firstTrueRow);
+                if (!$firstTrueRow) {
+                    $this->error("No content to process, sleeping 60 sec");
+                    sleep(60);
+                    exit(1);
+                }
                 $content_id = $firstTrueRow->id;
                 // Now $firstTrueRow contains the first row ready to process
             }
         }
-
-        $this->content = Content::find($content_id);
+        $this->content = Content::where('id', $content_id)->first();
         if (empty($this->content)) {
             $this->error("Content not found.");
-        }
-        if (!$this->content) {
             throw new \Exception('Content not found.');
         }
 
@@ -72,10 +113,13 @@ class JobGenerateImage extends BaseJobCommand
 
             // Update meta.images data point
             $meta = json_decode($this->content->meta, true);
-            if (!isset($meta['images'])) {
-                $meta['images'] = [];
-            }
-            $meta['images'][] = $full_path;
+            // if (!isset($meta['imag'])) {
+            //     $meta['images'] = [];
+            // }
+            $meta['thumbnail'] = [
+                'filename' => $full_path,
+                'hostname' => config('app.hostname'),
+            ];
             $this->content->status = $this->queue_output;
             $meta["status"][$this->queue_output] = true;
 
@@ -105,7 +149,7 @@ class JobGenerateImage extends BaseJobCommand
 
             $data = array(
                 "prompt" => $this->content->title,
-                "steps" => 4,
+                "steps" => 32,
                 "width" => 800,
                 "height" => 600,
                 // "negative_prompt" => "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
