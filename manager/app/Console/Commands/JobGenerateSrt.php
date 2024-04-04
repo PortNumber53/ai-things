@@ -31,6 +31,8 @@ class JobGenerateSrt extends BaseJobCommand
 
     protected function processContent($content_id)
     {
+        $current_host = config('app.hostname');
+
         $base_query = Content::where('type', 'gemini.payload');
         foreach ($this->flags_true as $flag_true) {
             $base_query->whereJsonContains('meta->status->' . $flag_true, true);
@@ -86,7 +88,6 @@ class JobGenerateSrt extends BaseJobCommand
             $this->error("Content not found.");
             throw new \Exception('Content not found.');
         }
-
 
         $current_host = config('app.hostname');
         try {
