@@ -106,7 +106,6 @@ class JobGenerateMp3 extends BaseJobCommand
             $wav_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'waves', $filename_data['filename']);
 
             $file_in_host = data_get($filename_data, 'hostname');
-            $file_in_host = 'pinky';
             $this->line("Host we are: {$current_host}");
             $this->line("File is in host: {$file_in_host}");
             if (empty($file_in_host)) {
