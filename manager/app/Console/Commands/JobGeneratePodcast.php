@@ -12,6 +12,7 @@ class JobGeneratePodcast extends BaseJobCommand
     protected $signature = 'job:GeneratePodcast
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
+        {--queue : Process queue messages}
         ';
     protected $description = 'Generate PodCast but running remotion';
     protected $queue;
@@ -20,20 +21,81 @@ class JobGeneratePodcast extends BaseJobCommand
     protected $queue_input  = 'generate_podcast';
     protected $queue_output = 'podcast_ready';
 
+    protected $flags_true = [
+        'funfact_created',
+        'wav_generated',
+        'mp3_generated',
+        'srt_generated',
+        'srt_fixed',
+        'thumbnail_generated',
+    ];
+    protected $flags_false = [
+        'podcast_ready',
+    ];
+
+    protected $MAX_PODCAST_WAITING = 100;
+
     protected function processContent($content_id)
     {
-        $this->content = $content_id ?
-            Content::find($content_id) :
-            Content::where('status', $this->queue_input)->where('type', 'gemini.payload')->first();
+        $current_host = config('app.hostname');
 
-        if (!$this->content) {
-            throw new \Exception('Content not found.');
-        } else {
-            if ($this->content->status != $this->queue_input) {
-                $this->error("content is not at the right status");
-                return 1;
+        $base_query = Content::where('type', 'gemini.payload');
+        foreach ($this->flags_true as $flag_true) {
+            $base_query->whereJsonContains('meta->status->' . $flag_true, true);
+        }
+
+        $count_query = clone ($base_query);
+        foreach ($this->flags_false as $flag_false) {
+            $count_query->whereJsonContains('meta->status->' . $flag_false, true);
+        }
+        $this->line("Count query");
+        $this->dq($count_query);
+
+        $work_query = clone ($base_query);
+        foreach ($this->flags_false as $flag_false) {
+            $work_query->where(function ($query) use ($flag_false) {
+                $query->where('meta->status->' . $flag_false, '!=', true)
+                    ->orWhereNull('meta->status->' . $flag_false);
+            });
+        }
+        $this->line("Work query");
+        $this->dq($work_query);
+
+
+
+        if (empty($content_id)) {
+            $count = $count_query
+                ->count();
+            if ($count >= $this->MAX_PODCAST_WAITING) {
+                $this->info("Too many MP3 waiting ($count) to process, sleeping for 60");
+                sleep(60);
+                exit();
+            } else {
+                $query = $work_query
+                    ->orderBy('id');
+
+                // Print the generated SQL query
+                // $this->line($query->toSql());
+
+                // Execute the query and retrieve the first result
+                $firstTrueRow = $query->first();
+                if (!$firstTrueRow) {
+                    $this->error("No content to process, sleeping 60 sec");
+                    sleep(60);
+                    exit(1);
+                }
+                $content_id = $firstTrueRow->id;
+                // Now $firstTrueRow contains the first row ready to process
             }
         }
+
+        $this->content = Content::where('id', $content_id)->first();
+        if (empty($this->content)) {
+            $this->error("Content not found.");
+            throw new \Exception('Content not found.');
+        }
+        dump($this->content);
+
 
         try {
             $meta = json_decode($this->content->meta, true);
@@ -41,19 +103,73 @@ class JobGeneratePodcast extends BaseJobCommand
             $title = sprintf("%07d", $this->content->id) . " - {$this->content->title}";
             // $filenames = $meta['filenames'];
 
-            $mp3_filename = $meta['mp3s'][0]['mp3'];
+
+            $mp3_data = $meta['mp3s'][0];
+            // $mp3_filename = $meta['mp3s'][0]['mp3'];
+            $mp3_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'mp3', $mp3_data['mp3']);
+
             $duration = number_format($meta['mp3s'][0]['duration'], 1);
-            dump($mp3_filename);
-            $source_mp3_path = config('app.output_folder') . "/mp3/{$mp3_filename}";
-            $target_mp3_path = config('app.base_app_folder') . "/podcast/public/audio.mp3";
-            file_put_contents($target_mp3_path, file_get_contents($source_mp3_path));
+            dump($meta['mp3s']);
 
-            $image_filename = $meta['images'][0];
-            dump($image_filename);
 
-            $source_image_path = config('app.output_folder') . "/images/{$image_filename}";
-            $target_image_path = config('app.base_app_folder') . "/podcast/public/image.jpg";
-            file_put_contents($target_image_path, file_get_contents($source_image_path));
+
+            $file_in_host = data_get($mp3_data, 'hostname');
+            $this->line("Host we are: {$current_host}");
+            $this->line("File is in host: {$file_in_host}");
+            if (empty($file_in_host)) {
+                $this->error("We don't know where the file is");
+            } else {
+                if ($current_host != $file_in_host) {
+                    $this->warn("We need to copy the file here");
+
+                    $command = "rsync -ravp --progress {$file_in_host}:{$mp3_file_path} {$mp3_file_path}";
+                    $this->line($command);
+                    exec($command, $output, $returnCode);
+                    print_r($output);
+                    if ($returnCode === 0) {
+                        $this->info("mp3 copied to {$this->message_hostname}");
+                    }
+                }
+            }
+
+
+            $thumbnail_data = $meta['thumbnail'];
+            $img_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'images', $thumbnail_data['filename']);
+
+
+            $file_in_host = data_get($mp3_data, 'hostname');
+            $this->line("Host we are: {$current_host}");
+            $this->line("File is in host: {$file_in_host}");
+            if (empty($file_in_host)) {
+                $this->error("We don't know where the file is");
+            } else {
+                if ($current_host != $file_in_host) {
+                    $this->warn("We need to copy the file here");
+
+                    $command = "rsync -ravp --progress {$file_in_host}:{$img_file_path} {$img_file_path}";
+                    $this->line($command);
+                    exec($command, $output, $returnCode);
+                    print_r($output);
+                    if ($returnCode === 0) {
+                        $this->info("mp3 copied to {$this->message_hostname}");
+                    }
+                }
+            }
+
+            // $source_mp3_path = config('app.output_folder') . "/mp3/{$mp3_filename}";
+            // $target_mp3_path = config('app.base_app_folder') . "/podcast/public/audio.mp3";
+            // file_put_contents($target_mp3_path, file_get_contents($source_mp3_path));
+
+            // $image_filename = $meta['images'][0];
+            // dump($image_filename);
+
+            // $source_image_path = config('app.output_folder') . "/images/{$image_filename}";
+            // $target_image_path = config('app.base_app_folder') . "/podcast/public/image.jpg";
+            // file_put_contents($target_image_path, file_get_contents($source_image_path));
+
+
+
+
 
             $srt_subtitles = $meta['subtitles']['srt'];
 
@@ -61,6 +177,11 @@ class JobGeneratePodcast extends BaseJobCommand
             $srt_temp_file = config('app.base_app_folder') . '/podcast/public/podcast.srt';
             dump($srt_temp_file);
             file_put_contents($srt_temp_file, $srt_subtitles);
+
+
+
+
+
 
             $podcast_template_file = config('app.base_app_folder') . '/podcast/src/Root_template.tsx';
             $podcast_generated_file = config('app.base_app_folder') . '/podcast/src/Root.tsx';
@@ -91,14 +212,18 @@ class JobGeneratePodcast extends BaseJobCommand
 
             copy($source_podcas_file, $target_podcast_file);
 
-            if (!isset($meta['podcast'])) {
-                $meta['podcast'] = [];
-            }
-            $meta['podcast'][] = $podcast_filename;
+            $meta['podcast'] = [
+                'filename' => $podcast_filename,
+                'hostname' => config('app.hostname'),
+            ];
             $this->content->meta = json_encode($meta);
             $this->content->status = $this->queue_output;
 
-            $this->content->save();
+            dump($this->content->meta);
+
+            die();
+
+            // $this->content->save();
         } catch (\Exception $e) {
             print_r($e->getMessage());
             print_r($e->getLine());
