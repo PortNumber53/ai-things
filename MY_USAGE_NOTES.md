@@ -52,3 +52,18 @@ Stable Difusion
 yay -S bc
 ./webui.sh --listen --api --use-cpu GFPGAN BSRGAN ESRGAN SCUNet CodeFormer --all
 ```
+
+
+
+## Queries
+```
+SELECT
+  COUNT(*) FILTER (WHERE meta->'status'->>'thumbnail_generated' = 'true') AS thumb_generated_count,
+  COUNT(*) FILTER (WHERE meta->'status'->>'mp3_generated' = 'true') AS mp3_generated_count,
+  COUNT(*) FILTER (WHERE meta->'status'->>'srt_generated' = 'true') AS srt_generated_count,
+  COUNT(*) FILTER (WHERE meta->'status'->>'srt_fixed' = 'true') AS srt_fixed_count,
+  COUNT(*) FILTER (WHERE meta->'status'->>'wav_generated' = 'true') AS wav_generated_count,
+  COUNT(*) FILTER (WHERE meta->'status'->>'funfact_created' = 'true') AS funfact_created_count
+FROM
+  contents;
+````

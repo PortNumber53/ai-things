@@ -128,6 +128,7 @@ pip install git+https://github.com/neonbjb/tortoise-tts
 
 ```
 sudo mkdir -p /output/{funfacts,mp3,results,subtitles,waves}
+sudo mkdir -pv /output/{funfacts,images,mp3,podcast,results,subtitles,waves}
 sudo chown -Rv grimlock:grimlock /output/
 
 sudo mkdir -pv /storage/ai/
