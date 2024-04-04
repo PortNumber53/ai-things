@@ -127,7 +127,9 @@ class JobGeneratePodcast extends BaseJobCommand
                     exec($command, $output, $returnCode);
                     print_r($output);
                     if ($returnCode === 0) {
-                        $this->info("mp3 copied to {$this->message_hostname}");
+                        $this->info("mp3 copied to here");
+                    } else {
+                        $this->error("Error coping mp3 file {$mp3_file_path}");
                     }
                 }
             }
@@ -151,7 +153,9 @@ class JobGeneratePodcast extends BaseJobCommand
                     exec($command, $output, $returnCode);
                     print_r($output);
                     if ($returnCode === 0) {
-                        $this->info("mp3 copied to {$this->message_hostname}");
+                        $this->info("img copied here");
+                    } else {
+                        $this->error("Error coping image file {$img_file_path}");
                     }
                 }
             }
@@ -175,7 +179,8 @@ class JobGeneratePodcast extends BaseJobCommand
 
             // Save $srt_subtitles to temp file
             $srt_temp_file = config('app.base_app_folder') . '/podcast/public/podcast.srt';
-            dump($srt_temp_file);
+            $this->line("SRT FILE:");
+            dump($srt_subtitles);
             file_put_contents($srt_temp_file, $srt_subtitles);
 
 
@@ -204,26 +209,27 @@ class JobGeneratePodcast extends BaseJobCommand
             print_r($command);
             $output = shell_exec($command);
             print_r($output);
+            ////// TO-DO: Check for errors and throw exception if any.
 
 
             $podcast_filename = sprintf("%010d.mp4", $this->content->id);
             $source_podcas_file = config('app.base_app_folder') . "/podcast/out/video.mp4";
             $target_podcast_file = config('app.output_folder') . sprintf("/podcast/%s", $podcast_filename);
 
+            $this->info("Copying podcast file: {$source_podcas_file} -> {$target_podcast_file}");
             copy($source_podcas_file, $target_podcast_file);
 
             $meta['podcast'] = [
                 'filename' => $podcast_filename,
                 'hostname' => config('app.hostname'),
             ];
+
+            $meta["status"][$this->queue_output] = true;
             $this->content->meta = json_encode($meta);
             $this->content->status = $this->queue_output;
 
             dump($this->content->meta);
-
-            die();
-
-            // $this->content->save();
+            $this->content->save();
         } catch (\Exception $e) {
             print_r($e->getMessage());
             print_r($e->getLine());
