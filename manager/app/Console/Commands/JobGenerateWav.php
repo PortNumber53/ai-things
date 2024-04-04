@@ -39,6 +39,8 @@ class JobGenerateWav extends BaseJobCommand
 
     protected function processContent($content_id)
     {
+        $current_host = config('app.hostname');
+
         $base_query = Content::where('type', 'gemini.payload');
         foreach ($this->flags_true as $flag_true) {
             $base_query->whereJsonContains('meta->status->' . $flag_true, true);
@@ -91,7 +93,6 @@ class JobGenerateWav extends BaseJobCommand
                 // Now $firstTrueRow contains the first row ready to process
             }
         }
-
         $this->content = Content::where('id', $content_id)->first();
         if (empty($this->content)) {
             $this->error("Content not found.");
