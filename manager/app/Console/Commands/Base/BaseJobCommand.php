@@ -142,10 +142,10 @@ abstract class BaseJobCommand extends Command
     protected function dq($query)
     {
         // print SQL query (with ? placeholders)
-        $this->line($query->toSql());
+        // $this->line($query->toSql());
 
         // print SQL query parameter value array
-        print_r($query->getBindings());
+        // print_r($query->getBindings());
 
         // print raw SQL query
         dump(vsprintf(str_replace(['?'], ['\'%s\''], $query->toSql()), $query->getBindings()));
