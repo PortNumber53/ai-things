@@ -92,8 +92,6 @@ class JobGenerateMp3 extends BaseJobCommand
             $this->error("Content not found.");
             throw new \Exception('Content not found.');
         }
-        dump($this->content);
-        die();
 
 
         $meta = json_decode($this->content->meta, true);
@@ -177,6 +175,7 @@ class JobGenerateMp3 extends BaseJobCommand
         if (!empty($convertedFiles)) {
             $this->content->status = $this->queue_output;
             $meta['mp3s'] = $convertedFiles;
+            dump($meta['mp3s']);
 
             $meta["status"][$this->queue_output] = true;
             $this->content->meta = json_encode($meta);
