@@ -45,6 +45,8 @@ abstract class BaseJobCommand extends Command
                 $this->processContent($content_id);
             }
         } catch (\Exception $e) {
+            Log::error($e->getFile());
+            Log::error($e->getLine());
             Log::error($e->getMessage());
             $this->error('An error occurred. Please check the logs for more details.');
         }
