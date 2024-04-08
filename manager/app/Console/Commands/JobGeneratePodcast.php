@@ -106,7 +106,8 @@ class JobGeneratePodcast extends BaseJobCommand
 
             $mp3_data = $meta['mp3s'][0];
             // $mp3_filename = $meta['mp3s'][0]['mp3'];
-            $mp3_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'mp3', $mp3_data['mp3']);
+            $mp3_filename =  $mp3_data['mp3'];
+            $mp3_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'mp3', $mp3_filename);
 
             $duration = number_format($meta['mp3s'][0]['duration'], 1);
             dump($meta['mp3s']);
@@ -136,7 +137,8 @@ class JobGeneratePodcast extends BaseJobCommand
 
 
             $thumbnail_data = $meta['thumbnail'];
-            $img_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'images', $thumbnail_data['filename']);
+            $image_filename = $thumbnail_data['filename'];
+            $img_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'images', $image_filename);
 
 
             $file_in_host = data_get($mp3_data, 'hostname');
@@ -160,16 +162,16 @@ class JobGeneratePodcast extends BaseJobCommand
                 }
             }
 
-            // $source_mp3_path = config('app.output_folder') . "/mp3/{$mp3_filename}";
-            // $target_mp3_path = config('app.base_app_folder') . "/podcast/public/audio.mp3";
-            // file_put_contents($target_mp3_path, file_get_contents($source_mp3_path));
+            $source_mp3_path = config('app.output_folder') . "/mp3/{$mp3_filename}";
+            $target_mp3_path = config('app.base_app_folder') . "/podcast/public/audio.mp3";
+            file_put_contents($target_mp3_path, file_get_contents($source_mp3_path));
 
             // $image_filename = $meta['images'][0];
             // dump($image_filename);
 
-            // $source_image_path = config('app.output_folder') . "/images/{$image_filename}";
-            // $target_image_path = config('app.base_app_folder') . "/podcast/public/image.jpg";
-            // file_put_contents($target_image_path, file_get_contents($source_image_path));
+            $source_image_path = config('app.output_folder') . "/images/{$image_filename}";
+            $target_image_path = config('app.base_app_folder') . "/podcast/public/image.jpg";
+            file_put_contents($target_image_path, file_get_contents($source_image_path));
 
 
 
@@ -213,11 +215,15 @@ class JobGeneratePodcast extends BaseJobCommand
 
 
             $podcast_filename = sprintf("%010d.mp4", $this->content->id);
-            $source_podcas_file = config('app.base_app_folder') . "/podcast/out/video.mp4";
+            $podcast_folder = config('app.base_app_folder') . "/podcast/out/";
+            if (!is_dir($podcast_folder)) {
+                mkdir($podcast_folder, 0777, true);
+            }
+            $source_podcast_file = 'video.mp4';
             $target_podcast_file = config('app.output_folder') . sprintf("/podcast/%s", $podcast_filename);
 
-            $this->info("Copying podcast file: {$source_podcas_file} -> {$target_podcast_file}");
-            copy($source_podcas_file, $target_podcast_file);
+            $this->info("Copying podcast file: {$source_podcast_file} -> {$target_podcast_file}");
+            copy($source_podcast_file, $target_podcast_file);
 
             $meta['podcast'] = [
                 'filename' => $podcast_filename,
