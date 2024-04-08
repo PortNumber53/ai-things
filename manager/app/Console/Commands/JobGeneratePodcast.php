@@ -221,7 +221,7 @@ class JobGeneratePodcast extends BaseJobCommand
             if (!is_dir($podcast_folder)) {
                 mkdir($podcast_folder, 0777, true);
             }
-            $source_podcast_file = 'video.mp4';
+            $source_podcast_file = "{$podcast_folder}/video.mp4";
             $target_podcast_file = config('app.output_folder') . sprintf("/podcast/%s", $podcast_filename);
 
             $this->info("Copying podcast file: {$source_podcast_file} -> {$target_podcast_file}");
