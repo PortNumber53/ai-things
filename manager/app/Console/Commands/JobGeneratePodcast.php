@@ -121,7 +121,7 @@ class JobGeneratePodcast extends BaseJobCommand
                 $this->error("We don't know where the file is");
             } else {
                 if ($current_host != $file_in_host) {
-                    $this->warn("We need to copy the file here");
+                    $this->warn("We need to copy the mp3 file here");
 
                     $command = "rsync -ravp --progress {$file_in_host}:{$mp3_file_path} {$mp3_file_path}";
                     $this->line($command);
@@ -138,7 +138,9 @@ class JobGeneratePodcast extends BaseJobCommand
 
             $thumbnail_data = $meta['thumbnail'];
             $image_filename = $thumbnail_data['filename'];
+            dump($thumbnail_data);
             $img_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'images', $image_filename);
+            dump($img_file_path);
 
 
             $file_in_host = data_get($mp3_data, 'hostname');
@@ -148,7 +150,7 @@ class JobGeneratePodcast extends BaseJobCommand
                 $this->error("We don't know where the file is");
             } else {
                 if ($current_host != $file_in_host) {
-                    $this->warn("We need to copy the file here");
+                    $this->warn("We need to copy the image file here");
 
                     $command = "rsync -ravp --progress {$file_in_host}:{$img_file_path} {$img_file_path}";
                     $this->line($command);
