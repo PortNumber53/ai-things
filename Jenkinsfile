@@ -18,9 +18,9 @@ pipeline {
 
         stage('Builds') {
             parallel {
-                stage("Build Frontend") {
+                stage("Build Podcard") {
                     steps {
-                        dir('frontend') {
+                        dir('podcast') {
                             sh 'npm install'
                             // sh 'npm run build'
                         }
