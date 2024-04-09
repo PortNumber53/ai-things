@@ -76,6 +76,8 @@ class JobFixSubtitles extends BaseJobCommand
             $full_text = $this->extractTextFromMeta();
             $original_text = $this->processText($full_text);
 
+            $this->line("Content ID: {$this->content->id}");
+            $this->line("Content title: {$this->content->title}");
             dump($original_text);
             // die();
 
