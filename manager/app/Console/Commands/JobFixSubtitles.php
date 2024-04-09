@@ -182,9 +182,7 @@ class JobFixSubtitles extends BaseJobCommand
         $captions = $parser->parse();
         foreach ($captions as $index => $caption) {
             $caption->text = str_replace('  ', ' ', str_replace("\n", " ", $caption->text));
-            $this->line("Start Time: " . $caption->startTime);
-            $this->line("End Time: " . $caption->endTime);
-            $this->line("Text: " . $caption->text);
+            $this->line("{$index} : Timestamps: {$caption->startTime} / {$caption->endTime} : {$caption->text}");
 
             $exploded = explode(" ", $caption->text);
             foreach ($exploded as $exploded_item) {
