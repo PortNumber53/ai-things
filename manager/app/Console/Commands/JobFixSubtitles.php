@@ -72,6 +72,13 @@ class JobFixSubtitles extends BaseJobCommand
             $srt_contents = $subtitles['srt'];
             $vtt_contents = $subtitles['vtt'];
 
+            // dump($meta);
+            $full_text = $this->extractTextFromMeta();
+            $original_text = $this->processText($full_text);
+
+            dump($original_text);
+            // die();
+
 
             // dump($srt_contents);
             // $fixed_srt = $this->fixSubtitles($srt_contents);
@@ -80,7 +87,7 @@ class JobFixSubtitles extends BaseJobCommand
             // die("\n\n");
 
 
-            $meta['subtitles']['srt'] = $this->fixSubtitles($srt_contents);
+            $meta['subtitles']['srt'] = $this->fixSubtitles($srt_contents, $original_text);
             $meta['subtitles']['vtt'] = $this->fixVttSubtitle($vtt_contents);
 
             $this->content->status = $this->queue_output;
@@ -162,7 +169,7 @@ class JobFixSubtitles extends BaseJobCommand
 
 
 
-    protected function fixSubtitles($input_srt)
+    protected function fixSubtitles($input_srt, $original_text)
     {
         $parser = new Parser();
         $parser->loadString($input_srt);
@@ -187,7 +194,7 @@ class JobFixSubtitles extends BaseJobCommand
             }
         }
 
-        $original_text = file_get_contents('../fixed.srt');
+        // $original_text = file_get_contents('../fixed.srt');
         dump($original_text);
 
         $count_original = 0;
@@ -420,5 +427,46 @@ class JobFixSubtitles extends BaseJobCommand
             false,
             $subtitle_array,
         ];
+    }
+
+
+
+
+    private function extractTextFromMeta()
+    {
+        $meta = json_decode($this->content->meta, true);
+        $rawText = $meta['gemini_response']['candidates'][0]['content']['parts'][0]['text'] ?? null;
+
+        if (!$rawText) {
+            throw new \Exception('Text not found in the meta field.');
+        }
+
+        return $this->processText($rawText);
+    }
+
+    private function processText($rawText)
+    {
+        $lines = explode("\n", $rawText);
+
+        // Initialize a flag to indicate if we have encountered the title
+        $processedText = '';
+
+        // Loop through lines to process the text
+        foreach ($lines as $line) {
+            // Skip the line if it starts with "TITLE:"
+            if (strpos($line, 'TITLE:') === 0) {
+                continue;
+            }
+
+            // If the line contains "CONTENT:", remove the prefix and include the line
+            if (strpos($line, 'CONTENT:') === 0) {
+                $line = substr($line, strlen('CONTENT:'));
+                $processedText .= $line . "\n";
+                continue;
+            }
+
+            $processedText .= $line . "\n";
+        }
+        return trim($processedText);
     }
 }
