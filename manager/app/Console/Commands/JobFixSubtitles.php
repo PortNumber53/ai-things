@@ -166,7 +166,7 @@ class JobFixSubtitles extends BaseJobCommand
     {
 
         $parser = new Parser();
-        $input_srt = file_get_contents('../subtitles.srt');
+        // $input_srt = file_get_contents('../subtitles.srt');
         $parser->loadString($input_srt);
         $parser->loadFile('../subtitles.srt');
 
