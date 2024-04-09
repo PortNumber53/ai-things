@@ -29,7 +29,7 @@ def inference(loaded_model, input_file, task, content_id):
     ffmpeg.run(audio, overwrite_output=True)
 
     if task == "Transcribe":
-        options = dict(task="transcribe", best_of=5)
+        options = dict(task="transcribe", best_of=510)
         results = loaded_model.transcribe(f"{save_dir}/output_{content_id}.wav", **options)
     elif task == "Translate":
         options = dict(task="translate", best_of=5)
