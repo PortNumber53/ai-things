@@ -14,7 +14,7 @@ class JobGenerateSrt extends BaseJobCommand
         {--sleep=30 : Sleep time in seconds}
         {--queue : Process queue messages}
         ';
-    protected $description = 'Listens to queue and runs AudioConvertToMp3';
+    protected $description = 'Generates subtitles for a WAV file';
 
     protected $queue_input  = 'wav_generated';
     protected $queue_output = 'srt_generated';
