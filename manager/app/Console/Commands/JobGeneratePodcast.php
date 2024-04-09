@@ -101,6 +101,7 @@ class JobGeneratePodcast extends BaseJobCommand
             $meta = json_decode($this->content->meta, true);
 
             $title = sprintf("%07d", $this->content->id) . " - {$this->content->title}";
+            $this->info("TITLE: $title");
             // $filenames = $meta['filenames'];
 
 
@@ -196,7 +197,7 @@ class JobGeneratePodcast extends BaseJobCommand
             $podcast_generated_file = config('app.base_app_folder') . '/podcast/src/Root.tsx';
 
             $podcast_template_contents = file_get_contents($podcast_template_file);
-            $podcast_template_contents = str_replace('__REPLACE_WITH_TITLE__', $title, $podcast_template_contents);
+            $podcast_template_contents = str_replace('__REPLACE_WITH_TITLE__', addslashes($title), $podcast_template_contents);
             $podcast_template_contents = str_replace('__REPLACE_WITH_MP3__', 'audio.mp3', $podcast_template_contents);
             $podcast_template_contents = str_replace('__REPLACE_WITH_IMAGE__', 'image.jpg', $podcast_template_contents);
             $podcast_template_contents = str_replace('__REPLACE_WITH_SUBTITLES__', 'podcast.srt', $podcast_template_contents);
