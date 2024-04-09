@@ -181,7 +181,11 @@ class JobFixSubtitles extends BaseJobCommand
         $count = 0;
         $captions = $parser->parse();
         foreach ($captions as $index => $caption) {
-            $caption->text = str_replace('  ', ' ', str_replace("\n", " ", $caption->text));
+            $caption_text = str_replace("\n", " ", $caption->text);
+            $caption_text = str_replace("\n", " ", $caption_text);
+            $caption_text = str_replace("\n", " ", $caption_text);
+
+            $caption->text = str_replace('  ', ' ', $caption_text);
             $this->line("{$index} : Timestamps: {$caption->startTime} / {$caption->endTime} : {$caption->text}");
 
             $exploded = explode(" ", $caption->text);
@@ -233,8 +237,8 @@ class JobFixSubtitles extends BaseJobCommand
                 $captions[$srt_index] = '';
             }
 
-            $word = $subtitle_item['orig'];
-            $captions[$srt_index] = trim($captions[$srt_index] . " $word");
+            $word = str_replace("\n", ' ', $subtitle_item['orig']);
+            $captions[$srt_index] = str_replace("\n", ' ', trim($captions[$srt_index] . " $word"));
         }
         print_r($captions);
 
