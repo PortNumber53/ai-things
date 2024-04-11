@@ -115,19 +115,15 @@ makepkg -is
 conda config --set report_errors true
 ```
 
-Torroise-TTS
-
+## Torroise-TTS
 ```
-
 pip install -r requirements.txt
 pip install git+https://github.com/neonbjb/tortoise-tts
-
 ```
 
 ## Folders:
 
 ```
-sudo mkdir -p /output/{funfacts,mp3,results,subtitles,waves}
 sudo mkdir -pv /output/{funfacts,images,mp3,podcast,results,subtitles,waves}
 sudo chown -Rv grimlock:grimlock /output/
 
@@ -142,11 +138,7 @@ conda create -n subtitle python=3.11
 conda activate subtitle
 pip install -r requirements.txt
 
-
-
 ```
-
-
 
 
 ###
@@ -161,19 +153,9 @@ pip install piper-tts
 sudo mkdir -pv /storage/ai/
 sudo chown -Rv grimlock:grimlock /storage
 
-
-
 sudo mkdir -p /deploy/ai-things
 sudo chown -Rv grimlock:grimlock /deploy/
-
-sudo mkdir -pv sudo mkdir -pv /output/waves /output/mp3 /output/subtitles /output/results /output/funfacts
-sudo chown -Rv grimlock:grimlock /output/
-
-
 ```
-
-
-
 
 ## PHP Notes
 
@@ -188,4 +170,9 @@ extension=iconv
 extension=pdo_pgsql
 
 
+```
+
+## Ubuntu
+```
+sudo apt-get install php-xml php-pgsql
 ```
