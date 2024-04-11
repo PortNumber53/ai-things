@@ -14,7 +14,7 @@ BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output')
 
 DEVICE = "cpu"  # Force using CPU for inference
 
-loaded_model = whisper.load_model("small", device=DEVICE)
+loaded_model = whisper.load_model("large", device=DEVICE)
 
 def inference(loaded_model, input_file, task, content_id):
     save_dir = os.path.join(BASE_OUTPUT_FOLDER, "subtitles")
@@ -37,8 +37,8 @@ def inference(loaded_model, input_file, task, content_id):
     else:
         raise ValueError("Task not supported")
 
-    vtt = get_subs(results["segments"], "vtt", 80, save_dir, content_id)
-    srt = get_subs(results["segments"], "srt", 80, save_dir, content_id)
+    vtt = get_subs(results["segments"], "vtt", 50, save_dir, content_id)
+    srt = get_subs(results["segments"], "srt", 50, save_dir, content_id)
 
     save_transcription(results["text"], save_dir, content_id)  # Save transcribed text to a file in the output folder
 
