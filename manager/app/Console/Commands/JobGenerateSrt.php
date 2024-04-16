@@ -125,7 +125,7 @@ class JobGenerateSrt extends BaseJobCommand
 
                 // We run a shell script using shell_exec
                 $this->info("Running shell script");
-                $command = sprintf('%s %s %s %s', config('app.subtitle_script'), $wav_file_path, 'Transcribe', $this->content->id);
+                $command = sprintf('%s %s %s', config('app.subtitle_script'), $wav_file_path, $this->content->id);
                 $this->info("Running command: $command");
                 $output = shell_exec($command);
                 $this->info("Command output: " . $output);
