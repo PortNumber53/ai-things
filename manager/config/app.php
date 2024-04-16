@@ -135,8 +135,8 @@ return [
     'base_app_folder' => env('BASE_APP_FOLDER'),
 
     'subtitle_folder' => env('BASE_OUTPUT_FOLDER') . '/subtitles',
-    'subtitle_script' => (env('APP_ENV') === 'production') ? 'python /deploy/ai-things/current/auto-subtitles-generator/subtitle.py' : 'python /home/grimlock/ai/ai-things/auto-subtitles-generator/subtitle.py',
+    'subtitle_script' => (env('APP_ENV') === 'production') ? 'python /deploy/ai-things/current/podcast/whisper.py' : 'python /home/grimlock/ai/ai-things/podcast/whisper.py',
 
-    'youtube_upload' => (env('APP_ENV') === 'production') ? 'python /deploy/ai-things/current/auto-subtitles-generator/upload_video.py' : 'python /home/grimlock/ai/ai-things/auto-subtitles-generator/upload_video.py',
+    'youtube_upload' => (env('APP_ENV') === 'production') ? 'python /deploy/ai-things/current/auto-subtitles-generator/upload_video.py' : 'python upload_video.py',
 
 ];
