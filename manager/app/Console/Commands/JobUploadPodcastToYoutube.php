@@ -68,7 +68,6 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
         $this->dq($work_query);
 
 
-
         if (empty($content_id)) {
             $count = $count_query
                 ->count();
@@ -110,7 +109,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
 
             print_r($this->content);
             // Call script to upload video to youtube
-            $filename = config('app.output_folder') . sprintf("/podcast/%s", $meta['podcast'][0]);
+            $filename = config('app.output_folder') . sprintf("/podcast/%s", $meta['podcast']['filename']);
             $title = escapeshellarg(sprintf("%07d", $this->content->id) . " - {$this->content->title}");
             $description = escapeshellarg($description);
             $category = '27';
@@ -118,13 +117,13 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
             $privacy_status = 'public';
 
             $command = "cd " . config('app.base_app_folder') . "/auto-subtitles-generator/ && " . sprintf(
-                '%s --file=%s --title=%s --description=%s --category=%s --keywords=%s --privacyStatus=%s',
+                '%s --file=%s --title=%s --description=%s --category=%s --keywords="%s" --privacyStatus=%s',
                 config('app.youtube_upload'),
                 $filename,
                 $title,
                 $description,
                 $category,
-                $keywords,
+                addslashes($keywords),
                 $privacy_status
             );
             print_r($command);
@@ -210,6 +209,8 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
 
             $processedText .= $line . "\n";
         }
+
+        $processedText = str_replace("\n", " ", $processedText);
         return trim($processedText);
     }
 }
