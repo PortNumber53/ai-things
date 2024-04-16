@@ -165,6 +165,30 @@ class JobGeneratePodcast extends BaseJobCommand
                 }
             }
 
+            // If we have an AI generate image let's use that
+            $img_ai_file_path = sprintf('%s/%s/%s', config('app.output_folder'), 'images-ai', $image_filename);
+            if (is_file($img_ai_file_path)) {
+                dump($img_ai_file_path);
+
+                $this->warn("We need to copy the AI image file {$img_ai_file_path} here");
+
+                $command = "rsync -ravp --progress {$img_ai_file_path} {$img_file_path}";
+                $this->line($command);
+                exec($command, $output, $returnCode);
+                print_r($output);
+                if ($returnCode === 0) {
+                    $this->info("img copied here");
+                } else {
+                    $this->error("Error coping image file {$img_ai_file_path}");
+                }
+            }
+
+
+
+
+
+
+
             $source_mp3_path = config('app.output_folder') . "/mp3/{$mp3_filename}";
             $target_mp3_path = config('app.base_app_folder') . "/podcast/public/audio.mp3";
             file_put_contents($target_mp3_path, file_get_contents($source_mp3_path));
