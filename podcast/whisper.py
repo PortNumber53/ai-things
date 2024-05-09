@@ -87,7 +87,7 @@ def chunks_to_srt(chunks, content_id, output_file_path):
 
             f.write(str(count) + '\n')
             f.write(start_time_formatted + ' --> ' + end_time_formatted + '\n')
-            f.write(text + '\n\n')
+            f.write(text.strip() + '\n\n')
             count += 1
 
     print(f"SRT file saved to: {output_file_path}")
