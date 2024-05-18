@@ -133,6 +133,7 @@ class JobGenerateSrt extends BaseJobCommand
                 $subtitle_base_path = config('app.subtitle_folder');
                 // $vtt_file_path = "$subtitle_base_path/transcription_{$this->content->id}.vtt";
                 $srt_file_path = "$subtitle_base_path/transcription_{$this->content->id}.srt";
+                $this->info("SRT path: {$srt_file_path}");
 
                 // dump($vtt_file_path);
                 dump($srt_file_path);
