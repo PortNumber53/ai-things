@@ -41,7 +41,7 @@ class GeminiGenerateFunFact extends BaseJobCommand
         $content_id = $this->argument('content_id');
 
         $count = Content::whereJsonContains("meta->status->{$this->queue_output}", true)->count();
-        if ($count >= $this->MAX_FUN_FACTS_WAITING) {
+        if (empty($content_id) && $count >= $this->MAX_FUN_FACTS_WAITING) {
             $this->info("Too many fun facts ($count) to process, sleeping for 60");
             sleep(60);
             exit();
@@ -69,14 +69,28 @@ class GeminiGenerateFunFact extends BaseJobCommand
             return 0;
         }
 
-        // Create content with specificied ID (should not override existing content)
-        $existing_content = Content::where('id', $content_id)->first();
-        if (!$existing_content) {
-            $this->generateFunFact($content_id);
+        $generated_content = $this->generateFunFact();
+        if (!$content_id) {
+            //Create
+            $this->info('Inserting 1');
+            $this->content = Content::create($generated_content);
         } else {
-            dump($existing_content);
-            $this->error("Found existing content");
+            $this->content = Content::updateOrCreate([
+                'id' => $content_id,
+            ], $generated_content);
+            $this->info('upserting:: ' . $content_id);
         }
+        // print_r($generated_content);
+        // die();
+
+        // // Create content with specificied ID (should not override existing content)
+        // $existing_content = Content::where('id', $content_id)->first();
+        // if (!$existing_content) {
+        //     $this->generateFunFact($content_id);
+        // } else {
+        //     dump($existing_content);
+        //     $this->error("Found existing content");
+        // }
     }
 
     public function handleTerminationSignal($signal)
@@ -113,31 +127,27 @@ class GeminiGenerateFunFact extends BaseJobCommand
         exit(0);
     }
 
-    private function generateFunFact($content_id = false)
+    private function generateFunFact()
     {
         $this->job_is_processing = true;
         $apiKey = config('gemini.api_key');
 
         // API Endpoint
-        $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+        $url = 'https://ollama.portnumber53.com/api/generate';
 
         // Request data
         $requestData = [
-            'contents' => [
-                [
-                    'parts' => [
-                        [
-                            'text' => trim(<<<PROMPT
-Write about a single unique random fact about any subject, make the explanation engaging while keeping it simple
-write about 6 to 10 paragraphs, your response must be in format structured exactly like this, no extra formatting required:
+            'model' => 'phi3',
+            'stream' => false,
+            // 'prompt' => 'Why is the sky blue?',
+            // 'stream' => 'false',
+            'prompt' => trim(<<<PROMPT
+Write 6 to 10 paragraphs about a single unique random fact about any subject,
+make the explanation engaging while keeping it simple.
+Your response must be in format structured exactly like this, no extra formatting required:
 TITLE: The title for the subject comes here
-CONTENT: (the entire content about the subject goes on the next line)
-Your entire response goes here.
+CONTENT: Your entire fun fact goes here.
 PROMPT),
-                        ]
-                    ]
-                ]
-            ]
         ];
 
         // Make HTTP POST request using GuzzleClient
@@ -180,13 +190,14 @@ PROMPT),
 
         // Extract data from the response
         $responseData = json_decode($response->getBody(), true);
-        // dump($responseData);
-        if (isset($responseData['candidates'][0]['content']['parts'][0]['text'])) {
-            $text = str_replace("\n\n", "\n", $responseData['candidates'][0]['content']['parts'][0]['text']);
+        dump($responseData);
+
+        if (isset($responseData['response'])) {
+            $text = str_replace("\n\n", "\n", $responseData['response']);
 
             $text = str_replace('***', '', $text);
             $text = str_replace('**', '', $text);
-            $responseData['candidates'][0]['content']['parts'][0]['text'] = $text;
+            $responseData['response'] = $text;
             $this->line($text);
 
             $responsePart = explode("\n", $text);
@@ -224,7 +235,7 @@ PROMPT),
                 'status' => [
                     $this->queue_output => true,
                 ],
-                'gemini_response' => $responseData,
+                'ollama_response' => $responseData,
             ];
 
             $content_create_payload = [
@@ -235,21 +246,32 @@ PROMPT),
                 'count' => $count,
                 'meta' => json_encode($meta_payload),
             ];
-            if ($content_id === false) {
-                $content_create_payload['id'] = $content_id;
-            }
-            // Save data to database
-            $this->content = Content::create($content_create_payload);
-            dump($this->content);
 
-            $job_payload = json_encode([
-                'content_id' => $this->content->id,
-                'hostname' => config('app.hostname'),
-            ]);
-            $this->queue->pushRaw($job_payload, $this->queue_output);
+            $this->job_is_processing = false;
+            dump($content_create_payload);
+            // die();
+            return $content_create_payload;
+            // if ($content_id === false) {
+            //     $content_create_payload['id'] = $content_id;
+            // }
+            // // Save data to database
+            // if (empty($content_id)) {
+            //     $this->content = Content::create($content_create_payload);
 
-            // Display success message
-            $this->info('Fun fact generated successfully.');
+            // } else {
+            //     // update
+
+            // }
+            // dump($this->content);
+
+            // $job_payload = json_encode([
+            //     'content_id' => $this->content->id,
+            //     'hostname' => config('app.hostname'),
+            // ]);
+            // $this->queue->pushRaw($job_payload, $this->queue_output);
+
+            // // Display success message
+            // $this->info('Fun fact generated successfully.');
         } else {
             $this->error('Failed to parse response data.');
         }
@@ -268,11 +290,12 @@ PROMPT),
     {
         $client = new Client([
             'headers' => [
-                'Content-Type' => 'application/json'
+                'Content-Type' => 'application/json',
+                'X-API-KEY' => $apiKey // Add the API key to headers
             ]
         ]);
 
-        $response = $client->post($url . '?key=' . $apiKey, [
+        $response = $client->post($url, [
             'json' => $data
         ]);
 

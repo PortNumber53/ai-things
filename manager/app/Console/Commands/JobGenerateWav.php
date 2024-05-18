@@ -127,7 +127,7 @@ class JobGenerateWav extends BaseJobCommand
     private function extractTextFromMeta()
     {
         $meta = json_decode($this->content->meta, true);
-        $rawText = $meta['gemini_response']['candidates'][0]['content']['parts'][0]['text'] ?? null;
+        $rawText = $meta['ollama_response']['response'] ?? null;
 
         if (!$rawText) {
             throw new \Exception('Text not found in the meta field.');
