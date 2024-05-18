@@ -36,78 +36,91 @@ class JobCorrectSubtitles extends BaseJobCommand
 
     protected function processContent($content_id)
     {
-        // if (empty($content_id)) {
-        //     $count = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
-        //         ->whereJsonDoesntContain("meta->status->{$this->queue_output}", true)
-        //         ->count();
-        //     if ($count >= $this->MAX_FIX_SRT_WAITING) {
-        //         $this->info("Too many fixed SRT ($count) waiting for processing, sleeping for 60");
-        //         sleep(60);
-        //         exit();
-        //     } else {
-        //         $query = Content::where('meta->status->' . $this->queue_input, true)
-        //             ->where(function ($query) {
-        //                 $query->where('meta->status->' . $this->queue_output, '!=', true)
-        //                     ->orWhereNull('meta->status->' . $this->queue_output);
-        //             })
-        //             ->orderBy('id');
+        if (empty($content_id)) {
+            $count = Content::whereJsonContains("meta->status->{$this->queue_input}", true)
+                ->whereJsonDoesntContain("meta->status->{$this->queue_output}", true)
+                ->count();
+            if ($count >= $this->MAX_FIX_SRT_WAITING) {
+                $this->info("Too many fixed SRT ($count) waiting for processing, sleeping for 60");
+                sleep(60);
+                exit();
+            } else {
+                $query = Content::where('meta->status->' . $this->queue_input, true)
+                    ->where(function ($query) {
+                        $query->where('meta->status->' . $this->queue_output, '!=', true)
+                            ->orWhereNull('meta->status->' . $this->queue_output);
+                    })
+                    ->orderBy('id');
 
-        //         // Print the generated SQL query
-        //         // $this->line($query->toSql());
+                // Print the generated SQL query
+                // $this->line($query->toSql());
 
-        //         // Execute the query and retrieve the first result
-        //         $firstTrueRow = $query->first();
-        //         if (!$firstTrueRow) {
-        //             $this->error("No content to process, sleeping 60 sec");
-        //             sleep(60);
-        //             exit(1);
-        //         }
-        //         $content_id = $firstTrueRow->id;
-        //         // Now $firstTrueRow contains the first row ready to process
-        //     }
-        // }
+                // Execute the query and retrieve the first result
+                $firstTrueRow = $query->first();
+                if (!$firstTrueRow) {
+                    $this->error("No content to process, sleeping 60 sec");
+                    sleep(60);
+                    exit(1);
+                }
+                $content_id = $firstTrueRow->id;
+                // Now $firstTrueRow contains the first row ready to process
+            }
+        }
 
-        // $current_host = config('app.hostname');
+        $current_host = config('app.hostname');
 
-        // $this->content = Content::where('id', $content_id)->first();
-        // if (empty($this->content)) {
-        //     $this->error("Content not found.");
-        //     throw new \Exception('Content not found.');
-        // }
+        $this->content = Content::where('id', $content_id)->first();
+        if (empty($this->content)) {
+            $this->error("Content not found.");
+            throw new \Exception('Content not found.');
+        }
 
 
-        // try {
-        //     $meta = json_decode($this->content->meta, true);
-        //     $subtitles = $meta['subtitles'];
-        //     $srt_contents = $subtitles['srt'];
-        //     $vtt_contents = $subtitles['vtt'];
+        try {
+            $meta = json_decode($this->content->meta, true);
 
-        //     $meta['subtitles']['srt'] = $this->fixSrtSubtitle($srt_contents);
-        //     $meta['subtitles']['vtt'] = $this->fixVttSubtitle($vtt_contents);
+            // dump($meta['subtitles']);
+            $fixed_srt = $this->fixSubtitles($meta['subtitles']);
 
-        //     $this->content->status = $this->queue_output;
-        //     $meta["status"][$this->queue_output] = true;
+            // dump($fixed_srt);
+            die("\n\n");
 
-        //     $this->content->meta = json_encode($meta);
-        //     $this->content->save();
-        // } catch (\Exception $e) {
-        //     $this->error($e->getLine());
-        //     $this->error($e->getMessage());
-        //     return 1;
-        // } finally {
-        //     $job_payload = json_encode([
-        //         'content_id' => $this->content->id,
-        //         'hostname' => config('app.hostname'),
-        //     ]);
-        //     $this->queue->pushRaw($job_payload, $this->queue_output);
+            $subtitles = $meta['subtitles'];
+            $srt_contents = $subtitles['srt'];
+            // $vtt_contents = $subtitles['vtt'];
 
-        //     $this->info("Job dispatched to generate the image file.");
-        // }
+            $meta['subtitles']['srt'] = $this->fixSrtSubtitle($srt_contents);
+            // $meta['subtitles']['vtt'] = $this->fixVttSubtitle($vtt_contents);
 
+            $this->content->status = $this->queue_output;
+            $meta["status"][$this->queue_output] = true;
+
+            $this->content->meta = json_encode($meta);
+            $this->content->save();
+        } catch (\Exception $e) {
+            $this->error($e->getLine());
+            $this->error($e->getMessage());
+            return 1;
+        } finally {
+            $job_payload = json_encode([
+                'content_id' => $this->content->id,
+                'hostname' => config('app.hostname'),
+            ]);
+            $this->queue->pushRaw($job_payload, $this->queue_output);
+
+            $this->info("Job dispatched to generate the image file.");
+        }
+    }
+
+
+
+    protected function fixSubtitles($input_srt)
+    {
 
         $parser = new Parser();
-        $input_srt = file_get_contents('../subtitles.srt');
-        $parser->loadFile('../subtitles.srt');
+        // $input_srt = file_get_contents('../subtitles.srt');
+        $parser->loadString(implode($input_srt));
+        // $parser->loadFile('../subtitles.srt');
 
         $subtitle_array = [];
 
@@ -185,6 +198,8 @@ class JobCorrectSubtitles extends BaseJobCommand
             $caption->text = str_replace('  ', ' ', str_replace("\n", " ", $caption->text));
         }
         print_r($fixed_str_contents);
+
+        return $fixed_str_contents;
     }
 
     protected function displaySubtitles($subtitle_array = [])
