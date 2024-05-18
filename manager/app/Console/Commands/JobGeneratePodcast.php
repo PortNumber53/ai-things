@@ -210,6 +210,7 @@ class JobGeneratePodcast extends BaseJobCommand
             $srt_temp_file = config('app.base_app_folder') . '/podcast/public/podcast.srt';
             $this->line("SRT FILE:");
             dump($srt_subtitles);
+            $this->line("SRT file: {$srt_temp_file}");
             file_put_contents($srt_temp_file, $srt_subtitles);
 
 
