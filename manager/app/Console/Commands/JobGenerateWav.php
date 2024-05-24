@@ -105,18 +105,18 @@ class JobGenerateWav extends BaseJobCommand
         $outputFile = config('app.output_folder') . "/waves/$filename";
 
         $command = $this->buildShellCommand($text, $filename);
-        $this->line($command);
+        $this->info($command);
         shell_exec($command);
 
         if ($this->isValidOutputFile($outputFile)) {
             $this->updateContent($filename);
             $this->info("Shell command executed. Output file: $outputFile");
 
-            $job_payload = json_encode([
-                'content_id' => $this->content->id,
-                'hostname' => config('app.hostname'),
-            ]);
-            $this->queue->pushRaw($job_payload, $this->queue_output);
+            // $job_payload = json_encode([
+            //     'content_id' => $this->content->id,
+            //     'hostname' => config('app.hostname'),
+            // ]);
+            // $this->queue->pushRaw($job_payload, $this->queue_output);
 
             $this->info("Job dispatched to generate the SRT file.");
         } else {
