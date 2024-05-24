@@ -32,12 +32,12 @@ pipeline {
                         withCredentials([
                             file(credentialsId: 'ai-things-brain-env-prod-file', variable: 'ENV_FILE_BRAIN'),
                             file(credentialsId: 'ai-things-pinky-env-prod-file', variable: 'ENV_FILE_PINKY'),
-                            file(credentialsId: 'ai-things-legion-env-prod-file', variable: 'ENV_FILE_LEGION'),
+                            // file(credentialsId: 'ai-things-legion-env-prod-file', variable: 'ENV_FILE_LEGION'),
                             file(credentialsId: 'ai-things-devbox-env-prod-file', variable: 'ENV_FILE_DEVBOX'),
                         ]) {
                             sh 'cp --no-preserve=mode,ownership $ENV_FILE_BRAIN .env.brain'
                             sh 'cp --no-preserve=mode,ownership $ENV_FILE_PINKY .env.pinky'
-                            sh 'cp --no-preserve=mode,ownership $ENV_FILE_LEGION .env.legion'
+                            // sh 'cp --no-preserve=mode,ownership $ENV_FILE_LEGION .env.legion'
                             sh 'cp --no-preserve=mode,ownership $ENV_FILE_DEVBOX .env.devbox'
                         }
                     }
@@ -49,11 +49,11 @@ pipeline {
             steps {
                 script {
                     // Deploy to multiple hosts
-                    def hosts = ['brain', 'pinky', 'devbox', 'legion'] //
+                    def hosts = ['brain', 'pinky', 'devbox'] //, 'legion'
                     def ENV_FILES = [
                         brain: 'ai-things-brain-env-prod-file',
                         pinky: 'ai-things-pinky-env-prod-file',
-                        legion: 'ai-things-legion-env-prod-file',
+                        // legion: 'ai-things-legion-env-prod-file',
                         devbox: 'ai-things-devbox-env-prod-file'
                     ]
                     for (host in hosts) {
