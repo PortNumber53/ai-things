@@ -132,7 +132,7 @@ class JobGenerateSrt extends BaseJobCommand
 
                 $subtitle_base_path = config('app.subtitle_folder');
                 // $vtt_file_path = "$subtitle_base_path/transcription_{$this->content->id}.vtt";
-                $srt_file_path = "$subtitle_base_path/transcription_{$this->content->id}.srt";
+                $srt_file_path = "{$subtitle_base_path}/transcription_{$this->content->id}.srt";
                 $this->info("SRT path: {$srt_file_path}");
 
                 // dump($vtt_file_path);
@@ -156,11 +156,11 @@ class JobGenerateSrt extends BaseJobCommand
             print_r($e->getLine());
             die("\n\n");
         } finally {
-            $job_payload = json_encode([
-                'content_id' => $this->content->id,
-                'hostname' => config('app.hostname'),
-            ]);
-            $this->queue->pushRaw($job_payload, $this->queue_output);
+            // $job_payload = json_encode([
+            //     'content_id' => $this->content->id,
+            //     'hostname' => config('app.hostname'),
+            // ]);
+            // $this->queue->pushRaw($job_payload, $this->queue_output);
 
             $this->info("Job dispatched to generate the MP3 file.");
         }
