@@ -142,7 +142,7 @@ class GeminiGenerateFunFact extends BaseJobCommand
             // 'prompt' => 'Why is the sky blue?',
             // 'stream' => 'false',
             'prompt' => trim(<<<PROMPT
-Write 6 to 10 paragraphs about a single unique random fact about any subject,
+Write 6 to 10 paragraphs about a single unique random fact about Earth's Rotation,
 make the explanation engaging while keeping it simple.
 Your response must be in format structured exactly like this, no extra formatting required:
 TITLE: The title for the subject comes here
