@@ -14,13 +14,18 @@ if len(sys.argv) < 3:
 sample_filepath = sys.argv[1]
 content_id = int(sys.argv[2])
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+# device = "cuda:0" if torch.cuda.is_available() else "cpu"
+device = "cpu"
+#torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+torch_dtype = torch.float32
 
 model_id = "openai/whisper-large-v3"
 
 model = AutoModelForSpeechSeq2Seq.from_pretrained(
-    model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
+    model_id,
+    torch_dtype=torch_dtype,
+    low_cpu_mem_usage=True,
+    use_safetensors=True,
 )
 model.to(device)
 
@@ -33,7 +38,7 @@ pipe = pipeline(
     feature_extractor=processor.feature_extractor,
     max_new_tokens=128,
     chunk_length_s=30,
-    batch_size=16,
+    batch_size=8,
     return_timestamps=True,
     torch_dtype=torch_dtype,
     device=device,
@@ -94,4 +99,5 @@ def chunks_to_srt(chunks, content_id, output_file_path):
 
 # Usage:
 srt_output_file_path = os.path.join(save_dir, f"transcription_{content_id}.srt")
+print(f"saving SRT to {srt_output_file_path}")
 chunks_to_srt(result["chunks"], content_id, srt_output_file_path)
