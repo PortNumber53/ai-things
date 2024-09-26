@@ -49,7 +49,7 @@ class AiGenerateFunFacts extends Command
         $response = Http::timeout(600)->post(
             'http://' . $host . ':11434/api/generate',
             [
-                'model' => 'llama2', // notux dolphin-mistral tinyllama mixtral llama2
+                'model' => 'llama3.2', // notux dolphin-mistral tinyllama mixtral llama2
                 'keep_alive' => 300,
                 'prompt' => $prompt,
                 'stream' => false,
@@ -103,31 +103,8 @@ class AiGenerateFunFacts extends Command
             dump($paragraphs);
             echo "---------\n";
 
-
-            // die("Done...\n\n");
-
-            // $responsePart = json_decode(json_encode($responsePart), true);
-
-            // if (isset($responsePart['TITLE']) && isset($responsePart['CONTENT'])) {
-            // $title = $responsePart['TITLE'];
-            // $sentences = [];
-            // $count = 0;
-            // foreach ($paragraphs as $line) {
-            //     $lineSentences = array_filter(preg_split('/(?<=[.!?])\s+/', $line['content']));
-            //     foreach ($lineSentences as $sentence) {
-            //         $sentences[] = ['count' => ++$count, 'content' => trim($sentence)];
-            //     }
-            //     // Add spacer after each paragraph
-            //     $sentences[] = ['count' => ++$count, 'content' => '<spacer>'];
-            // }
-            // array_pop($sentences);
-            // dump($title);
-            // echo "---------\n";
-            // dump($sentences);
-            // echo "---------\n";
-
             // Save payload into database
-            Content::create([
+            $result = Content::create([
                 'title' => $title,
                 'status' => 'new',
                 'type' => 'text-to-tts',
@@ -135,9 +112,9 @@ class AiGenerateFunFacts extends Command
                 'count' => $count,
                 'meta' => $meta
             ]);
+            print_r($result);
 
             $this->info("{$timestamp} Fun fact generation job dispatched.");
-            // }
 
 
 
@@ -146,26 +123,9 @@ class AiGenerateFunFacts extends Command
 
             $uuid = Str::uuid()->toString();
             $filename = "funfacts/{$uuid}.txt";
-
-            // Storage::disk('output')->put($filename, $text);
-
-            // Log::info("Output file: $filename");
-
-            // You may dispatch another job to process the saved payload if needed
-            // For example, GenerateFunFactProcessorJob::dispatch($filename);
         } else {
             dump($response->status());
             dump($response->body());
-            // Handle unsuccessful request
-            // You might want to retry the job or log the failure
-            // For example, $this->release(60) to retry after 60 seconds
-            // Or, log the error using $response->status() or $response->body()
         }
-
-
-
-        // Sleep for the specified duration before dispatching the next job
-        //     sleep($sleepDuration);
-        // }
-    }
+   }
 }
