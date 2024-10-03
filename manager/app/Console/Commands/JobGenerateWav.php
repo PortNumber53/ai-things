@@ -130,6 +130,10 @@ class JobGenerateWav extends BaseJobCommand
         $rawText = $meta['ollama_response']['response'] ?? null;
 
         if (!$rawText) {
+            $rawText = $meta['gemini_response']['candidates'][0]['content']['parts'][0]['text'] ?? null;
+        }
+
+        if (!$rawText) {
             throw new \Exception('Text not found in the meta field.');
         }
 
