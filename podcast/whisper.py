@@ -16,10 +16,11 @@ content_id = int(sys.argv[2])
 
 # device = "cuda:0" if torch.cuda.is_available() else "cpu"
 device = "cpu"
-#torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-torch_dtype = torch.float32
+torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+# torch_dtype = torch.float32
 
-model_id = "openai/whisper-large-v3"
+# model_id = "openai/whisper-large-v3"
+model_id = "openai/whisper-small"
 
 model = AutoModelForSpeechSeq2Seq.from_pretrained(
     model_id,
@@ -78,8 +79,16 @@ def chunks_to_srt(chunks, content_id, output_file_path):
     with open(output_file_path, "w") as f:
         count = 1
         for i, chunk in enumerate(chunks):
-            start_time = int(chunk['timestamp'][0] * 1000)  # Convert to milliseconds
-            end_time = int(chunk['timestamp'][1] * 1000)    # Convert to milliseconds
+
+            start_time = chunk['timestamp'][0]
+            end_time = chunk['timestamp'][1]
+            
+            if start_time is None or end_time is None:
+                continue  # Skip this chunk if timestamp is None
+
+            start_time = int(start_time * 1000)  # Convert to milliseconds
+            end_time = int(end_time * 1000)  # Convert to milliseconds
+
             text = chunk['text']
 
             # Format the time in HH:MM:SS,mmm
