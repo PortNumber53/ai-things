@@ -6,6 +6,7 @@ use App\Console\Commands\Base\BaseJobCommand;
 use Illuminate\Support\Facades\Http;
 use App\Models\Content;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Log;
 
 class GeminiGenerateFunFact extends BaseJobCommand
 {
@@ -75,13 +76,23 @@ class GeminiGenerateFunFact extends BaseJobCommand
             $this->info('Inserting 1');
             $this->content = Content::create($generated_content);
         } else {
-            $this->content = Content::updateOrCreate([
+            $filter = [
                 'id' => $content_id,
-            ], $generated_content);
-            $this->info('upserting:: ' . $content_id);
+            ];
+            $exists = Content::where('id', $content_id)->first();
+            if ($exists) {
+                $this->info('Upserting:: ' . $content_id);
+                $this->line('filter:: ' . json_encode($filter));
+                $new_content = Content::updateOrCreate($filter, $generated_content);
+                Log::debug( $new_content );
+            } else {
+                $generated_content['id'] = $content_id;
+                $this->info('Inserting:: ' . $content_id);
+                // $this->title = $generated_content['title'];
+                $new_content = Content::create($generated_content);
+                $new_content->save();
+            }
         }
-        // print_r($generated_content);
-        // die();
 
         // // Create content with specificied ID (should not override existing content)
         // $existing_content = Content::where('id', $content_id)->first();
@@ -137,16 +148,19 @@ class GeminiGenerateFunFact extends BaseJobCommand
 
         // Request data
         $requestData = [
-            'model' => 'phi3',
+            'model' => 'llama3.2',
             'stream' => false,
+            'options' => [
+                'temperature' => 1,
+            ],
             // 'prompt' => 'Why is the sky blue?',
             // 'stream' => 'false',
             'prompt' => trim(<<<PROMPT
-Write 6 to 10 paragraphs about a single unique random fact about Earth's Rotation,
-make the explanation engaging while keeping it simple.
-Your response must be in format structured exactly like this, no extra formatting required:
+Write a single unique random fact of any topic that you can think of about apple pies, 6 to 10 paragraphs about is enough,
+make the explanation engaging while keeping it simple. Your response must be formatted exactly like the following example:
+Here's a sample, to show the format you must use:
 TITLE: The title for the subject comes here
-CONTENT: Your entire fun fact goes here.
+CONTENT: The content about the fun fact goes here.
 PROMPT),
         ];
 
@@ -154,8 +168,8 @@ PROMPT),
         try {
             $response = $this->makeRequest($url, $requestData, $apiKey);
         } catch (\Exception $e) {
-            dump($e->getLine());
-            dump($e->getMessage());
+            Log::error($e->getLine());
+            Log::error($e->getMessage());
             exit(1);
         }
 
@@ -190,7 +204,6 @@ PROMPT),
 
         // Extract data from the response
         $responseData = json_decode($response->getBody(), true);
-        dump($responseData);
 
         if (isset($responseData['response'])) {
             $text = str_replace("\n\n", "\n", $responseData['response']);
@@ -234,6 +247,12 @@ PROMPT),
             $meta_payload = [
                 'status' => [
                     $this->queue_output => true,
+                    'wav_generated' => false,
+                    'mp3_generated' => false,
+                    'podcast_ready' => false,
+                    'youtube_uploaded' => false,
+                    'srt_generated' => false,
+                    'thumbnail_generated' => false,
                 ],
                 'ollama_response' => $responseData,
             ];
@@ -248,7 +267,8 @@ PROMPT),
             ];
 
             $this->job_is_processing = false;
-            dump($content_create_payload);
+            $this->info("Title: " . $title);
+            Log::debug($content_create_payload);
             // die();
             return $content_create_payload;
             // if ($content_id === false) {
