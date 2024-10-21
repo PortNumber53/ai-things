@@ -70,7 +70,7 @@ class JobFixSubtitles extends BaseJobCommand
             $meta = json_decode($this->content->meta, true);
             $subtitles = $meta['subtitles'];
             $srt_contents = $subtitles['srt'];
-            $vtt_contents = $subtitles['vtt'];
+            // $vtt_contents = $subtitles['vtt'];
 
             // dump($meta);
             $full_text = $this->extractTextFromMeta();
@@ -90,7 +90,7 @@ class JobFixSubtitles extends BaseJobCommand
 
 
             $meta['subtitles']['srt'] = $this->fixSubtitles($srt_contents, $original_text);
-            $meta['subtitles']['vtt'] = $this->fixVttSubtitle($vtt_contents);
+            // $meta['subtitles']['vtt'] = $this->fixVttSubtitle($vtt_contents);
 
             $this->content->status = $this->queue_output;
             $meta["status"][$this->queue_output] = true;
@@ -115,6 +115,7 @@ class JobFixSubtitles extends BaseJobCommand
 
     private function fixSrtSubtitle($srt_contents)
     {
+        $this->info(__METHOD__);
         // Split the contents into subtitle blocks
         $subtitle_blocks = explode("\n\n", $srt_contents);
 
@@ -137,31 +138,31 @@ class JobFixSubtitles extends BaseJobCommand
     }
 
 
-    private function fixVttSubtitle($vtt_contents)
-    {
-        // Split the contents into subtitle blocks
-        $subtitle_blocks = explode("\n\n", $vtt_contents);
+    // private function fixVttSubtitle($vtt_contents)
+    // {
+    //     // Split the contents into subtitle blocks
+    //     $subtitle_blocks = explode("\n\n", $vtt_contents);
 
-        // Iterate through each subtitle block
-        foreach ($subtitle_blocks as &$block) {
-            // Remove leading whitespace
-            $block = preg_replace('/^\s*/m', '', $block);
+    //     // Iterate through each subtitle block
+    //     foreach ($subtitle_blocks as &$block) {
+    //         // Remove leading whitespace
+    //         $block = preg_replace('/^\s*/m', '', $block);
 
-            // Remove line breaks within each block
-            $block = preg_replace('/\n(?![0-9]{2}:[0-9]{2}\.[0-9]{3} --> [0-9]{2}:[0-9]{2}\.[0-9]{3})/', ' ', $block);
+    //         // Remove line breaks within each block
+    //         $block = preg_replace('/\n(?![0-9]{2}:[0-9]{2}\.[0-9]{3} --> [0-9]{2}:[0-9]{2}\.[0-9]{3})/', ' ', $block);
 
-            // Add a newline after the timestamp
-            $block = preg_replace('/([0-9]{2}:[0-9]{2}\.[0-9]{3} --> [0-9]{2}:[0-9]{2}\.[0-9]{3})/', "$1\n", $block);
+    //         // Add a newline after the timestamp
+    //         $block = preg_replace('/([0-9]{2}:[0-9]{2}\.[0-9]{3} --> [0-9]{2}:[0-9]{2}\.[0-9]{3})/', "$1\n", $block);
 
-            // Trim leading whitespace before the sentence
-            $block = preg_replace('/(?<=\n)[ \t]+/', '', $block);
-        }
+    //         // Trim leading whitespace before the sentence
+    //         $block = preg_replace('/(?<=\n)[ \t]+/', '', $block);
+    //     }
 
-        // Reassemble the fixed subtitle contents
-        $fixed_vtt = implode("\n\n", $subtitle_blocks);
+    //     // Reassemble the fixed subtitle contents
+    //     $fixed_vtt = implode("\n\n", $subtitle_blocks);
 
-        return $fixed_vtt;
-    }
+    //     return $fixed_vtt;
+    // }
 
 
 
@@ -173,6 +174,8 @@ class JobFixSubtitles extends BaseJobCommand
 
     protected function fixSubtitles($input_srt, $original_text)
     {
+        $this->info(__METHOD__);
+
         $parser = new Parser();
         $parser->loadString($input_srt);
 
@@ -240,16 +243,16 @@ class JobFixSubtitles extends BaseJobCommand
             $word = str_replace("\n", ' ', $subtitle_item['orig']);
             $captions[$srt_index] = str_replace("\n", ' ', trim($captions[$srt_index] . " $word"));
         }
-        print_r($captions);
 
         $fixed_str_contents = '';
         $parser_captions = $parser->parse();
         foreach ($parser_captions as $index => $caption) {
+            $this->info("{$index} : {$caption->startTime} / {$caption->endTime} : {$caption->text}");
             $srt_index = $index + 1;
 
             $fixed_str_contents .= "{$srt_index}\n";
             $fixed_str_contents .= "{$caption->startTime} --> {$caption->endTime}\n";
-            $fixed_str_contents .= "{$captions[$index]}\n";
+            $fixed_str_contents .= "{$caption->text}\n";
             $fixed_str_contents .= "\n";
             $caption->text = str_replace('  ', ' ', str_replace("\n", " ", $caption->text));
         }

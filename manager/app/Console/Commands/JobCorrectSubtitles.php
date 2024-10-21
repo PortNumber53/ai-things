@@ -142,8 +142,8 @@ class JobCorrectSubtitles extends BaseJobCommand
             }
         }
 
-        $original_text = file_get_contents('../fixed.srt');
-        dump($original_text);
+        // $original_text = file_get_contents('../fixed.srt');
+        // dump($original_text);
 
         $count_original = 0;
         $lines = explode('\n', $original_text);
