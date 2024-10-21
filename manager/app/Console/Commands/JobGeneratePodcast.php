@@ -26,7 +26,6 @@ class JobGeneratePodcast extends BaseJobCommand
         'wav_generated',
         'mp3_generated',
         'srt_generated',
-        'srt_fixed',
         'thumbnail_generated',
     ];
     protected $flags_false = [
@@ -64,10 +63,13 @@ class JobGeneratePodcast extends BaseJobCommand
 
 
         if (empty($content_id)) {
+            foreach ($this->flags_finished as $finished) {
+                $count_query->whereJsonContains('meta->status->' . $finished, false);
+            }
             $count = $count_query
                 ->count();
             if ($count >= $this->MAX_PODCAST_WAITING) {
-                $this->info("Too many MP3 waiting ($count) to process, sleeping for 60");
+                $this->info("Too many Podcast waiting ($count) to process, sleeping for 60");
                 sleep(60);
                 exit();
             } else {
@@ -75,7 +77,7 @@ class JobGeneratePodcast extends BaseJobCommand
                     ->orderBy('id');
 
                 // Print the generated SQL query
-                // $this->line($query->toSql());
+                $this->line($query->toSql());
 
                 // Execute the query and retrieve the first result
                 $firstTrueRow = $query->first();
@@ -226,7 +228,7 @@ class JobGeneratePodcast extends BaseJobCommand
             $podcast_template_contents = str_replace('__REPLACE_WITH_MP3__', 'audio.mp3', $podcast_template_contents);
             $podcast_template_contents = str_replace('__REPLACE_WITH_IMAGE__', 'image.jpg', $podcast_template_contents);
             $podcast_template_contents = str_replace('__REPLACE_WITH_SUBTITLES__', 'podcast.srt', $podcast_template_contents);
-            $podcast_template_contents = str_replace('__DURATION__', $duration, $podcast_template_contents);
+            $podcast_template_contents = str_replace('__DURATION__', (int)$duration, $podcast_template_contents);
 
 
             print_r($podcast_template_contents);
