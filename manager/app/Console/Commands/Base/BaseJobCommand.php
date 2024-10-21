@@ -24,6 +24,10 @@ abstract class BaseJobCommand extends Command
 
     protected $job_is_processing = false;
 
+    protected $flags_finished = [
+        'podcast_ready',
+    ];
+
     public function __construct(Content $content, Queue $queue)
     {
         parent::__construct();
