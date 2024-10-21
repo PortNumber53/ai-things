@@ -18,7 +18,11 @@ class AiGenerateFunFacts extends Command
      *
      * @var string
      */
-    protected $signature = 'Ai:GenerateFunFacts {--sleep=30 : Sleep duration in seconds}';
+    protected $signature = 'Ai:GenerateFunFacts
+            {content_id? : The content ID}
+            {--sleep=30 : Sleep duration in seconds}
+            {--queue : Process queue messages}
+    ';
 
     /**
      * The console command description.
@@ -33,16 +37,17 @@ class AiGenerateFunFacts extends Command
     public function handle()
     {
         $sleepDuration = $this->option('sleep');
+        $queue = $this->option('queue');
+        $content_id = $this->argument('content_id');
 
         // while (true) {
         $timestamp = date('Y-m-d H:i:s');
         $prompt = trim(<<<PROMPT
-            give me a single unique random fact about any subject
-            make the explanation engaging while keeping it simple
-            write about 6 to 10 paragraphs, your response must be in format structured exactly like this:
+            Write 6 to 10 paragraphs about a single unique random fact about Earth's Rotation,
+            make the explanation engaging while keeping it simple.
+            Your response must be in format structured exactly like this, no extra formatting required:
             TITLE: The title for the subject comes here
-            CONTENT: (the entire content about the subject goes on the next line)
-            Your entire response goes here.
+            CONTENT: Your entire fun fact goes here.
         PROMPT);
 
         $host = env('BRAIN_HOST');
@@ -103,15 +108,25 @@ class AiGenerateFunFacts extends Command
             dump($paragraphs);
             echo "---------\n";
 
-            // Save payload into database
-            $result = Content::create([
-                'title' => $title,
-                'status' => 'new',
-                'type' => 'text-to-tts',
-                'sentences' => json_encode($paragraphs),
-                'count' => $count,
-                'meta' => $meta
-            ]);
+            if ($content_id) {
+                //Update Content
+                $content = Content::find($content_id);
+                $content->title = $title;
+                $content->sentences = json_encode($paragraphs);
+                $content->count = $count;
+                $content->meta = $meta;
+                $result = $content->save();
+            } else {
+                // Save payload into database
+                $result = Content::create([
+                    'title' => $title,
+                    'status' => 'new',
+                    'type' => 'text-to-tts',
+                    'sentences' => json_encode($paragraphs),
+                    'count' => $count,
+                    'meta' => $meta
+                ]);
+            }
             print_r($result);
 
             $this->info("{$timestamp} Fun fact generation job dispatched.");
