@@ -22,5 +22,7 @@ pip install pika python-dotenv torch torchaudio psycopg2 progressbar transformer
 
 pip install httplib2 apiclient
 
+pip install -U openai-whisper
+
 pip install google-auth-oauthlib google-api-python-client
 ```
