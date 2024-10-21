@@ -64,6 +64,9 @@ class JobGenerateImage extends BaseJobCommand
 
 
         if (empty($content_id)) {
+            foreach ($this->flags_finished as $finished) {
+                $count_query->whereJsonContains('meta->status->' . $finished, false);
+            }
             $count = $count_query
                 ->count();
             if ($count >= $this->MAX_IMG_WAITING) {
@@ -146,17 +149,18 @@ class JobGenerateImage extends BaseJobCommand
         try {
             $url = 'http://192.168.70.87:7860';
             $url = 'http://192.168.68.70:7860';
+            // $url = 'http://192.168.70.73:7860';
 
             $data = array(
                 "prompt" => $this->content->title,
                 "steps" => 32,
                 "width" => 800,
                 "height" => 600,
-                // "negative_prompt" => "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
-                // "enable_hr" => true,
-                // "restore_faces" => true,
-                // "hr_upscaler" => "Nearest",
-                // "denoising_strength" => 0.7,
+                "negative_prompt" => "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
+                "enable_hr" => true,
+                "restore_faces" => true,
+                "hr_upscaler" => "Nearest",
+                "denoising_strength" => 0.7,
             );
 
             // Initialize cURL session
@@ -190,6 +194,8 @@ class JobGenerateImage extends BaseJobCommand
             dump($response);
             // Decode and save the image.
             $output = json_decode($response, true);
+            print_r($output);
+            die("\n\n");
             $image_data = base64_decode($output['images'][0]);
 
             $full_path = config('app.output_folder') . "/images/{$filename}";
