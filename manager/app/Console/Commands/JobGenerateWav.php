@@ -66,6 +66,9 @@ class JobGenerateWav extends BaseJobCommand
 
 
         if (empty($content_id)) {
+            foreach ($this->flags_finished as $finished) {
+                $count_query->whereJsonContains('meta->status->' . $finished, false);
+            }
             $count = $count_query
                 ->count();
             if ($count >= $this->MAX_WAV_WAITING) {
@@ -83,7 +86,7 @@ class JobGenerateWav extends BaseJobCommand
                 $firstTrueRow = $query->first();
 
                 $this->dq($query);
-                dump($firstTrueRow);
+                Log::debug($firstTrueRow);
                 if (!$firstTrueRow) {
                     $this->error("No content to process, sleeping 60 sec");
                     sleep(60);
@@ -127,7 +130,11 @@ class JobGenerateWav extends BaseJobCommand
     private function extractTextFromMeta()
     {
         $meta = json_decode($this->content->meta, true);
-        $rawText = $meta['ollama_response']['response'] ?? null;
+        $rawText = isset($meta['ollama_response']['response']) ? $meta['ollama_response']['response'] : null;
+
+        if (!$rawText) {
+            $rawText = isset($meta['gemini_response']['candidates'][0]['content']['parts'][0]['text']) ? $meta['gemini_response']['candidates'][0]['content']['parts'][0]['text'] : null;
+        }
 
         if (!$rawText) {
             $rawText = $meta['gemini_response']['candidates'][0]['content']['parts'][0]['text'] ?? null;
