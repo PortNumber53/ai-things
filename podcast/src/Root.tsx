@@ -1,3 +1,4 @@
+
 import { Composition, staticFile } from 'remotion';
 import { AudioGramSchema, AudiogramComposition, fps } from './Composition';
 import './style.css';
@@ -18,14 +19,14 @@ export const RemotionRoot: React.FC = () => {
 
 					// Title settings
 					audioFileName: staticFile('audio.mp3'),
-					coverImgFileName: staticFile(
-						'Default_The_LittleKnown_History_of_French_Fries_0.jpg'
-					),
-					titleText: '01229 - The Little-Known History of French Fries',
+					coverImgFileName: [
+						staticFile('image.jpg'),
+					],
+					titleText: '0002069 - The Amazing Lungs of Humans - A Story of Adaptation',
 					titleColor: 'rgba(186, 186, 186, 0.93)',
 
 					// Subtitles settings
-					subtitlesFileName: staticFile('subtitles.srt'),
+					subtitlesFileName: staticFile('podcast.srt'),
 					onlyDisplayCurrentSentence: true,
 					subtitlesTextColor: 'rgba(255, 255, 255, 0.93)',
 					subtitlesLinePerPage: 8,
@@ -38,7 +39,7 @@ export const RemotionRoot: React.FC = () => {
 					waveLinesToDisplay: 40,
 					waveNumberOfSamples: '256', // This is string for Remotion controls and will be converted to a number
 					mirrorWave: false,
-					durationInSeconds: 202.9,
+					durationInSeconds: 236,
 				}}
 				// Determine the length of the video based on the duration of the audio file
 				calculateMetadata={({ props }) => {

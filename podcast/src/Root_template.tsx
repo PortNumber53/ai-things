@@ -1,3 +1,4 @@
+
 import { Composition, staticFile } from 'remotion';
 import { AudioGramSchema, AudiogramComposition, fps } from './Composition';
 import './style.css';
@@ -18,7 +19,9 @@ export const RemotionRoot: React.FC = () => {
 
 					// Title settings
 					audioFileName: staticFile('__REPLACE_WITH_MP3__'),
-					coverImgFileName: staticFile('__REPLACE_WITH_IMAGE__'),
+					coverImgFileName: [
+						staticFile('__REPLACE_WITH_IMAGE__'),
+					],
 					titleText: '__REPLACE_WITH_TITLE__',
 					titleColor: 'rgba(186, 186, 186, 0.93)',
 
