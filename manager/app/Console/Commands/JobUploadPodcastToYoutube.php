@@ -17,6 +17,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
         {--queue : Process queue messages}
+        {--info : Just show info, do not upload}
         ';
     protected $description = 'Uploads podcast to youtube';
     protected $content;
@@ -30,7 +31,6 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
         'wav_generated',
         'mp3_generated',
         'srt_generated',
-        'srt_fixed',
         'thumbnail_generated',
         'podcast_ready',
     ];
@@ -40,9 +40,15 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
 
     protected $MAX_YOUTUBE_WAITING = 100;
 
+    protected $flags_finished = [
+        'youtube_uploaded',
+    ];
+
 
     protected function processContent($content_id)
     {
+        $info = $this->option('info');
+
         $current_host = config('app.hostname');
 
         $base_query = Content::where('type', 'gemini.payload');
@@ -52,7 +58,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
 
         $count_query = clone ($base_query);
         foreach ($this->flags_false as $flag_false) {
-            $count_query->whereJsonContains('meta->status->' . $flag_false, true);
+            $count_query->whereJsonContains('meta->status->' . $flag_false, false);
         }
         $this->line("Count query");
         $this->dq($count_query);
@@ -64,11 +70,23 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
                     ->orWhereNull('meta->status->' . $flag_false);
             });
         }
+        $work_query->whereJsonDoesntContain("meta", "video_id.v1");
         $this->line("Work query");
         $this->dq($work_query);
 
 
         if (empty($content_id)) {
+            // foreach ($this->flags_finished as $finished) {
+            //     // $count_query->whereJsonContains('meta->status->' . $finished, false);
+            //     $count_query->where('meta->status->' . $finished, '!=', false)
+            //         ->orWhereNull('meta->status->' . $finished);
+            // }
+            $count_query->whereJsonDoesntContain("meta", "video_id.v1");
+
+            // $count_query->WhereNot('meta->video_id.v1');
+            $this->line("Count query::::");
+            $this->dq($count_query);
+
             $count = $count_query
                 ->count();
             if ($count >= $this->MAX_YOUTUBE_WAITING) {
@@ -99,7 +117,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
             $this->error("Content not found.");
             throw new \Exception('Content not found.');
         }
-        dump($this->content);
+        // dump($this->content);
 
 
         try {
@@ -107,7 +125,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
 
             $description = $this->extractTextFromMeta();
 
-            print_r($this->content);
+            // print_r($this->content);
             // Call script to upload video to youtube
             $filename = config('app.output_folder') . sprintf("/podcast/%s", $meta['podcast']['filename']);
             $title = escapeshellarg(sprintf("%07d", $this->content->id) . " - {$this->content->title}");
@@ -127,6 +145,30 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
                 $privacy_status
             );
             print_r($command);
+            echo "\n\n";
+
+            if ($info) {
+                $description = stripslashes($description);
+                $title = stripslashes($title);
+                $title = str_replace("'''", "'", $title);
+                $description = str_replace("'''", "'", $description);
+                $this->line("Title: {$title}");
+                $this->line("Description: {$description}");
+                $this->line("Category: {$category}");
+                $this->line("Keywords: {$keywords}");
+                $this->line("Privacy status: {$privacy_status}");
+
+                // Ask user for video ID and save it to meta
+                $video_id = $this->ask("Enter video ID");
+                $meta['video_id.v1'] = $video_id;
+                $meta["status"][$this->queue_output] = true;
+                $meta['status']['youtube_uploaded'] = true;
+                $this->content->status = $this->queue_output;
+                $this->content->meta = json_encode($meta);
+                $this->content->save();
+                exit(0);
+            }
+
 
             exec($command, $output, $returnCode);
 
@@ -152,7 +194,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
                     $this->content->status = $this->queue_output;
                     dump($this->content->meta);
 
-                    // $this->content->save();
+                    $this->content->save();
                 } else {
                     $this->error("Video ID not found.");
                 }
@@ -177,6 +219,10 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
     {
         $meta = json_decode($this->content->meta, true);
         $rawText = $meta['ollama_response']['response'] ?? null;
+
+        if (!$rawText) {
+            $rawText = isset($meta['gemini_response']['candidates'][0]['content']['parts'][0]['text']) ? $meta['gemini_response']['candidates'][0]['content']['parts'][0]['text'] : null;
+        }
 
         if (!$rawText) {
             throw new \Exception('Text not found in the meta field.');
