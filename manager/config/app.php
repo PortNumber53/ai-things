@@ -138,5 +138,6 @@ return [
     'subtitle_script' => (env('APP_ENV') === 'production') ? 'python /deploy/ai-things/current/podcast/whisper.py' : 'python /home/grimlock/ai/ai-things/podcast/whisper.py',
 
     'youtube_upload' => (env('APP_ENV') === 'production') ? 'python /deploy/ai-things/current/auto-subtitles-generator/upload_video.py' : 'python upload_video.py',
+    'tiktok_upload_script' => (env('APP_ENV') === 'production') ? 'python /deploy/ai-things/current/utility/upload-video-to-tiktok.py' : 'python upload-video-to-tiktok.py',
 
 ];
