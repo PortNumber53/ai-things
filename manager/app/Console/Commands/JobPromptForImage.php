@@ -17,6 +17,7 @@ class JobPromptForImage extends BaseJobCommand
         {content_id? : The content ID}
         {--sleep=30 : Sleep time in seconds}
         {--queue : Process queue messages}
+        {--regenerate : Regenerate the image}
         ';
 
     /**
@@ -58,8 +59,20 @@ class JobPromptForImage extends BaseJobCommand
         $this->line("Count query");
         $this->dq($count_query);
 
+        $work_query = clone ($base_query);
+        foreach ($this->flags_false as $flag_false) {
+            $work_query->where(function ($query) use ($flag_false) {
+                $query->where('meta->status->' . $flag_false, '!=', true)
+                    ->orWhereNull('meta->status->' . $flag_false);
+            });
+        }
+        $this->line("Work query");
+        $this->dq($work_query);
 
         if (empty($content_id)) {
+            foreach ($this->flags_finished as $finished) {
+                $count_query->whereJsonContains('meta->status->' . $finished, false);
+            }
             $count = $count_query
                 ->count();
             if ($count >= $this->MAX_IMG_WAITING) {
@@ -102,6 +115,7 @@ class JobPromptForImage extends BaseJobCommand
         "stream": false
         }'*/
 
+        $regenerate = $this->option('regenerate');
         $meta = json_decode($this->content->meta, true);
         print_r($meta);
         $text = isset($meta['ollama_response']['response']) ? $meta['ollama_response']['response'] : null;
@@ -119,7 +133,7 @@ class JobPromptForImage extends BaseJobCommand
         -You are an experience designer and artist.
         -You are tasked with providing a prompt that will be used to generate an image representing the content of a text.
         -The prompt should be a short sentence or two that captures the essence of the text.
-        - Do not include any preamble, or comments, or introduction, or explanation, or commentary, or any other text.
+        - Do not include any preamble, or comments, or introduction, or explanation, or commentary, or any other additional text.
         - Only output the prompt, nothing else.
         - Make sure to include the name of the place, or subject to help the AI generate an accurate image.
         """
@@ -138,21 +152,35 @@ $this->line($prompt);
         ]);
 
         $response_json = $response->json();
-        $body_response = $response_json['response'];
+        $body_response = trim($response_json['response'], '"');
 
         $filename = sprintf("%010d.jpg", $this->content->id);
         $full_path = config('app.output_folder') . "/images/{$filename}";
 
+        if ($regenerate) {
+            // delete file
+            if (file_exists($full_path)) {
+                $this->line("Deleting file: " . $full_path);
+                unlink($full_path);
+            }
+        }
         // Loop until the file exists
         $counter = 0;
         while (!file_exists($full_path)) {
+
+            // Execute the ./imagegeneration/image-flux.py with $full_path and $body_response as the arguments
+            $command = sprintf('python ../imagegeneration/image-flux.py %s "%s"', $full_path, escapeshellarg($body_response));
+            $this->line($command);
+            exec($command);
+
             $this->line($full_path);
             print_r($body_response);
             $this->line("");
             $this->line("Waiting for image to be generated {$counter} ...");
-            sleep(10);
+            sleep(2);
             $counter++;
         }
+        $this->line("File exists: " . file_exists($full_path));
         $meta['thumbnail'] = [
             'filename' => $filename,
             'hostname' => config('app.hostname'),
