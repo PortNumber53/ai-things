@@ -56,8 +56,10 @@ class JobGenerateSrt extends BaseJobCommand
         $this->dq($work_query);
 
 
-
         if (empty($content_id)) {
+            foreach ($this->flags_finished as $finished) {
+                $count_query->whereJsonContains('meta->status->' . $finished, false);
+            }
             $count = $count_query
                 ->count();
             if ($count >= $this->MAX_SRT_WAITING) {
