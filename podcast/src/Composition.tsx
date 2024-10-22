@@ -26,8 +26,7 @@ export const AudioGramSchema = z.object({
 	audioFileName: z.string().refine((s) => s.endsWith('.mp3'), {
 		message: 'Audio file must be a .mp3 file',
 	}),
-	coverImgFileName: z
-		.string()
+	coverImgFileName: z.array(z.string()
 		.refine(
 			(s) =>
 				s.endsWith('.jpg') ||
@@ -37,7 +36,7 @@ export const AudioGramSchema = z.object({
 			{
 				message: 'Image file must be a .jpg / .jpeg / .png / .bmp file',
 			}
-		),
+		)),
 	titleText: z.string(),
 	titleColor: zColor(),
 	waveColor: zColor(),
@@ -69,53 +68,53 @@ const AudioViz: React.FC<{
 	mirrorWave,
 	audioSrc,
 }) => {
-	const frame = useCurrentFrame();
-	const { fps } = useVideoConfig();
+		const frame = useCurrentFrame();
+		const { fps } = useVideoConfig();
 
-	const audioData = useAudioData(audioSrc);
+		const audioData = useAudioData(audioSrc);
 
-	if (!audioData) {
-		return null;
-	}
+		if (!audioData) {
+			return null;
+		}
 
-	const frequencyData = visualizeAudio({
-		fps,
-		frame,
-		audioData,
-		numberOfSamples, // Use more samples to get a nicer visualisation
-	});
+		const frequencyData = visualizeAudio({
+			fps,
+			frame,
+			audioData,
+			numberOfSamples, // Use more samples to get a nicer visualisation
+		});
 
-	// Pick the low values because they look nicer than high values
-	// feel free to play around :)
-	const frequencyDataSubset = frequencyData.slice(
-		freqRangeStartIndex,
-		freqRangeStartIndex +
+		// Pick the low values because they look nicer than high values
+		// feel free to play around :)
+		const frequencyDataSubset = frequencyData.slice(
+			freqRangeStartIndex,
+			freqRangeStartIndex +
 			(mirrorWave ? Math.round(waveLinesToDisplay / 2) : waveLinesToDisplay)
-	);
+		);
 
-	const frequencesToDisplay = mirrorWave
-		? [...frequencyDataSubset.slice(1).reverse(), ...frequencyDataSubset]
-		: frequencyDataSubset;
+		const frequencesToDisplay = mirrorWave
+			? [...frequencyDataSubset.slice(1).reverse(), ...frequencyDataSubset]
+			: frequencyDataSubset;
 
-	return (
-		<div className="audio-viz">
-			{frequencesToDisplay.map((v, i) => {
-				return (
-					<div
-						key={i}
-						className="bar"
-						style={{
-							opacity: '0.4',
-							minWidth: '1px',
-							backgroundColor: waveColor,
-							height: `${1000 * Math.sqrt(v)}%`,
-						}}
-					/>
-				);
-			})}
-		</div>
-	);
-};
+		return (
+			<div className="audio-viz">
+				{frequencesToDisplay.map((v, i) => {
+					return (
+						<div
+							key={i}
+							className="bar"
+							style={{
+								opacity: '0.4',
+								minWidth: '1px',
+								backgroundColor: waveColor,
+								height: `${1000 * Math.sqrt(v)}%`,
+							}}
+						/>
+					);
+				})}
+			</div>
+		);
+	};
 
 export const AudiogramComposition: React.FC<AudiogramCompositionSchemaType> = ({
 	subtitlesFileName,
@@ -178,7 +177,10 @@ export const AudiogramComposition: React.FC<AudiogramCompositionSchemaType> = ({
 						</div>
 
 						<div className="row">
-							<Img className="cover" src={coverImgFileName} />
+							{/* Map over coverImgFileName to display each image */}
+							{coverImgFileName.map((imgSrc, index) => (
+								<Img key={index} className="cover" src={imgSrc} />
+							))}
 						</div>
 
 						<div className="row warning">
