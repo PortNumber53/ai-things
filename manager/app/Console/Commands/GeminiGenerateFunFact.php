@@ -81,13 +81,13 @@ class GeminiGenerateFunFact extends BaseJobCommand
             ];
             $exists = Content::where('id', $content_id)->first();
             if ($exists) {
-                $this->info('Upserting:: ' . $content_id);
-                $this->line('filter:: ' . json_encode($filter));
+                $this->info('Upserting: ' . $content_id);
+                $this->line('filter: ' . json_encode($filter));
                 $new_content = Content::updateOrCreate($filter, $generated_content);
                 Log::debug( $new_content );
             } else {
                 $generated_content['id'] = $content_id;
-                $this->info('Inserting:: ' . $content_id);
+                $this->info('Inserting: ' . $content_id);
                 // $this->title = $generated_content['title'];
                 $new_content = Content::create($generated_content);
                 $new_content->save();
@@ -156,11 +156,13 @@ class GeminiGenerateFunFact extends BaseJobCommand
             // 'prompt' => 'Why is the sky blue?',
             // 'stream' => 'false',
             'prompt' => trim(<<<PROMPT
-Write a single unique random fact of any topic that you can think of about apple pies, 6 to 10 paragraphs about is enough,
-make the explanation engaging while keeping it simple. Your response must be formatted exactly like the following example:
-Here's a sample, to show the format you must use:
-TITLE: The title for the subject comes here
-CONTENT: The content about the fun fact goes here.
+# INSTRUCTIONS
+Write 6 to 10 paragraphs about a single unique random fact of any topic that you can think of about pausing during speech,
+make the explanation engaging while keeping it simple. You must use the specified output format.
+
+# SAMPLE OUTPUT FORMAT:
+TITLE: The title for the subject
+CONTENT: The content about the fun fact
 PROMPT),
         ];
 
@@ -254,6 +256,7 @@ PROMPT),
                     'srt_generated' => false,
                     'thumbnail_generated' => false,
                 ],
+                'sentences' => $paragraphs,
                 'ollama_response' => $responseData,
             ];
 
@@ -268,6 +271,7 @@ PROMPT),
 
             $this->job_is_processing = false;
             $this->info("Title: " . $title);
+            $this->info("contents: " . json_encode($content_create_payload));
             Log::debug($content_create_payload);
             // die();
             return $content_create_payload;
