@@ -130,6 +130,8 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
             $filename = config('app.output_folder') . sprintf("/podcast/%s", $meta['podcast']['filename']);
             $title = escapeshellarg(sprintf("%07d", $this->content->id) . " - {$this->content->title}");
             $description = escapeshellarg($description);
+            $original_text = $meta['original_text'] ?? '';
+            $current_video_id = $meta['video_id.v1'] ?? '';
             $category = '27';
             $keywords = '';
             $privacy_status = 'public';
@@ -148,18 +150,31 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
             echo "\n\n";
 
             if ($info) {
-                $description = stripslashes($description);
-                $title = stripslashes($title);
+                $description = trim(stripslashes($description));
+                $title = trim(stripslashes($title));
                 $title = str_replace("'''", "'", $title);
                 $description = str_replace("'''", "'", $description);
+
                 $this->line("Title: {$title}");
-                $this->line("Description: {$description}");
+                if (!empty($original_text)) {
+                    $this->line("Original Text:\n{$original_text}");
+                } else  {
+                 $this->line("Description: {$description}");
+                }
                 $this->line("Category: {$category}");
                 $this->line("Keywords: {$keywords}");
                 $this->line("Privacy status: {$privacy_status}");
 
+                if (!empty($current_video_id)) {
+                    $this->warn("Current video ID: {$current_video_id}");
+                }
                 // Ask user for video ID and save it to meta
-                $video_id = $this->ask("Enter video ID");
+                $video_input = $this->ask("Enter video ID or URL");
+                $video_id = $this->extractYoutubeId($video_input);
+                if (!$video_id) {
+                    $this->error("Invalid YouTube video ID or URL");
+                    exit(1);
+                }
                 $meta['video_id.v1'] = $video_id;
                 $meta["status"][$this->queue_output] = true;
                 $meta['status']['youtube_uploaded'] = true;
@@ -258,5 +273,31 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
 
         $processedText = str_replace("\n", " ", $processedText);
         return trim($processedText);
+    }
+
+    /**
+     * Extract YouTube video ID from various URL formats or return the ID if already clean
+     */
+    private function extractYoutubeId($input)
+    {
+        // If input is already a clean video ID
+        if (preg_match('/^[a-zA-Z0-9_-]{11}$/', $input)) {
+            return $input;
+        }
+
+        // Extract from various YouTube URL formats
+        $patterns = [
+            '/youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/', // Regular watch URL
+            '/youtu\.be\/([a-zA-Z0-9_-]{11})/',            // Shortened URL
+            '/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/',   // Embed URL
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $input, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        return false;
     }
 }
