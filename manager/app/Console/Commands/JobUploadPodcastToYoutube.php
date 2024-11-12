@@ -18,6 +18,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
         {--sleep=30 : Sleep time in seconds}
         {--queue : Process queue messages}
         {--info : Just show info, do not upload}
+        {--easy-upload : Upload with default settings}
         ';
     protected $description = 'Uploads podcast to youtube';
     protected $content;
@@ -48,6 +49,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
     protected function processContent($content_id)
     {
         $info = $this->option('info');
+        $easyUpload = $this->option('easy-upload');
 
         $current_host = config('app.hostname');
 
@@ -149,6 +151,40 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
             print_r($command);
             echo "\n\n";
 
+            // Use easy upload
+            if ($easyUpload) {
+                // Create upload directory if it doesn't exist
+                $upload_dir = config('app.output_folder') . '/upload';
+                if (!file_exists($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+
+                // Handle podcast file hard link
+                $base_filename = basename($filename);
+                $destination = $upload_dir . '/' . $base_filename;
+                if (file_exists($destination)) {
+                    unlink($destination);
+                }
+                if (!link($filename, $destination)) {
+                    throw new \Exception("Failed to create hard link for podcast file");
+                }
+                $this->info("Created hard link for podcast: $destination");
+
+                // Handle thumbnail file hard link
+                $meta = json_decode($this->content->meta, true);
+                $thumbnail_filename = $meta['thumbnail']['filename'];
+                $thumbnail_source = config('app.output_folder') . '/images/' . $thumbnail_filename;
+                $thumbnail_destination = $upload_dir . '/' . $thumbnail_filename;
+
+                if (file_exists($thumbnail_destination)) {
+                    unlink($thumbnail_destination);
+                }
+                if (!link($thumbnail_source, $thumbnail_destination)) {
+                    throw new \Exception("Failed to create hard link for thumbnail file");
+                }
+                $this->info("Created hard link for thumbnail: $thumbnail_destination");
+            }
+
             if ($info) {
                 $description = trim(stripslashes($description));
                 $title = trim(stripslashes($title));
@@ -181,6 +217,18 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
                 $this->content->status = $this->queue_output;
                 $this->content->meta = json_encode($meta);
                 $this->content->save();
+
+                // Clean up hard links if they exist
+                if ($easyUpload) {
+                    if (file_exists($destination)) {
+                        unlink($destination);
+                        $this->info("Removed podcast hard link: $destination");
+                    }
+                    if (file_exists($thumbnail_destination)) {
+                        unlink($thumbnail_destination);
+                        $this->info("Removed thumbnail hard link: $thumbnail_destination");
+                    }
+                }
                 exit(0);
             }
 
@@ -212,6 +260,18 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
                     $this->content->save();
                 } else {
                     $this->error("Video ID not found.");
+                }
+            }
+
+            // Clean up hard links if they exist
+            if ($easyUpload) {
+                if (file_exists($destination)) {
+                    unlink($destination);
+                    $this->info("Removed podcast hard link: $destination");
+                }
+                if (file_exists($thumbnail_destination)) {
+                    unlink($thumbnail_destination);
+                    $this->info("Removed thumbnail hard link: $thumbnail_destination");
                 }
             }
         } catch (\Exception $e) {
