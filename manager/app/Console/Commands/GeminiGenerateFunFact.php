@@ -10,6 +10,16 @@ use Illuminate\Support\Facades\Log;
 
 class GeminiGenerateFunFact extends BaseJobCommand
 {
+    protected const PROMPT_TEMPLATE = <<<'PROMPT'
+# INSTRUCTIONS
+Write 6 to 10 paragraphs about a single unique random fact of any topic that you can think of about %s,
+make the explanation engaging while keeping it simple. You must use the specified output format.
+
+# SAMPLE OUTPUT FORMAT:
+TITLE: The title for the subject
+CONTENT: The content about the fun fact
+PROMPT;
+
     /**
      * The name and signature of the console command.
      *
@@ -143,8 +153,8 @@ class GeminiGenerateFunFact extends BaseJobCommand
         $this->job_is_processing = true;
         $apiKey = config('gemini.api_key');
 
-        // API Endpoint
-        $url = 'https://ollama.portnumber53.com/api/generate';
+        // Define the subject - you can make this dynamic or random if needed
+        $subject = 'any random topic';
 
         // Request data
         $requestData = [
@@ -153,18 +163,11 @@ class GeminiGenerateFunFact extends BaseJobCommand
             'options' => [
                 'temperature' => 1,
             ],
-            // 'prompt' => 'Why is the sky blue?',
-            // 'stream' => 'false',
-            'prompt' => trim(<<<PROMPT
-# INSTRUCTIONS
-Write 6 to 10 paragraphs about a single unique random fact of any topic that you can think of about any random topic,
-make the explanation engaging while keeping it simple. You must use the specified output format.
-
-# SAMPLE OUTPUT FORMAT:
-TITLE: The title for the subject
-CONTENT: The content about the fun fact
-PROMPT),
+            'prompt' => trim(sprintf(self::PROMPT_TEMPLATE, $subject)),
         ];
+
+        // API Endpoint
+        $url = 'https://ollama.portnumber53.com/api/generate';
 
         // Make HTTP POST request using GuzzleClient
         try {
