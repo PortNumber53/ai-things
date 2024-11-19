@@ -157,7 +157,7 @@ class GeminiGenerateFunFact extends BaseJobCommand
             // 'stream' => 'false',
             'prompt' => trim(<<<PROMPT
 # INSTRUCTIONS
-Write 6 to 10 paragraphs about a single unique random fact of any topic that you can think of about pausing during speech,
+Write 6 to 10 paragraphs about a single unique random fact of any topic that you can think of about any random topic,
 make the explanation engaging while keeping it simple. You must use the specified output format.
 
 # SAMPLE OUTPUT FORMAT:
