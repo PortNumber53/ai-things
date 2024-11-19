@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use App\Models\Content;
 
 class ContentFindDuplicateTitles extends Command
 {
@@ -85,6 +86,7 @@ class ContentFindDuplicateTitles extends Command
         $duplicates = \DB::table('contents')
             ->where('title', $title)
             ->select('id', 'title', 'meta')
+            ->orderBy('id')
             ->get();
 
         // Initialize variables to track the "best" content
@@ -109,6 +111,66 @@ class ContentFindDuplicateTitles extends Command
         // Log the best content ID
         \Log::info("Best content ID for title '{$title}': {$bestContentId}");
 
+        // Process each duplicate except the best one
+        foreach ($duplicates as $content) {
+            if ($content->id !== $bestContentId) {
+                $this->handleDuplicateContent($content);
+            }
+        }
+    }
 
+    /**
+     * Handle processing of a single duplicate content row
+     *
+     * @param object $content The content row to process
+     * @return void
+     */
+    private function handleDuplicateContent(object $content): void
+    {
+        // Step 1: Get the full Content model instance
+        $contentModel = Content::find($content->id);
+        if (!$contentModel) {
+            \Log::error("Content not found for ID: {$content->id}");
+            return;
+        }
+
+        // Step 2: Prepare archive data
+        $archiveEntry = [
+            'data' => [
+                'title' => $contentModel->title,
+                'status' => $contentModel->status,
+                'type' => $contentModel->type,
+                'sentences' => $contentModel->sentences,
+                'count' => $contentModel->count,
+                'meta' => $contentModel->meta,
+                'created_at' => $contentModel->created_at,
+                'updated_at' => $contentModel->updated_at,
+            ]
+        ];
+
+        // Step 3: Get existing archives or initialize empty array
+        $archives = json_decode($contentModel->archive ?? '[]', true);
+
+        // Step 4: Check if this exact data is already archived
+        foreach ($archives as $archive) {
+            if (json_encode($archive['data']) === json_encode($archiveEntry['data'])) {
+                \Log::warning("Content already archived for ID: {$content->id}");
+                return;
+            }
+        }
+
+        // Step 5: Add new archive entry using timestamp as key
+        $timestamp = now()->format('YmdHis');
+        $archives[$timestamp] = $archiveEntry;
+
+        // Step 6: Update the content with new archive
+        $contentModel->archive = json_encode($archives);
+        $contentModel->save();
+
+        // Step 7: Call Artisan command to regenerate content
+        \Log::info("Regenerating content for ID: {$content->id}");
+        \Artisan::call('Gemini:GenerateFunFact', [
+            'content_id' => $content->id
+        ]);
     }
 }
