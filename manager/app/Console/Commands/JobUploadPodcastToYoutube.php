@@ -350,6 +350,7 @@ class JobUploadPodcastToYoutube extends BaseJobCommand
             '/youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/', // Regular watch URL
             '/youtu\.be\/([a-zA-Z0-9_-]{11})/',            // Shortened URL
             '/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/',   // Embed URL
+            '/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/',  // Shorts URL
         ];
 
         foreach ($patterns as $pattern) {
