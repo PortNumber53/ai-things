@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StorecollectionRequest;
 use App\Http\Requests\UpdatecollectionRequest;
-use App\Models\collection;
+use App\Models\Collection;
 
 class CollectionController extends Controller
 {
@@ -35,7 +35,7 @@ class CollectionController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(collection $collection)
+    public function show(Collection $Collection)
     {
         //
     }
@@ -43,7 +43,7 @@ class CollectionController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(collection $collection)
+    public function edit(Collection $Collection)
     {
         //
     }
@@ -51,7 +51,7 @@ class CollectionController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdatecollectionRequest $request, collection $collection)
+    public function update(UpdatecollectionRequest $request, Collection $Collection)
     {
         //
     }
@@ -59,7 +59,7 @@ class CollectionController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(collection $collection)
+    public function destroy(Collection $Collection)
     {
         //
     }
