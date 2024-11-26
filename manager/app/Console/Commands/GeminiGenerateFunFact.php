@@ -7,12 +7,14 @@ use Illuminate\Support\Facades\Http;
 use App\Models\Content;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
+use App\Models\Subject;
+use App\Utilities\LLMProcessor;
 
 class GeminiGenerateFunFact extends BaseJobCommand
 {
     protected const PROMPT_TEMPLATE = <<<'PROMPT'
 # INSTRUCTIONS
-Write 6 to 10 paragraphs about a single unique random fact of any topic that you can think of about %s,
+Write 10 to 15 paragraphs about a single unique random fact of any topic that you can think of about %s,
 make the explanation engaging while keeping it simple. You must use the specified output format.
 
 # SAMPLE OUTPUT FORMAT:
@@ -81,8 +83,12 @@ PROMPT;
         }
 
         $generated_content = $this->generateFunFact();
+        if (!$generated_content) {
+            $this->error('Failed to generate content');
+            return 1;
+        }
+
         if (!$content_id) {
-            //Create
             $this->info('Inserting 1');
             $this->content = Content::create($generated_content);
         } else {
@@ -93,12 +99,12 @@ PROMPT;
             if ($exists) {
                 $this->info('Upserting: ' . $content_id);
                 $this->line('filter: ' . json_encode($filter));
+                $this->line('content: ' . json_encode($generated_content));
                 $new_content = Content::updateOrCreate($filter, $generated_content);
-                Log::debug( $new_content );
+                Log::debug($new_content);
             } else {
                 $generated_content['id'] = $content_id;
                 $this->info('Inserting: ' . $content_id);
-                // $this->title = $generated_content['title'];
                 $new_content = Content::create($generated_content);
                 $new_content->save();
             }
@@ -148,54 +154,45 @@ PROMPT;
         exit(0);
     }
 
+    private function getRandomSubject()
+    {
+        return Subject::where('podcasts_count', '<', 1)
+            ->inRandomOrder()
+            ->first();
+    }
+
     private function generateFunFact()
     {
         $this->job_is_processing = true;
-        $apiKey = config('gemini.api_key');
 
-        // Define the subject - you can make this dynamic or random if needed
-        $subject = 'any random topic';
+        // Get random subject from database
+        $subjectModel = $this->getRandomSubject();
+        if (!$subjectModel) {
+            $this->error('No available subjects found');
+            return false;
+        }
+        $subject = $subjectModel->name;
 
-        // Request data
-        $requestData = [
-            'model' => 'llama3.2',
-            'stream' => false,
-            'options' => [
-                'temperature' => 1,
-            ],
-            'prompt' => trim(sprintf(self::PROMPT_TEMPLATE, $subject)),
-        ];
-
-        // API Endpoint
-        $url = 'https://ollama.portnumber53.com/api/generate';
-
-        // Make HTTP POST request using GuzzleClient
         try {
-            $response = $this->makeRequest($url, $requestData, $apiKey);
+            // Use LLM utility instead of direct API call
+            $prompt = trim(sprintf(self::PROMPT_TEMPLATE, $subject));
+            $llm = new LLMProcessor();
+            $rawResponse = $llm->call_api($prompt);
+            if (!$rawResponse) {
+                throw new \Exception('LLM generation failed');
+            }
+            $text = $llm->extract_text_response($rawResponse);
+
         } catch (\Exception $e) {
             Log::error($e->getLine());
             Log::error($e->getMessage());
             exit(1);
         }
 
-        // Check for errors
-        if ($response->getStatusCode() !== 200) {
-            $statusCode = $response->getStatusCode();
-            $this->error('Failed to generate fun fact. Status: ' . $statusCode);
-            switch ($statusCode) {
-                case 429:
-                case 503:
-                    sleep(5);
-                    break;
-                default:
-                    sleep(1);
-            }
-            return 1;
-        }
-
+        // Rest of your existing response processing code...
         $title = '';
         $paragraphs = [];
-        $count = 0; // Counter for total entries
+        $count = 0;
 
         // Define spacer lengths for different punctuation marks
         $punctuationSpacers = [
@@ -207,15 +204,12 @@ PROMPT;
             // Add more punctuation marks and their corresponding spacer lengths as needed
         ];
 
-        // Extract data from the response
-        $responseData = json_decode($response->getBody(), true);
-
-        if (isset($responseData['response'])) {
-            $text = str_replace("\n\n", "\n", $responseData['response']);
+        if (isset($rawResponse)) {
+            $text = str_replace("\n\n", "\n", $text);
 
             $text = str_replace('***', '', $text);
             $text = str_replace('**', '', $text);
-            $responseData['response'] = $text;
+
             $this->line($text);
 
             $responsePart = explode("\n", $text);
@@ -260,7 +254,7 @@ PROMPT;
                     'thumbnail_generated' => false,
                 ],
                 'sentences' => $paragraphs,
-                'ollama_response' => $responseData,
+                'gemini_response' => $rawResponse,
             ];
 
             $content_create_payload = [
@@ -272,60 +266,17 @@ PROMPT;
                 'meta' => json_encode($meta_payload),
             ];
 
+            // Increment the podcasts_count for the used subject
+            $subjectModel->increment('podcasts_count');
+
             $this->job_is_processing = false;
             $this->info("Title: " . $title);
             $this->info("contents: " . json_encode($content_create_payload));
             Log::debug($content_create_payload);
-            // die();
             return $content_create_payload;
-            // if ($content_id === false) {
-            //     $content_create_payload['id'] = $content_id;
-            // }
-            // // Save data to database
-            // if (empty($content_id)) {
-            //     $this->content = Content::create($content_create_payload);
-
-            // } else {
-            //     // update
-
-            // }
-            // dump($this->content);
-
-            // $job_payload = json_encode([
-            //     'content_id' => $this->content->id,
-            //     'hostname' => config('app.hostname'),
-            // ]);
-            // $this->queue->pushRaw($job_payload, $this->queue_output);
-
-            // // Display success message
-            // $this->info('Fun fact generated successfully.');
         } else {
             $this->error('Failed to parse response data.');
         }
         $this->job_is_processing = false;
-    }
-
-    /**
-     * Make an HTTP POST request.
-     *
-     * @param string $url
-     * @param array $data
-     * @param string $apiKey
-     * @return \Psr\Http\Message\ResponseInterface
-     */
-    private function makeRequest($url, $data, $apiKey)
-    {
-        $client = new Client([
-            'headers' => [
-                'Content-Type' => 'application/json',
-                'X-API-KEY' => $apiKey // Add the API key to headers
-            ]
-        ]);
-
-        $response = $client->post($url, [
-            'json' => $data
-        ]);
-
-        return $response;
     }
 }
