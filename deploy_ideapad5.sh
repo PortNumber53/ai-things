@@ -42,7 +42,8 @@ cd /deploy/ai-things
 ln -sfn ${RELEASE_FOLDER} ./current
 
 # Link service file to user's systemd directory
-ln -sfn /deploy/ai-things/current/deploy/ideapad5/systemd/generate_wav.service ~/.config/systemd/user/
+cd /deploy/ai-things/current
+ln -sfn ./deploy/systemd/generate_wav.service ~/.config/systemd/user/
 
 # Reload user systemd daemon
 systemctl --user daemon-reload
