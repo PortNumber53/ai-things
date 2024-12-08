@@ -14,12 +14,14 @@ if [[ ! " ${ALLOWED_HOSTS[@]} " =~ " ${TARGET_HOST} " ]]; then
   exit 1
 fi
 
+BASE_DEPLOY_FOLDER="/deploy/ai-things/"
+## Create a timestamped folder for the release
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+# Create the release folder on the target host
+ssh grimlock@${TARGET_HOST} "mkdir -pv ${BASE_DEPLOY_FOLDER}releases/${TIMESTAMP}"
 pwd
 
-## Make sure the current deployment folder exists on the target host
-ssh grimlock@${TARGET_HOST} "mkdir -pv /deploy/ai-things/current"
-
-# Rsync current folder to target host
+# Rsync workspace tolder to release folder on the target host
 rsync -avz \
   --exclude '.git' \
   --exclude 'storage' --exclude 'bootstrap/cache' \
@@ -31,8 +33,8 @@ rsync -avz \
   --exclude 'manager/public/storage' --exclude 'manager/bootstrap/cache' \
   --exclude 'manager/node_modules' --exclude 'manager/vendor' \
   --exclude 'manager/storage' --exclude 'manager/vendor' --exclude 'manager/node_modules' \
-  ./ grimlock@${TARGET_HOST}:/deploy/ai-things/current/
+  ./ grimlock@${TARGET_HOST}:${BASE_DEPLOY_FOLDER}releases/${TIMESTAMP}/
 
 SCRIPT_NAME="deploy_${TARGET_HOST}.sh"
 # SSH into the target host and run the deployment script for that host
-ssh grimlock@${TARGET_HOST} "cd /deploy/ai-things/current && ls -la &&./${SCRIPT_NAME}"
+ssh grimlock@${TARGET_HOST} "cd ${BASE_DEPLOY_FOLDER}releases/${TIMESTAMP} && ls -la &&./${SCRIPT_NAME}"
