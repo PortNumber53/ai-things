@@ -23,7 +23,7 @@ ls -la
 
 
 # Install dependencies
-cd ${DEPLOYMENT_PATH}/
+cd ${RELEASE_FOLDER}/manager
 composer install --no-ansi
 npm install
 npm run build
