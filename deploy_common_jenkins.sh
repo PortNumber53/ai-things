@@ -20,8 +20,9 @@ fi
 BASE_DEPLOY_FOLDER="/deploy/ai-things/"
 ## Create a timestamped folder for the release
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
+RELEASE_FOLDER="${BASE_DEPLOY_FOLDER}releases/${TIMESTAMP}"
 # Create the release folder on the target host
-ssh grimlock@${TARGET_HOST} "mkdir -pv ${BASE_DEPLOY_FOLDER}releases/${TIMESTAMP}"
+ssh grimlock@${TARGET_HOST} "mkdir -pv ${RELEASE_FOLDER}"
 pwd
 
 # Rsync workspace tolder to release folder on the target host
@@ -34,8 +35,8 @@ rsync -avz \
   --exclude 'composer.lock' --exclude 'package.json' \
   --exclude 'manager/storage' --exclude 'manager/vendor' --exclude 'manager/node_modules' \
   --exclude 'manager/public/storage' --exclude 'manager/bootstrap/cache' \
-  ./ grimlock@${TARGET_HOST}:${BASE_DEPLOY_FOLDER}releases/${TIMESTAMP}/
+  ./ grimlock@${TARGET_HOST}:${RELEASE_FOLDER}/
 
 SCRIPT_NAME="deploy_${TARGET_HOST}.sh"
 # SSH into the target host and run the deployment script for that host
-ssh grimlock@${TARGET_HOST} "cd ${BASE_DEPLOY_FOLDER}releases/${TIMESTAMP} && ls -la &&./${SCRIPT_NAME}"
+ssh grimlock@${TARGET_HOST} "cd ${RELEASE_FOLDER} && ls -la &&./${SCRIPT_NAME} ${RELEASE_FOLDER} ${TIMESTAMP}"

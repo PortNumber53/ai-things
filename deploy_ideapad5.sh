@@ -1,7 +1,9 @@
 #!/bin/bash
 
 echo "Deploying ideapad5"
-
+# list parameters received from Jenkins
+echo "RELEASE_FOLDER: ${RELEASE_FOLDER}"
+echo "TIMESTAMP: ${TIMESTAMP}"
 
 df -h
 ls -la
@@ -16,25 +18,6 @@ pwd
 ls -la
 
 
-export DEPLOY_BASE_PATH="/deploy/ai-things/"
-export DEPLOYMENT_RELEASE_PATH="${DEPLOY_BASE_PATH}releases/"
-export DEPLOYMENT_PATH="${DEPLOYMENT_RELEASE_PATH}$(date +%Y%m%d%H%M%S)"
-export TIMESTAMP=$(date +%Y%m%d%H%M%S)
-
-mkdir -p ${DEPLOYMENT_PATH}
-
-# Rsync the current directory to the deployment path
-rsync -avz --exclude 'storage' --exclude 'bootstrap/cache' \
-    --exclude 'public/storage' --exclude 'vendor' \
-    --exclude 'node_modules' --exclude 'package-lock.json' \
-    --exclude 'yarn.lock' --exclude 'package.json' \
-    --exclude 'composer.lock' --exclude 'composer.json' \
-    --exclude 'package.json' \
-    --exclude 'storage' --exclude 'bootstrap/cache' \
-    --exclude 'public/storage' --exclude 'vendor' \
-    --exclude 'node_modules' --exclude 'package-lock.json' \
-    --exclude 'yarn.lock' --exclude 'package.json' \
-    --exclude 'composer.lock' --exclude 'composer.json' \
 
 # Install dependencies
 cd ${DEPLOYMENT_PATH}
