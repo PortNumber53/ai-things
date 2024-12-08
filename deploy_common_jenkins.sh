@@ -23,7 +23,8 @@ rsync -avz --exclude 'storage' --exclude 'bootstrap/cache' \
   --exclude 'manager/storage' --exclude 'manager/vendor' --exclude 'manager/node_modules' \
   --exclude 'manager/public/storage' --exclude 'manager/bootstrap/cache' \
   --exclude 'manager/node_modules' --exclude 'manager/vendor' \
-  --exclude 'manager/storage' --exclude 'manager/vendor' --exclude 'manager/node_modules' \ grimlock@${TARGET_HOST}:/deploy/ai-things/current/
+  --exclude 'manager/storage' --exclude 'manager/vendor' --exclude 'manager/node_modules' \
+  ./ grimlock@${TARGET_HOST}:/deploy/ai-things/current/
 
 SCRIPT_NAME="deploy_${TARGET_HOST}.sh"
 # SSH into the target host and run the deployment script for that host
