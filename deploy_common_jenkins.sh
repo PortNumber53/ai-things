@@ -32,4 +32,4 @@ rsync -avz \
 
 SCRIPT_NAME="deploy_${TARGET_HOST}.sh"
 # SSH into the target host and run the deployment script for that host
-ssh grimlock@${TARGET_HOST} "cd /deploy/ai-things/current/deploy && ls -la &&./${SCRIPT_NAME}"
+ssh grimlock@${TARGET_HOST} "cd /deploy/ai-things/current && ls -la &&./${SCRIPT_NAME}"
