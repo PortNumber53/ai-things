@@ -36,6 +36,13 @@ rsync -avz --exclude 'storage' --exclude 'bootstrap/cache' \
     --exclude 'yarn.lock' --exclude 'package.json' \
     --exclude 'composer.lock' --exclude 'composer.json' \
 
+# Install dependencies
+cd ${DEPLOYMENT_PATH}
+composer install --no-ansi
+npm install
+npm run build
+cd ..
+
 # We want to symlink deploy/systemd/generate_wav.service to the users systemd folder
 # Create user systemd directory if it doesn't exist
 mkdir -p ~/.config/systemd/user/
