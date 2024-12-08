@@ -24,6 +24,10 @@ ls -la
 
 # Install dependencies
 cd ${RELEASE_FOLDER}/manager
+
+# Create folders required my Laravel
+mkdir -pv storage bootstrap/cache
+
 composer install --no-ansi
 npm install
 npm run build
