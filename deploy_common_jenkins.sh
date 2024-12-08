@@ -30,9 +30,7 @@ rsync -avz \
   --exclude '.git' \
   --exclude 'storage' --exclude 'bootstrap/cache' \
   --exclude 'public/storage' --exclude 'vendor' \
-  --exclude 'node_modules' --exclude 'package-lock.json' \
-  --exclude 'yarn.lock' --exclude 'package.json' \
-  --exclude 'composer.lock' --exclude 'package.json' \
+  --exclude 'node_modules' \
   --exclude 'manager/storage' --exclude 'manager/vendor' --exclude 'manager/node_modules' \
   --exclude 'manager/public/storage' --exclude 'manager/bootstrap/cache' \
   ./ grimlock@${TARGET_HOST}:${RELEASE_FOLDER}/
