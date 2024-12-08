@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -x
+set -e
+
 ## This script is used from Jenkins to deploy to a target host
 
 echo "BRANCH_NAME: ${BRANCH_NAME}"
@@ -31,8 +34,6 @@ rsync -avz \
   --exclude 'composer.lock' --exclude 'package.json' \
   --exclude 'manager/storage' --exclude 'manager/vendor' --exclude 'manager/node_modules' \
   --exclude 'manager/public/storage' --exclude 'manager/bootstrap/cache' \
-  --exclude 'manager/node_modules' --exclude 'manager/vendor' \
-  --exclude 'manager/storage' --exclude 'manager/vendor' --exclude 'manager/node_modules' \
   ./ grimlock@${TARGET_HOST}:${BASE_DEPLOY_FOLDER}releases/${TIMESTAMP}/
 
 SCRIPT_NAME="deploy_${TARGET_HOST}.sh"
