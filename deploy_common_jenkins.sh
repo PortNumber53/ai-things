@@ -16,6 +16,9 @@ fi
 
 pwd
 
+## Make sure the current deployment folder exists on the target host
+ssh grimlock@${TARGET_HOST} "mkdir -pv /deploy/ai-things/current"
+
 # Rsync current folder to target host
 rsync -avz \
   --exclude '.git' \
