@@ -1,7 +1,10 @@
 #!/bin/bash
 
 echo "Deploying ideapad5"
-# list parameters received from Jenkins
+# list first and second parameters received from Jenkins
+
+RELEASE_FOLDER=$1
+TIMESTAMP=$2
 echo "RELEASE_FOLDER: ${RELEASE_FOLDER}"
 echo "TIMESTAMP: ${TIMESTAMP}"
 
@@ -20,7 +23,7 @@ ls -la
 
 
 # Install dependencies
-cd ${DEPLOYMENT_PATH}
+cd ${DEPLOYMENT_PATH}/
 composer install --no-ansi
 npm install
 npm run build
