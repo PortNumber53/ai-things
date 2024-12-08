@@ -36,6 +36,10 @@ cd ..
 # Create user systemd directory if it doesn't exist
 mkdir -p ~/.config/systemd/user/
 
+
+# Link release folder to current folder
+ln -sfn ${RELEASE_FOLDER} ./current
+
 # Link service file to user's systemd directory
 ln -sfn /deploy/ai-things/current/deploy/ideapad5/systemd/generate_wav.service ~/.config/systemd/user/
 
