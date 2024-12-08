@@ -38,6 +38,7 @@ mkdir -p ~/.config/systemd/user/
 
 
 # Link release folder to current folder
+cd /deploy/ai-things
 ln -sfn ${RELEASE_FOLDER} ./current
 
 # Link service file to user's systemd directory
