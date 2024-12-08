@@ -14,8 +14,12 @@ if [[ ! " ${ALLOWED_HOSTS[@]} " =~ " ${TARGET_HOST} " ]]; then
   exit 1
 fi
 
+pwd
+
 # Rsync current folder to target host
-rsync -avz --exclude 'storage' --exclude 'bootstrap/cache' \
+rsync -avz \
+  --exclude '.git' \
+  --exclude 'storage' --exclude 'bootstrap/cache' \
   --exclude 'public/storage' --exclude 'vendor' \
   --exclude 'node_modules' --exclude 'package-lock.json' \
   --exclude 'yarn.lock' --exclude 'package.json' \
@@ -28,4 +32,4 @@ rsync -avz --exclude 'storage' --exclude 'bootstrap/cache' \
 
 SCRIPT_NAME="deploy_${TARGET_HOST}.sh"
 # SSH into the target host and run the deployment script for that host
-ssh grimlock@${TARGET_HOST} "cd /deploy/ai-things/current/deploy && ./${SCRIPT_NAME}"
+ssh grimlock@${TARGET_HOST} "cd /deploy/ai-things/current/deploy && ls -la &&./${SCRIPT_NAME}"
