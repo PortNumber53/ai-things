@@ -5,7 +5,6 @@ After=network.target
 [Service]
 Type=simple
 User=grimlock
-Group=grimlock
 WorkingDirectory=/deploy/ai-things/current/manager
 ExecStart=/usr/bin/bash -c "source /home/grimlock/miniforge3/etc/profile.d/conda.sh && conda activate speech && /usr/bin/php /deploy/ai-things/current/manager/artisan job:GenerateWav --sleep=30"
 Restart=always
