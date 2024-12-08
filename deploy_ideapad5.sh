@@ -50,6 +50,7 @@ systemctl --user daemon-reload
 
 # Check if generate_wav.service exists and restart it if so
 if systemctl --user list-unit-files | grep -q generate_wav.service; then
+    echo "restarting generate_wav.service"
     systemctl --user restart generate_wav.service
 else
     echo "generate_wav.service not found"
