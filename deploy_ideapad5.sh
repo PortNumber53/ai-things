@@ -30,7 +30,6 @@ mkdir -pv storage bootstrap/cache
 
 composer install --no-ansi
 npm install
-npm run build
 cd ..
 
 # We want to symlink deploy/systemd/generate_wav.service to the users systemd folder
