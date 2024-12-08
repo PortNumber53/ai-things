@@ -4,12 +4,12 @@ After=network.target
 
 [Service]
 Type=simple
-User=grimlock
+Environment=CRYPTOGRAPHY_OPENSSL_NO_LEGACY=1
 WorkingDirectory=/deploy/ai-things/current/manager
-ExecStart=/usr/bin/bash -c "source /home/grimlock/miniforge3/etc/profile.d/conda.sh && conda activate speech && /usr/bin/php /deploy/ai-things/current/manager/artisan job:GenerateWav --sleep=30"
+ExecStart=/usr/bin/bash -c "conda activate speech && /usr/bin/php artisan job:GenerateWav --sleep=30"
 Restart=always
 RestartSec=3
 SyslogIdentifier=generate_wav
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
