@@ -41,6 +41,7 @@ case "${TARGET_HOST}" in
     ;;
   "ideapad5")
     CRED_ID="ENV_PROD_IDEAPAD5"
+    echo "FILE $ENV_PROD_IDEAPAD5"
     cp --no-preserve=mode,ownership "$ENV_PROD_IDEAPAD5" .env
     echo "Copied .env file for ${TARGET_HOST}"
     ;;
