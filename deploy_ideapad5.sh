@@ -46,6 +46,7 @@ cd /deploy/ai-things/current
 ln -sfn /deploy/ai-things/current/deploy/systemd/generate_wav.service ~/.config/systemd/user/
 ln -sfn /deploy/ai-things/current/deploy/systemd/generate_srt.service ~/.config/systemd/user/
 ln -sfn /deploy/ai-things/current/deploy/systemd/generate_mp3.service ~/.config/systemd/user/
+ln -sfn /deploy/ai-things/current/deploy/systemd/generate_img.service ~/.config/systemd/user/
 
 # Reload user systemd daemon
 systemctl --user daemon-reload
@@ -76,6 +77,14 @@ else
     echo "generate_mp3.service not found"
 fi
 
+# Check if generate_img.service exists and restart it if so
+if systemctl --user list-unit-files | grep -q generate_img.service; then
+    echo "restarting generate_img.service"
+    systemctl --user restart generate_img.service
+else
+    echo "generate_img.service not found"
+fi
+
 
 # Enable generate_wav.service
 systemctl --user enable generate_wav.service
@@ -85,3 +94,6 @@ systemctl --user enable generate_srt.service
 
 # Enable generate_mp3.service
 systemctl --user enable generate_mp3.service
+
+# Enable generate_img.service
+systemctl --user enable generate_img.service

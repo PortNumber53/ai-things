@@ -1,0 +1,15 @@
+[Unit]
+Description=Laravel Artisan Command for Generating IMAGE files
+After=network.target
+
+[Service]
+Type=simple
+Environment=CRYPTOGRAPHY_OPENSSL_NO_LEGACY=1
+WorkingDirectory=/deploy/ai-things/current/manager
+ExecStart=/usr/bin/bash -c "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate speech && /usr/bin/php /deploy/ai-things/current/manager/artisan job:PromptForImage --regenerate --sleep=30"
+Restart=always
+RestartSec=3
+SyslogIdentifier=generate_image
+
+[Install]
+WantedBy=default.target

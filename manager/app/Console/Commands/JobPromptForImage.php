@@ -141,12 +141,12 @@ class JobPromptForImage extends BaseJobCommand
         $text
         """
         PROMPT;
-$this->line($prompt);
+        $this->line($prompt);
 
         $response = Http::timeout(300)->withHeaders([
             'X-API-key' => 'IHJeZzS6BTnoSuVoG4BLmcOe26xZHqjOyMrqQO3c4FyUUlfiMIuRijEPJspOme7',
         ])->post('https://ollama.portnumber53.com/api/generate', [
-            'model' => 'llama3.1:8b',
+            'model' => 'llama3.3',
             'stream' => false,
             'prompt' => $prompt,
         ]);
