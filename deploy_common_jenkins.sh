@@ -25,7 +25,33 @@ RELEASE_FOLDER="${BASE_DEPLOY_FOLDER}releases/${TIMESTAMP}"
 ssh grimlock@${TARGET_HOST} "mkdir -pv ${RELEASE_FOLDER}"
 pwd
 
-# Rsync workspace tolder to release folder on the target host
+# Map TARGET_HOST to credential ID and env file name
+case "${TARGET_HOST}" in
+  "brain")
+    CRED_ID="ai-things-brain-env-prod-file"
+    ;;
+  "pinky")
+    CRED_ID="ai-things-pinky-env-prod-file"
+    ;;
+  "legion")
+    CRED_ID="ai-things-legion-env-prod-file"
+    ;;
+  "devbox")
+    CRED_ID="ai-things-devbox-env-prod-file"
+    ;;
+  *)
+    echo "No specific .env file configured for ${TARGET_HOST}"
+     ;;
+esac
+
+# Copy the appropriate .env file if configured for this host
+if [ ! -z "$CRED_ID" ]; then
+  withCredentials([file(credentialsId: "${CRED_ID}", variable: 'ENV_FILE_SOURCE')]) {
+    sh "cp --no-preserve=mode,ownership \$ENV_FILE_SOURCE manager/.env"
+  }
+fi
+
+# Rsync workspace folder to release folder on the target host
 rsync -avz \
   --exclude '.git' \
   --exclude 'storage' --exclude 'bootstrap/cache' \
