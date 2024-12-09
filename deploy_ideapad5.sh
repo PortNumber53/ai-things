@@ -32,6 +32,11 @@ composer install --no-ansi
 npm install
 cd ..
 
+# Install dependencies
+cd ${RELEASE_FOLDER}/podcast
+npm install
+cd ..
+
 # We want to symlink deploy/systemd/generate_wav.service to the users systemd folder
 # Create user systemd directory if it doesn't exist
 mkdir -p ~/.config/systemd/user/
