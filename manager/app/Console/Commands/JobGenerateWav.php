@@ -27,9 +27,10 @@ class JobGenerateWav extends BaseJobCommand
 
     protected $flags_true = [
         'funfact_created',
+        'wav_generated',
     ];
     protected $flags_false = [
-        'wav_generated',
+        'srt_generated',
     ];
 
     private const PRE_SILENCE = 2;
@@ -107,6 +108,7 @@ class JobGenerateWav extends BaseJobCommand
         $filename = $this->generateFilename($text, 1);
         $outputFile = config('app.output_folder') . "/waves/$filename";
 
+        $this->job_is_processing = true;
         $command = $this->buildShellCommand($text, $filename);
         $this->info($command);
         shell_exec($command);
@@ -125,6 +127,7 @@ class JobGenerateWav extends BaseJobCommand
         } else {
             $this->error('Error executing piper command or output file not found or older than 1 minute.');
         }
+        $this->job_is_processing = false;
     }
 
     private function extractTextFromMeta()
