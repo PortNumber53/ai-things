@@ -50,19 +50,6 @@ case "${TARGET_HOST}" in
      ;;
 esac
 
-# Copy the appropriate .env file if configured for this host
-if [ -n "$CRED_ID" ]; then
-  if [ -f "$ENV_FILE_SOURCE" ]; then
-    cp --no-preserve=mode,ownership "$ENV_FILE_SOURCE" .env
-    echo "Copied .env file for ${TARGET_HOST}"
-  else
-    echo "Error: ENV_FILE_SOURCE not found or not accessible"
-    exit 1
-  fi
-else
-  echo "No specific .env file configured for ${TARGET_HOST}"
-fi
-
 # Rsync workspace folder to release folder on the target host
 rsync -avz \
   --exclude '.git' \
