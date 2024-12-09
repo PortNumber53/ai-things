@@ -39,6 +39,9 @@ case "${TARGET_HOST}" in
   "devbox")
     CRED_ID="ai-things-devbox-env-prod-file"
     ;;
+  "ideapad5")
+    CRED_ID="ai-things-ideapad5-env-prod-file"
+    ;;
   *)
     echo "No specific .env file configured for ${TARGET_HOST}"
      ;;
