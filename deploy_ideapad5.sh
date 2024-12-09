@@ -47,6 +47,7 @@ ln -sfn /deploy/ai-things/current/deploy/systemd/generate_wav.service ~/.config/
 ln -sfn /deploy/ai-things/current/deploy/systemd/generate_srt.service ~/.config/systemd/user/
 ln -sfn /deploy/ai-things/current/deploy/systemd/generate_mp3.service ~/.config/systemd/user/
 ln -sfn /deploy/ai-things/current/deploy/systemd/generate_img.service ~/.config/systemd/user/
+ln -sfn /deploy/ai-things/current/deploy/systemd/generate_podcast.service ~/.config/systemd/user/
 
 # Reload user systemd daemon
 systemctl --user daemon-reload
@@ -85,6 +86,14 @@ else
     echo "generate_img.service not found"
 fi
 
+# Check if generate_podcast.service exists and restart it if so
+if systemctl --user list-unit-files | grep -q generate_podcast.service; then
+    echo "restarting generate_podcast.service"
+    systemctl --user restart generate_podcast.service
+else
+    echo "generate_podcast.service not found"
+fi
+
 
 # Enable generate_wav.service
 systemctl --user enable generate_wav.service
@@ -97,3 +106,6 @@ systemctl --user enable generate_mp3.service
 
 # Enable generate_img.service
 systemctl --user enable generate_img.service
+
+# Enable generate_podcast.service
+systemctl --user enable generate_podcast.service
