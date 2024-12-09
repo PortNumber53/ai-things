@@ -134,6 +134,11 @@ class JobGeneratePodcast extends BaseJobCommand
                         $this->info("mp3 copied to here");
                     } else {
                         $this->error("Error coping mp3 file {$mp3_file_path}");
+                        // Reset meta->status->mp3_generated to false/null
+                        unset($meta['mp3s']);
+                        $meta['status']['mp3_generated'] = false;
+                        $this->content->meta = json_encode($meta);
+                        $this->content->save();
                     }
                 }
             }
