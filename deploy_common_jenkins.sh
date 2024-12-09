@@ -47,7 +47,7 @@ esac
 # Copy the appropriate .env file if configured for this host
 if [ ! -z "$CRED_ID" ]; then
   withCredentials([file(credentialsId: "${CRED_ID}", variable: 'ENV_FILE_SOURCE')]) {
-    sh "cp --no-preserve=mode,ownership \$ENV_FILE_SOURCE manager/.env"
+    sh "cp --no-preserve=mode,ownership \$ENV_FILE_SOURCE .env"
   }
 fi
 
