@@ -1,0 +1,16 @@
+[Unit]
+Description=Laravel Artisan Command for converting WAV to MP3
+After=network.target
+
+[Service]
+Type=simple
+Environment=CRYPTOGRAPHY_OPENSSL_NO_LEGACY=1
+
+WorkingDirectory=/deploy/ai-things/current/manager
+ExecStart=/usr/bin/php /deploy/ai-things/current/manager/artisan job:GenerateMp3 --sleep=30
+Restart=always
+RestartSec=3
+SyslogIdentifier=convert_to_mp3
+
+[Install]
+WantedBy=default.target
