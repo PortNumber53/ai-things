@@ -50,7 +50,6 @@ class JobGenerateSrt extends BaseJobCommand
         ],
     ];
 
-
     protected $MAX_SRT_WAITING = 100;
 
     protected function processContent($content_id)
@@ -88,9 +87,6 @@ class JobGenerateSrt extends BaseJobCommand
         }
 
         if (empty($content_id)) {
-            foreach ($this->flags_finished as $finished) {
-                $count_query->whereJsonContains('meta->status->' . $finished, false);
-            }
             $count = $count_query
                 ->count();
             if ($count >= $this->MAX_SRT_WAITING) {

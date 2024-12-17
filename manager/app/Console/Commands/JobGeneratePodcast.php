@@ -32,6 +32,28 @@ class JobGeneratePodcast extends BaseJobCommand
         'podcast_ready',
     ];
 
+    protected $waiting_processing_flags = [
+        true => [
+            'funfact_created',
+        ],
+        false => [
+            'podcast_ready',
+        ],
+    ];
+
+    protected $finihsed_processing_flags = [
+        true => [
+            'funfact_created',
+            'wav_generated',
+            'mp3_generated',
+            'srt_generated',
+            'podcast_ready',
+        ],
+        false => [
+            'youtube_uploaded',
+        ],
+    ];
+
     protected $MAX_PODCAST_WAITING = 100;
 
     protected function processContent($content_id)
@@ -39,33 +61,34 @@ class JobGeneratePodcast extends BaseJobCommand
         $current_host = config('app.hostname');
 
         $base_query = Content::where('type', 'gemini.payload');
-        foreach ($this->flags_true as $flag_true) {
-            $base_query->whereJsonContains('meta->status->' . $flag_true, true);
+        // Count how many rows are processed but waiting for upload.
+        $count_query = clone $base_query;
+        foreach ($this->finihsed_processing_flags[true] as $flag_true) {
+            $count_query->whereJsonContains('meta->status->' . $flag_true, true);
         }
-
-        $count_query = clone ($base_query);
-        foreach ($this->flags_false as $flag_false) {
-            $count_query->whereJsonContains('meta->status->' . $flag_false, true);
+        foreach ($this->finihsed_processing_flags[false] as $flag_false) {
+            $count_query->where(function ($query) use ($flag_false) {
+                $query->where('meta->status->' . $flag_false, '!=', true)
+                    ->orWhereNull('meta->status->' . $flag_false);
+            });
         }
-        $this->line("Count query");
+        $count = $count_query
+            ->count();
+        $this->line("NEW Count query");
         $this->dq($count_query);
 
-        $work_query = clone ($base_query);
-        foreach ($this->flags_false as $flag_false) {
+        // Get the rows to be processed using $waiting_processing_flags
+        $work_query = clone $base_query;
+        foreach ($this->waiting_processing_flags[true] as $flag_true) {
+            $work_query->whereJsonContains('meta->status->' . $flag_true, true);
+        }
+        foreach ($this->waiting_processing_flags[false] as $flag_false) {
             $work_query->where(function ($query) use ($flag_false) {
                 $query->where('meta->status->' . $flag_false, '!=', true)
                     ->orWhereNull('meta->status->' . $flag_false);
             });
         }
-        $this->line("Work query");
-        $this->dq($work_query);
-
-
-
         if (empty($content_id)) {
-            foreach ($this->flags_finished as $finished) {
-                $count_query->whereJsonContains('meta->status->' . $finished, false);
-            }
             $count = $count_query
                 ->count();
             if ($count >= $this->MAX_PODCAST_WAITING) {

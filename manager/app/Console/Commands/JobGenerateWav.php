@@ -92,9 +92,6 @@ class JobGenerateWav extends BaseJobCommand
         }
 
         if (empty($content_id)) {
-            foreach ($this->flags_finished as $finished) {
-                $count_query->whereJsonContains('meta->status->' . $finished, false);
-            }
             $count = $count_query
                 ->count();
             if ($count >= $this->MAX_WAV_WAITING) {
