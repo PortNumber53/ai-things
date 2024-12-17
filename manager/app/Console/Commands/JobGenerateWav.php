@@ -48,9 +48,10 @@ class JobGenerateWav extends BaseJobCommand
         }
 
         $count_query = clone ($base_query);
-        foreach ($this->flags_false as $flag_false) {
-            $count_query->whereJsonContains('meta->status->' . $flag_false, true);
-        }
+        $work_query->where(function ($query) use ($flag_false) {
+            $query->where('meta->status->' . $flag_false, '!=', true)
+                ->orWhereNull('meta->status->' . $flag_false);
+        });
         $this->line("Count query");
         $this->dq($count_query);
 
