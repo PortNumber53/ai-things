@@ -27,10 +27,9 @@ class JobGenerateWav extends BaseJobCommand
 
     protected $flags_true = [
         'funfact_created',
-        'wav_generated',
     ];
     protected $flags_false = [
-        'srt_generated',
+        'wav_generated',
     ];
 
     private const PRE_SILENCE = 2;
@@ -43,7 +42,7 @@ class JobGenerateWav extends BaseJobCommand
         $current_host = config('app.hostname');
 
         $base_query = Content::where('type', 'gemini.payload');
-        
+
         // Apply true flags - must be explicitly true
         foreach ($this->flags_true as $flag_true) {
             $base_query->whereJsonContains('meta->status->' . $flag_true, true);
