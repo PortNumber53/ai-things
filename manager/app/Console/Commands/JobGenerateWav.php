@@ -32,6 +32,26 @@ class JobGenerateWav extends BaseJobCommand
         'wav_generated',
     ];
 
+    protected $waiting_processing_flags = [
+        true => [
+            'funfact_created',
+        ],
+        false => [
+            'wav_generated',
+        ],
+    ];
+
+    protected $finihsed_processing_flags = [
+        true => [
+            'funfact_created',
+            'wav_generated',
+        ],
+        false => [
+            'podcast_ready',
+        ],
+    ];
+
+
     private const PRE_SILENCE = 2;
     private const POST_SILENCE = 5;
 
@@ -43,28 +63,33 @@ class JobGenerateWav extends BaseJobCommand
 
         $base_query = Content::where('type', 'gemini.payload');
 
-        // Apply true flags - must be explicitly true
-        foreach ($this->flags_true as $flag_true) {
-            $base_query->whereJsonContains('meta->status->' . $flag_true, true);
+        // Count how many rows are processed but waiting for upload.
+        $count_query = clone $base_query;
+        foreach ($this->finihsed_processing_flags[true] as $flag_true) {
+            $count_query->whereJsonContains('meta->status->' . $flag_true, true);
         }
-
-        // Apply false flags - must be not true or null
-        foreach ($this->flags_false as $flag_false) {
-            $base_query->where(function ($query) use ($flag_false) {
+        foreach ($this->finihsed_processing_flags[false] as $flag_false) {
+            $count_query->where(function ($query) use ($flag_false) {
                 $query->where('meta->status->' . $flag_false, '!=', true)
                     ->orWhereNull('meta->status->' . $flag_false);
             });
         }
-
-        // Clone queries for count and work
-        $count_query = clone $base_query;
-        $work_query = clone $base_query;
-
-        $this->line("Count query");
+        $count = $count_query
+            ->count();
+        $this->line("NEW Count query");
         $this->dq($count_query);
 
-        $this->line("Work query");
-        $this->dq($work_query);
+        // Get the rows to be processed using $waiting_processing_flags
+        $work_query = clone $base_query;
+        foreach ($this->waiting_processing_flags[true] as $flag_true) {
+            $work_query->whereJsonContains('meta->status->' . $flag_true, true);
+        }
+        foreach ($this->waiting_processing_flags[false] as $flag_false) {
+            $work_query->where(function ($query) use ($flag_false) {
+                $query->where('meta->status->' . $flag_false, '!=', true)
+                    ->orWhereNull('meta->status->' . $flag_false);
+            });
+        }
 
         if (empty($content_id)) {
             foreach ($this->flags_finished as $finished) {
@@ -80,10 +105,9 @@ class JobGenerateWav extends BaseJobCommand
                 $query = $work_query
                     ->orderBy('id');
 
-                // Print the generated SQL query
-                // $this->line($query->toSql());
-
-                // Execute the query and retrieve the first result
+                $this->line("Work query");
+                $this->dq($work_query);
+                            // Execute the query and retrieve the first result
                 $firstTrueRow = $query->first();
 
                 $this->dq($query);
