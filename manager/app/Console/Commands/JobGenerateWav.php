@@ -107,7 +107,8 @@ class JobGenerateWav extends BaseJobCommand
 
                 $this->line("Work query");
                 $this->dq($work_query);
-                            // Execute the query and retrieve the first result
+
+                // Execute the query and retrieve the first result
                 $firstTrueRow = $query->first();
 
                 $this->dq($query);
