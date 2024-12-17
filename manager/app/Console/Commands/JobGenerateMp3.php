@@ -30,8 +30,6 @@ class JobGenerateMp3 extends BaseJobCommand
         'mp3_generated',
     ];
 
-
-
     protected $waiting_processing_flags = [
         true => [
             'funfact_created',
