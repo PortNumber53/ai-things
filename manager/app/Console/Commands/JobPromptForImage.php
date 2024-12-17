@@ -179,6 +179,9 @@ class JobPromptForImage extends BaseJobCommand
         $response_json = $response->json();
         $body_response = trim($response_json['response'], '"');
 
+        // Remove surrounding quotes and escape special characters for shell safety
+        $sanitized_text = escapeshellarg(trim($body_response, '"\''));
+
         $filename = sprintf("%010d.jpg", $this->content->id);
         $full_path = config('app.output_folder') . "/images/{$filename}";
 
@@ -193,8 +196,8 @@ class JobPromptForImage extends BaseJobCommand
         $counter = 0;
         while (!file_exists($full_path)) {
 
-            // Execute the ./imagegeneration/image-flux.py with $full_path and $body_response as the arguments
-            $command = sprintf('python ../imagegeneration/image-flux.py %s "%s"', $full_path, escapeshellarg($body_response));
+            // Execute the ./imagegeneration/image-flux.py with $full_path and $sanitized_text as the arguments
+            $command = sprintf('python ../imagegeneration/image-flux.py %s %s', $full_path, $sanitized_text);
             $this->line($command);
             exec($command);
 
