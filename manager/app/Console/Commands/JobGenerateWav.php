@@ -43,31 +43,29 @@ class JobGenerateWav extends BaseJobCommand
         $current_host = config('app.hostname');
 
         $base_query = Content::where('type', 'gemini.payload');
+        
+        // Apply true flags - must be explicitly true
         foreach ($this->flags_true as $flag_true) {
             $base_query->whereJsonContains('meta->status->' . $flag_true, true);
         }
 
-        $count_query = clone ($base_query);
+        // Apply false flags - must be not true or null
         foreach ($this->flags_false as $flag_false) {
-            $count_query->where(function ($query) use ($flag_false) {
+            $base_query->where(function ($query) use ($flag_false) {
                 $query->where('meta->status->' . $flag_false, '!=', true)
                     ->orWhereNull('meta->status->' . $flag_false);
             });
         }
+
+        // Clone queries for count and work
+        $count_query = clone $base_query;
+        $work_query = clone $base_query;
+
         $this->line("Count query");
         $this->dq($count_query);
 
-        $work_query = clone ($base_query);
-        foreach ($this->flags_false as $flag_false) {
-            $work_query->where(function ($query) use ($flag_false) {
-                $query->where('meta->status->' . $flag_false, '!=', true)
-                    ->orWhereNull('meta->status->' . $flag_false);
-            });
-        }
         $this->line("Work query");
         $this->dq($work_query);
-
-
 
         if (empty($content_id)) {
             foreach ($this->flags_finished as $finished) {
