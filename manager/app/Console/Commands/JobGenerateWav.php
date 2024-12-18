@@ -41,7 +41,7 @@ class JobGenerateWav extends BaseJobCommand
         ],
     ];
 
-    protected $finihsed_processing_flags = [
+    protected $finished_processing_flags = [
         true => [
             'funfact_created',
             'wav_generated',
@@ -65,10 +65,10 @@ class JobGenerateWav extends BaseJobCommand
 
         // Count how many rows are processed but waiting for upload.
         $count_query = clone $base_query;
-        foreach ($this->finihsed_processing_flags[true] as $flag_true) {
+        foreach ($this->finished_processing_flags[true] as $flag_true) {
             $count_query->whereJsonContains('meta->status->' . $flag_true, true);
         }
-        foreach ($this->finihsed_processing_flags[false] as $flag_false) {
+        foreach ($this->finished_processing_flags[false] as $flag_false) {
             $count_query->where(function ($query) use ($flag_false) {
                 $query->where('meta->status->' . $flag_false, '!=', true)
                     ->orWhereNull('meta->status->' . $flag_false);
