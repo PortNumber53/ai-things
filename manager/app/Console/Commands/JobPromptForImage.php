@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Console\Commands\Base\BaseJobCommand;
 use App\Models\Content;
 use Illuminate\Support\Facades\Http;
+use App\Support\ExtraEnv;
 
 class JobPromptForImage extends BaseJobCommand
 {
@@ -168,8 +169,15 @@ class JobPromptForImage extends BaseJobCommand
         PROMPT;
         $this->line($prompt);
 
+        ExtraEnv::load();
+        $apiKey = env('PORTNUMBER53_API_KEY');
+        if (empty($apiKey)) {
+            $this->error('Missing PORTNUMBER53_API_KEY (set it in .env or _extra_env).');
+            return 1;
+        }
+
         $response = Http::timeout(300)->withHeaders([
-            'X-API-key' => 'IHJeZzS6BTnoSuVoG4BLmcOe26xZHqjOyMrqQO3c4FyUUlfiMIuRijEPJspOme7',
+            'X-API-key' => $apiKey,
         ])->post('https://ollama.portnumber53.com/api/generate', [
             'model' => 'llama3.3',
             'stream' => false,

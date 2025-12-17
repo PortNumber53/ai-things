@@ -3,10 +3,11 @@ import json
 import psycopg2
 from psycopg2 import sql
 import logging
-from dotenv import load_dotenv  # Import load_dotenv function
+from dotenv import load_dotenv, find_dotenv  # Import load_dotenv function
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env (and optional _extra_env) file
+load_dotenv(find_dotenv())
+load_dotenv(find_dotenv("_extra_env"))
 
 # Set up logging
 logger = logging.getLogger(__name__)

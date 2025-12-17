@@ -2,11 +2,12 @@ import sys
 from PIL import Image
 import requests
 import io
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import os
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env (and optional _extra_env) file
+load_dotenv(find_dotenv())
+load_dotenv(find_dotenv("_extra_env"))
 
 # Check if a filepath argument is provided
 if len(sys.argv) < 3:

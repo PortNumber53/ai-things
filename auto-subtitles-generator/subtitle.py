@@ -2,12 +2,13 @@ import argparse
 import ffmpeg
 import os
 from io import BytesIO, StringIO
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from utils import write_vtt, write_srt
 import whisper
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env (and optional _extra_env) file
+load_dotenv(find_dotenv())
+load_dotenv(find_dotenv("_extra_env"))
 
 # Access the BASE_OUTPUT_FOLDER environment variable, with a default of "output" if not found
 BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output')

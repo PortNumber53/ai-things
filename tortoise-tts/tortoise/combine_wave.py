@@ -7,10 +7,11 @@ import numpy as np
 import soundfile as sf
 import psycopg2
 from my_database import get_database_connection
-from dotenv import load_dotenv  # Import load_dotenv function
+from dotenv import load_dotenv, find_dotenv  # Import load_dotenv function
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env (and optional _extra_env) file
+load_dotenv(find_dotenv())
+load_dotenv(find_dotenv("_extra_env"))
 
 BASE_OUTPUT_FOLDER = os.getenv('BASE_OUTPUT_FOLDER', '/output')
 

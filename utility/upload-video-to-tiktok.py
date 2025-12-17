@@ -1,10 +1,11 @@
 import argparse
 from Tiktok_uploader import uploadVideo
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env (and optional _extra_env) file
+load_dotenv(find_dotenv())
+load_dotenv(find_dotenv("_extra_env"))
 
 # Set up argument parser
 parser = argparse.ArgumentParser(description="Upload a video to TikTok")

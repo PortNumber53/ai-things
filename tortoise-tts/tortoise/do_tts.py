@@ -13,6 +13,7 @@ from utils.audio import load_voices
 import time
 import signal
 import logging
+from dotenv import find_dotenv
 
 # Set up logging
 logging.basicConfig(level=logging.WARNING)
@@ -217,7 +218,8 @@ def process_job(job):
 
 
 def main():
-    load_dotenv()  # Load variables from .env file
+    load_dotenv(find_dotenv())  # Load variables from .env file
+    load_dotenv(find_dotenv("_extra_env"))  # Load optional extras
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--rabbitmq_url', type=str, help='RabbitMQ server URL.', default=f"amqp://{os.getenv('RABBITMQ_USER')}:{os.getenv('RABBITMQ_PASSWORD')}@{os.getenv('RABBITMQ_HOST')}:{os.getenv('RABBITMQ_PORT')}/{os.getenv('RABBITMQ_VHOST')}")

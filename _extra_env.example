@@ -1,0 +1,14 @@
+# Copy to `_extra_env` (gitignored) and fill values.
+# This file is optionally loaded by:
+# - Laravel commands via `App\\Support\\ExtraEnv`
+# - Python scripts via `python-dotenv` updates in this repo
+
+# API keys / tokens
+PORTNUMBER53_API_KEY=
+HUGGING_FACE_TOKEN=
+TIKTOK_SESSION_ID=
+
+# RabbitMQ container defaults (used by `docker/rabbitmq.txt`)
+RABBITMQ_DEFAULT_USER=
+RABBITMQ_DEFAULT_PASS=
+RABBITMQ_DEFAULT_VHOST=
