@@ -20,7 +20,7 @@ args = parser.parse_args()
 # Get session_id from .env file
 session_id = os.getenv("TIKTOK_SESSION_ID")
 if not session_id:
-    raise ValueError("TIKTOK_SESSION_ID not found in .env file")
+    raise ValueError("TIKTOK_SESSION_ID not found in environment (.env or _extra_env)")
 
 # Upload the video
 if args.schedule_time:

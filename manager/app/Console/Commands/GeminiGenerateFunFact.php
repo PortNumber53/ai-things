@@ -9,6 +9,7 @@ use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
 use App\Models\Subject;
 use App\Utilities\LLMProcessor;
+use App\Support\ExtraEnv;
 
 class GeminiGenerateFunFact extends BaseJobCommand
 {
@@ -165,10 +166,20 @@ PROMPT;
     {
         $this->job_is_processing = true;
 
+        ExtraEnv::load();
+        $apiKey = env('GEMINI_API_KEY') ?: config('gemini.api_key');
+        if (empty($apiKey)) {
+            $this->error('Missing GEMINI_API_KEY (set it in .env or _extra_env).');
+            $this->job_is_processing = false;
+            return false;
+        }
+        config(['gemini.api_key' => $apiKey]);
+
         // Get random subject from database
         $subjectModel = $this->getRandomSubject();
         if (!$subjectModel) {
             $this->error('No available subjects found');
+            $this->job_is_processing = false;
             return false;
         }
         $subject = $subjectModel->name;

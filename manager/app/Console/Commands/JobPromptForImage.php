@@ -205,7 +205,11 @@ class JobPromptForImage extends BaseJobCommand
         while (!file_exists($full_path)) {
 
             // Execute the ./imagegeneration/image-flux.py with $full_path and $sanitized_text as the arguments
-            $command = sprintf('python ../imagegeneration/image-flux.py %s %s', $full_path, $sanitized_text);
+            $command = sprintf(
+                'python ../imagegeneration/image-flux.py %s %s',
+                escapeshellarg($full_path),
+                $sanitized_text
+            );
             $this->line($command);
             exec($command);
 

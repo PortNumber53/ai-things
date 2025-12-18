@@ -3,7 +3,7 @@ import sys
 import os
 import json
 import pika
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import torch
 import torchaudio
 from my_database import get_database_connection, update_postgres_meta
@@ -13,7 +13,6 @@ from utils.audio import load_voices
 import time
 import signal
 import logging
-from dotenv import find_dotenv
 
 # Set up logging
 logging.basicConfig(level=logging.WARNING)
