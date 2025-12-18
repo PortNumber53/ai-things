@@ -23,6 +23,14 @@ storage/*.key
 /.env
 .env.*
 /_extra_env
+
+# Local credentials / secrets
+client_secret*.json
+client_secrets*.json
+service-account-key*.json
+token.pickle
+*_token.pickle
+db_ai_things.sql
 Homestead.yaml
 Homestead.json
 /.vagrant
