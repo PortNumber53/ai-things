@@ -128,35 +128,22 @@ class JobUploadPodcastToTikTok extends BaseJobCommand
             // print_r($this->content);
             // Call script to upload video to TikTok
             $filename = config('app.output_folder') . sprintf("/podcast/%s", $meta['podcast']['filename']);
-            $title = escapeshellarg(sprintf("%07d", $this->content->id) . " - {$this->content->title}");
-            $description = escapeshellarg($description);
-            $category = '27';
-            $keywords = '';
-            $privacy_status = 'public';
+            $caption = sprintf("%07d", $this->content->id) . " - {$this->content->title}";
 
-            $command = "cd " . config('app.base_app_folder') . "/utility/ && " . sprintf(
-                '%s --file=%s --title=%s --category=%s --keywords="%s" --privacyStatus=%s',
+            $utilityDir = rtrim(config('app.base_app_folder'), '/') . '/utility';
+            $command = sprintf(
+                'cd %s && %s %s %s 2>&1',
+                escapeshellarg($utilityDir),
                 config('app.tiktok_upload_script'),
-                $filename,
-                $title,
-                $description,
-                $category   ,
-                addslashes($keywords),
-                $privacy_status
+                escapeshellarg($filename),
+                escapeshellarg($caption)
             );
             print_r($command);
             echo "\n\n";
 
             if ($info) {
-                $description = stripslashes($description);
-                $title = stripslashes($title);
-                $title = str_replace("'''", "'", $title);
-                $description = str_replace("'''", "'", $description);
-                $this->line("Title: {$title}");
+                $this->line("Caption: {$caption}");
                 $this->line("Description: {$description}");
-                $this->line("Category: {$category}");
-                $this->line("Keywords: {$keywords}");
-                $this->line("Privacy status: {$privacy_status}");
 
                 // Ask user for video ID and save it to meta
                 $video_id = $this->ask("Enter video ID");
@@ -175,7 +162,7 @@ class JobUploadPodcastToTikTok extends BaseJobCommand
             if ($returnCode === 0) {
                 $this->line("Upload done.");
                 print_r($output);
-                $output = implode("", $output);
+                $output = implode("\n", $output);
 
                 $pattern = "/Video id '([^\']+)' was successfully uploaded/";
 
@@ -189,15 +176,17 @@ class JobUploadPodcastToTikTok extends BaseJobCommand
                         $meta['podcast'] = [];
                     }
                     $meta['tiktok_video_id'] = $videoId;
-                    $meta["status"][$this->queue_output] = true;
-
-                    $this->content->status = $this->queue_output;
-                    dump($this->content->meta);
-
-                    $this->content->save();
-                } else {
-                    $this->error("Video ID not found.");
                 }
+
+                $meta["status"][$this->queue_output] = true;
+                $meta['status']['tiktok_uploaded'] = true;
+
+                $this->content->status = $this->queue_output;
+                $this->content->meta = json_encode($meta);
+                $this->content->save();
+            } else {
+                $this->error("Upload failed (exit code {$returnCode}).");
+                print_r($output);
             }
         } catch (\Exception $e) {
             print_r($e->getMessage());

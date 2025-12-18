@@ -217,14 +217,12 @@ def uploadVideo(session_id, video, title, tags, schedule_time=0, verbose=True):
 	r = session.post(url, params=params, headers=headers)
 	if not assertSuccess(url, r):
 		return False
-	if r.json()["status_code"] == 0:
-		if verbose:
-			print(f"[+] Video upload uploaded successfully {'| Scheduled for '+str(schedule_time) if schedule_time else ''}")
-	else:
-		printError(url, r)
-		return False
-
-	return True
+	if r.json().get("status_code") == 0:
+		extra = f" | Scheduled for {schedule_time}" if schedule_time else ""
+		print(f"[+] Video id '{video_id}' was successfully uploaded{extra}")
+		return video_id
+	printError(url, r)
+	return False
 
 if __name__ == "__main__":
 	import argparse

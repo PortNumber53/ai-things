@@ -24,6 +24,9 @@ if not session_id:
 
 # Upload the video
 if args.schedule_time:
-    uploadVideo(session_id, args.file, args.title, args.tags, args.schedule_time, verbose=True)
+    result = uploadVideo(session_id, args.file, args.title, args.tags, args.schedule_time, verbose=True)
 else:
-    uploadVideo(session_id, args.file, args.title, args.tags, verbose=True)
+    result = uploadVideo(session_id, args.file, args.title, args.tags, verbose=True)
+
+if not result:
+    raise SystemExit(1)
