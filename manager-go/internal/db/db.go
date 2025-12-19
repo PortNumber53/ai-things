@@ -3,11 +3,13 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"ai-things/manager-go/internal/utils"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,6 +28,42 @@ type Content struct {
 	Archive   []byte
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type Subscription struct {
+	ID            int64
+	FeedURL       string
+	Title         *string
+	Description   *string
+	SiteURL       *string
+	LastFetchedAt *time.Time
+	LastBuildDate *time.Time
+	IsActive      bool
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+type Collection struct {
+	ID          int64
+	URL         string
+	Title       string
+	Language    string
+	HTMLContent string
+	FetchedAt   time.Time
+	ProcessedAt *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type Subject struct {
+	ID            int64
+	Subject       string
+	Keywords      *string
+	IsActive      bool
+	PodcastsCount int
+	LastUsedAt    *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 func NewStore(ctx context.Context, connString string) (*Store, error) {
@@ -139,6 +177,316 @@ func (s *Store) UpdateContentStatus(ctx context.Context, id int64, status string
 			updated_at = NOW()
 		WHERE id = $2
 	`, status, id)
+	return err
+}
+
+func (s *Store) UpdateContentType(ctx context.Context, id int64, contentType string) error {
+	utils.Logf("db: update type id=%d type=%s", id, contentType)
+	_, err := s.pool.Exec(ctx, `
+		UPDATE contents
+		SET type = $1,
+			updated_at = NOW()
+		WHERE id = $2
+	`, contentType, id)
+	return err
+}
+
+func (s *Store) UpdateContentText(ctx context.Context, id int64, title string, sentences []byte, count int, meta []byte) error {
+	utils.Logf("db: update text payload id=%d", id)
+	_, err := s.pool.Exec(ctx, `
+		UPDATE contents
+		SET title = $1,
+			sentences = $2,
+			count = $3,
+			meta = $4,
+			updated_at = NOW()
+		WHERE id = $5
+	`, title, sentences, count, meta, id)
+	return err
+}
+
+func (s *Store) UpdateContentArchive(ctx context.Context, id int64, archive []byte) error {
+	utils.Logf("db: update archive id=%d", id)
+	_, err := s.pool.Exec(ctx, `
+		UPDATE contents
+		SET archive = $1,
+			updated_at = NOW()
+		WHERE id = $2
+	`, archive, id)
+	return err
+}
+
+func (s *Store) CreateContent(ctx context.Context, content Content) (int64, error) {
+	utils.Logf("db: create content title=%s", content.Title)
+	row := s.pool.QueryRow(ctx, `
+		INSERT INTO contents (title, status, type, sentences, count, meta, archive, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+		RETURNING id
+	`, content.Title, content.Status, content.Type, content.Sentences, content.Count, content.Meta, content.Archive)
+	var id int64
+	if err := row.Scan(&id); err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+func (s *Store) UpsertContentByID(ctx context.Context, content Content) error {
+	if content.ID == 0 {
+		return errors.New("missing content ID for upsert")
+	}
+	utils.Logf("db: upsert content id=%d", content.ID)
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO contents (id, title, status, type, sentences, count, meta, archive, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+		ON CONFLICT (id) DO UPDATE
+		SET title = EXCLUDED.title,
+			status = EXCLUDED.status,
+			type = EXCLUDED.type,
+			sentences = EXCLUDED.sentences,
+			count = EXCLUDED.count,
+			meta = EXCLUDED.meta,
+			archive = COALESCE(EXCLUDED.archive, contents.archive),
+			updated_at = NOW()
+	`, content.ID, content.Title, content.Status, content.Type, content.Sentences, content.Count, content.Meta, content.Archive)
+	return err
+}
+
+func (s *Store) QueryContents(ctx context.Context, query string, args ...any) ([]Content, error) {
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var contents []Content
+	for rows.Next() {
+		var c Content
+		if err := rows.Scan(
+			&c.ID,
+			&c.Title,
+			&c.Status,
+			&c.Type,
+			&c.Sentences,
+			&c.Count,
+			&c.Meta,
+			&c.Archive,
+			&c.CreatedAt,
+			&c.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		contents = append(contents, c)
+	}
+	return contents, rows.Err()
+}
+
+func (s *Store) ListActiveSubscriptions(ctx context.Context) ([]Subscription, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, feed_url, title, description, site_url, last_fetched_at, last_build_date, is_active, created_at, updated_at
+		FROM subscriptions
+		WHERE is_active = true
+		ORDER BY id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subs []Subscription
+	for rows.Next() {
+		var ssub Subscription
+		if err := rows.Scan(
+			&ssub.ID,
+			&ssub.FeedURL,
+			&ssub.Title,
+			&ssub.Description,
+			&ssub.SiteURL,
+			&ssub.LastFetchedAt,
+			&ssub.LastBuildDate,
+			&ssub.IsActive,
+			&ssub.CreatedAt,
+			&ssub.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		subs = append(subs, ssub)
+	}
+	return subs, rows.Err()
+}
+
+func (s *Store) InsertSubscription(ctx context.Context, sub Subscription) error {
+	utils.Logf("db: insert subscription url=%s", sub.FeedURL)
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO subscriptions (feed_url, title, description, site_url, last_fetched_at, last_build_date, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+	`, sub.FeedURL, sub.Title, sub.Description, sub.SiteURL, sub.LastFetchedAt, sub.LastBuildDate, sub.IsActive)
+	return err
+}
+
+func (s *Store) GetCollectionByURL(ctx context.Context, url string) (Collection, error) {
+	row := s.pool.QueryRow(ctx, `
+		SELECT id, url, title, language, html_content, fetched_at, processed_at, created_at, updated_at
+		FROM collections
+		WHERE url = $1
+	`, url)
+	var c Collection
+	err := row.Scan(
+		&c.ID,
+		&c.URL,
+		&c.Title,
+		&c.Language,
+		&c.HTMLContent,
+		&c.FetchedAt,
+		&c.ProcessedAt,
+		&c.CreatedAt,
+		&c.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Collection{}, nil
+		}
+		return Collection{}, err
+	}
+	return c, nil
+}
+
+func (s *Store) InsertCollection(ctx context.Context, c Collection) error {
+	utils.Logf("db: insert collection url=%s", c.URL)
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO collections (url, title, language, html_content, fetched_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+	`, c.URL, c.Title, c.Language, c.HTMLContent, c.FetchedAt)
+	return err
+}
+
+func (s *Store) UpdateCollectionHTML(ctx context.Context, id int64, html string) error {
+	utils.Logf("db: update collection html id=%d", id)
+	_, err := s.pool.Exec(ctx, `
+		UPDATE collections
+		SET html_content = $1,
+			fetched_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $2
+	`, html, id)
+	return err
+}
+
+func (s *Store) MarkCollectionProcessed(ctx context.Context, id int64) error {
+	utils.Logf("db: mark collection processed id=%d", id)
+	_, err := s.pool.Exec(ctx, `
+		UPDATE collections
+		SET processed_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $1
+	`, id)
+	return err
+}
+
+func (s *Store) ListCollectionsUnprocessed(ctx context.Context, lastID int64, limit int) ([]Collection, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, url, title, language, html_content, fetched_at, processed_at, created_at, updated_at
+		FROM collections
+		WHERE processed_at IS NULL AND id > $1
+		ORDER BY id
+		LIMIT $2
+	`, lastID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var collections []Collection
+	for rows.Next() {
+		var c Collection
+		if err := rows.Scan(
+			&c.ID,
+			&c.URL,
+			&c.Title,
+			&c.Language,
+			&c.HTMLContent,
+			&c.FetchedAt,
+			&c.ProcessedAt,
+			&c.CreatedAt,
+			&c.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		collections = append(collections, c)
+	}
+	return collections, rows.Err()
+}
+
+func (s *Store) FindRandomSubject(ctx context.Context) (Subject, error) {
+	row := s.pool.QueryRow(ctx, `
+		SELECT id, subject, keywords, is_active, podcasts_count, last_used_at, created_at, updated_at
+		FROM subjects
+		WHERE podcasts_count < 1 AND is_active = true
+		ORDER BY random()
+		LIMIT 1
+	`)
+	var subj Subject
+	if err := row.Scan(
+		&subj.ID,
+		&subj.Subject,
+		&subj.Keywords,
+		&subj.IsActive,
+		&subj.PodcastsCount,
+		&subj.LastUsedAt,
+		&subj.CreatedAt,
+		&subj.UpdatedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Subject{}, nil
+		}
+		return Subject{}, err
+	}
+	return subj, nil
+}
+
+func (s *Store) GetSubjectByName(ctx context.Context, name string) (Subject, error) {
+	row := s.pool.QueryRow(ctx, `
+		SELECT id, subject, keywords, is_active, podcasts_count, last_used_at, created_at, updated_at
+		FROM subjects
+		WHERE subject = $1
+		LIMIT 1
+	`, name)
+	var subj Subject
+	if err := row.Scan(
+		&subj.ID,
+		&subj.Subject,
+		&subj.Keywords,
+		&subj.IsActive,
+		&subj.PodcastsCount,
+		&subj.LastUsedAt,
+		&subj.CreatedAt,
+		&subj.UpdatedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Subject{}, nil
+		}
+		return Subject{}, err
+	}
+	return subj, nil
+}
+
+func (s *Store) InsertSubject(ctx context.Context, name string) error {
+	utils.Logf("db: insert subject name=%s", name)
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO subjects (subject, is_active, podcasts_count, created_at, updated_at)
+		VALUES ($1, true, 0, NOW(), NOW())
+	`, name)
+	return err
+}
+
+func (s *Store) IncrementSubjectPodcasts(ctx context.Context, id int64) error {
+	utils.Logf("db: increment subject podcasts id=%d", id)
+	_, err := s.pool.Exec(ctx, `
+		UPDATE subjects
+		SET podcasts_count = podcasts_count + 1,
+			last_used_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $1
+	`, id)
 	return err
 }
 
