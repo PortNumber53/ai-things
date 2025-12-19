@@ -33,7 +33,7 @@ pipeline {
                             file(credentialsId: 'ai-things-brain-env-prod-file', variable: 'ENV_FILE_BRAIN'),
                             file(credentialsId: 'ai-things-pinky-env-prod-file', variable: 'ENV_FILE_PINKY'),
                         ]) {
-                            sh 'go build -o manager-go/manager ./manager-go/cmd/manager'
+                            sh 'cd manager-go && go build -o manager ./cmd/manager'
                             sh 'cp --no-preserve=mode,ownership $ENV_FILE_BRAIN .env.brain'
                             sh 'cp --no-preserve=mode,ownership $ENV_FILE_PINKY .env.pinky'
                         }
