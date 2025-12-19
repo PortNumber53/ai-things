@@ -14,7 +14,8 @@ TIMESTAMP=$4
 
 echo "Updating release symlink"
 cd ${DEPLOYMENT_PATH}/manager
-ln -sfn ${DEPLOY_BASE_PATH}storage storage
+# Keep logs within the release path to avoid relying on shared storage.
+mkdir -p storage/app/public storage/framework/cache storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
 
 cd ${DEPLOY_BASE_PATH}
 ln -sfn ${DEPLOYMENT_PATH} ./current
