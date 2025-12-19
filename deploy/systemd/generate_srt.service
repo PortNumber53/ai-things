@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 Environment=CRYPTOGRAPHY_OPENSSL_NO_LEGACY=1
 WorkingDirectory=/deploy/ai-things/current
-ExecStart=/usr/bin/bash -c "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate speech && /deploy/ai-things/current/manager-go/manager job:GenerateSrt --sleep=30"
+ExecStart=/usr/bin/bash -c "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate speech && /deploy/ai-things/current/manager-go/manager job:GenerateSrt --sleep=30 --verbose"
 Restart=always
 RestartSec=3
 SyslogIdentifier=generate_srt

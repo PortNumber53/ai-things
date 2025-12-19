@@ -7,7 +7,7 @@ Type=simple
 Environment=CRYPTOGRAPHY_OPENSSL_NO_LEGACY=1
 
 WorkingDirectory=/deploy/ai-things/current
-ExecStart=/deploy/ai-things/current/manager-go/manager job:GenerateMp3 --sleep=30
+ExecStart=/deploy/ai-things/current/manager-go/manager job:GenerateMp3 --sleep=30 --verbose
 Restart=always
 RestartSec=3
 SyslogIdentifier=convert_to_mp3
