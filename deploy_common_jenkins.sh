@@ -51,6 +51,7 @@ case "${TARGET_HOST}" in
 esac
 
 # Rsync workspace folder to release folder on the target host
+go build -o manager-go/manager ./manager-go/cmd/manager
 rsync -avz \
   --exclude '.git' \
   --exclude 'storage' --exclude 'bootstrap/cache' \

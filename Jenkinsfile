@@ -28,11 +28,12 @@ pipeline {
                 }
                 stage('Prepare Manager') {
                     steps {
-                        // Run composer install with all secret files
+                        // Build Go manager and stage env files.
                         withCredentials([
                             file(credentialsId: 'ai-things-brain-env-prod-file', variable: 'ENV_FILE_BRAIN'),
                             file(credentialsId: 'ai-things-pinky-env-prod-file', variable: 'ENV_FILE_PINKY'),
                         ]) {
+                            sh 'go build -o manager-go/manager ./manager-go/cmd/manager'
                             sh 'cp --no-preserve=mode,ownership $ENV_FILE_BRAIN .env.brain'
                             sh 'cp --no-preserve=mode,ownership $ENV_FILE_PINKY .env.pinky'
                         }

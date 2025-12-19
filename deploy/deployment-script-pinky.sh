@@ -13,9 +13,6 @@ DEPLOYMENT_PATH=$3
 TIMESTAMP=$4
 
 echo "Updating release symlink"
-cd ${DEPLOYMENT_PATH}/manager
-# Keep logs within the release path to avoid relying on shared storage.
-mkdir -p storage/app/public storage/framework/cache storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
 
 cd ${DEPLOY_BASE_PATH}
 ln -sfn ${DEPLOYMENT_PATH} ./current
@@ -32,20 +29,14 @@ sudo ln -sfn /deploy/ai-things/current/deploy/pinky/systemd/generate_mp3.service
 
 sudo systemctl daemon-reload
 
-# Run migrations
-cd ${DEPLOYMENT_PATH}/manager
-composer install --no-ansi
-./artisan migrate --force
-
 
 # Enable services
-sudo systemctl enable --now gemini_generate_fun_facts.service
 sudo systemctl enable --now generate_wav.service
 sudo systemctl enable --now generate_srt.service
 sudo systemctl enable --now generate_mp3.service
 
 # Restart services
-sudo systemctl restart gemini_generate_fun_facts.service
+sudo systemctl stop gemini_generate_fun_facts.service
 sudo systemctl stop generate_wav.service
 sudo systemctl stop generate_srt.service
 sudo systemctl stop generate_mp3.service

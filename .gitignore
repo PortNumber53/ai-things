@@ -24,6 +24,11 @@ storage/*.key
 .env.*
 /_extra_env
 
+# Go manager local artifacts
+/manager-go/.env
+/manager-go/manager
+/manager-go/manager.exe
+
 # Local credentials / secrets
 client_secret*.json
 client_secrets*.json

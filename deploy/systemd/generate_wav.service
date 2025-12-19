@@ -1,12 +1,12 @@
 [Unit]
-Description=Laravel Artisan Command for Generating WAV files
+Description=Go Manager Command for Generating WAV files
 After=network.target
 
 [Service]
 Type=simple
 Environment=CRYPTOGRAPHY_OPENSSL_NO_LEGACY=1
-WorkingDirectory=/deploy/ai-things/current/manager
-ExecStart=/usr/bin/bash -c "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate speech && /usr/bin/php artisan job:GenerateWav --sleep=30"
+WorkingDirectory=/deploy/ai-things/current
+ExecStart=/usr/bin/bash -c "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate speech && /deploy/ai-things/current/manager-go/manager job:GenerateWav --sleep=30"
 Restart=always
 RestartSec=3
 SyslogIdentifier=generate_wav
