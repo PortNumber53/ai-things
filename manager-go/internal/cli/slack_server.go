@@ -19,6 +19,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"ai-things/manager-go/internal/db"
 	"ai-things/manager-go/internal/jobs"
@@ -160,13 +161,19 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 			teamID := envelope.TeamID
 			channel := envelope.Event.Channel
 			threadTS := envelope.Event.TS
+			original := envelope.Event.Text
 			go func() {
 				token, err := jctx.Store.GetSlackBotToken(context.Background(), teamID)
 				if err != nil || token == "" {
 					utils.Logf("slack: no bot token for team_id=%s", teamID)
 					return
 				}
-				_ = slack.PostMessage(context.Background(), client, token, channel, "Got it.", threadTS)
+
+				clean := slackStripLeadingMention(original)
+				words := slackCountWords(clean)
+				chars := utf8.RuneCountInString(clean)
+				reply := fmt.Sprintf("words=%d chars=%d", words, chars)
+				_ = slack.PostMessage(context.Background(), client, token, channel, reply, threadTS)
 			}()
 			return
 		default:
@@ -266,6 +273,24 @@ func slackVerifyState(secret, state string) error {
 		return errors.New("state expired")
 	}
 	return nil
+}
+
+func slackStripLeadingMention(text string) string {
+	// Slack app_mention events include something like: "<@U123ABC> hello world"
+	// Remove the first mention token if present.
+	s := strings.TrimSpace(text)
+	if strings.HasPrefix(s, "<@") {
+		if end := strings.Index(s, ">"); end > 0 {
+			s = strings.TrimSpace(s[end+1:])
+			s = strings.TrimLeft(s, " :,-\t")
+		}
+	}
+	return strings.TrimSpace(s)
+}
+
+func slackCountWords(text string) int {
+	// Use Fields to split on Unicode whitespace.
+	return len(strings.Fields(strings.TrimSpace(text)))
 }
 
 
