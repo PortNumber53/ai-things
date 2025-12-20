@@ -66,6 +66,16 @@ type Subject struct {
 	UpdatedAt     time.Time
 }
 
+type SlackInstallation struct {
+	TeamID      string
+	TeamName    string
+	BotUserID   string
+	BotToken    string
+	Scope       string
+	InstalledAt time.Time
+	UpdatedAt   time.Time
+}
+
 func NewStore(ctx context.Context, connString string) (*Store, error) {
 	pool, err := pgxpool.New(ctx, connString)
 	if err != nil {
@@ -488,6 +498,38 @@ func (s *Store) IncrementSubjectPodcasts(ctx context.Context, id int64) error {
 		WHERE id = $1
 	`, id)
 	return err
+}
+
+func (s *Store) UpsertSlackInstallation(ctx context.Context, inst SlackInstallation) error {
+	utils.Logf("db: upsert slack installation team_id=%s", inst.TeamID)
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO slack_installations (team_id, team_name, bot_user_id, bot_token, scope, installed_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		ON CONFLICT (team_id) DO UPDATE SET
+			team_name = EXCLUDED.team_name,
+			bot_user_id = EXCLUDED.bot_user_id,
+			bot_token = EXCLUDED.bot_token,
+			scope = EXCLUDED.scope,
+			updated_at = NOW()
+	`, inst.TeamID, inst.TeamName, inst.BotUserID, inst.BotToken, inst.Scope)
+	return err
+}
+
+func (s *Store) GetSlackBotToken(ctx context.Context, teamID string) (string, error) {
+	utils.Logf("db: get slack bot token team_id=%s", teamID)
+	var token string
+	err := s.pool.QueryRow(ctx, `
+		SELECT bot_token
+		FROM slack_installations
+		WHERE team_id = $1
+	`, teamID).Scan(&token)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return token, nil
 }
 
 func StatusTrueCondition(flags []string) string {

@@ -69,6 +69,20 @@ model=llama3.2
 # API key for Gemini.
 api_key=
 
+[slack]
+# Slack App credentials (OAuth + Events).
+app_id=
+client_id=
+client_secret=
+signing_secret=
+# Legacy verification token (deprecated by Slack in favor of signing_secret).
+verification_token=
+# OAuth scopes (comma-separated).
+scopes=chat:write,channels:read,channels:join,app_mentions:read
+# Redirect URL for OAuth callback.
+# Example: https://manager.example.com/slack/oauth/callback
+redirect_url=
+
 [portnumber53]
 # API key for portnumber53 Ollama gateway.
 api_key=

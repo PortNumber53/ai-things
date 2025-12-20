@@ -50,6 +50,14 @@ type Config struct {
 	GeminiAPIKey      string
 	TikTokAccessToken string
 	TikTokVideoPath   string
+
+	SlackAppID            string
+	SlackClientID         string
+	SlackClientSecret     string
+	SlackSigningSecret    string
+	SlackVerificationToken string
+	SlackScopes           string
+	SlackRedirectURL      string
 }
 
 func Load() (Config, error) {
@@ -106,6 +114,15 @@ func Load() (Config, error) {
 	cfg.GeminiAPIKey = ini.get("gemini", "api_key")
 	cfg.TikTokAccessToken = ini.get("tiktok", "access_token")
 	cfg.TikTokVideoPath = ini.get("tiktok", "video_path")
+
+	// Slack (prefer config.ini, fall back to env vars for compatibility).
+	cfg.SlackAppID = firstNonEmpty(ini.get("slack", "app_id"), os.Getenv("SLACK_APP_ID"))
+	cfg.SlackClientID = firstNonEmpty(ini.get("slack", "client_id"), os.Getenv("SLACK_CLIENT_ID"))
+	cfg.SlackClientSecret = firstNonEmpty(ini.get("slack", "client_secret"), os.Getenv("SLACK_CLIENT_SECRET"))
+	cfg.SlackSigningSecret = firstNonEmpty(ini.get("slack", "signing_secret"), os.Getenv("SLACK_SIGNING_SECRET"))
+	cfg.SlackVerificationToken = firstNonEmpty(ini.get("slack", "verification_token"), os.Getenv("SLACK_VERIFICATION_TOKEN"))
+	cfg.SlackScopes = firstNonEmpty(ini.get("slack", "scopes"), os.Getenv("SLACK_SCOPES"))
+	cfg.SlackRedirectURL = firstNonEmpty(ini.get("slack", "redirect_url"), os.Getenv("SLACK_REDIRECT_URL"))
 
 	cfg.DBURL = firstNonEmpty(ini.get("db", "url"), ini.get("db", "database_url"))
 	cfg.DBHost = ini.getDefault("db", "host", "127.0.0.1")

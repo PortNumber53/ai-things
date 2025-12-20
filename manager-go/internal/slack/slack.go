@@ -1,0 +1,213 @@
+package slack
+
+import (
+	"bytes"
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+)
+
+const (
+	oauthAuthorizeURL = "https://slack.com/oauth/v2/authorize"
+	oauthAccessURL    = "https://slack.com/api/oauth.v2.access"
+	chatPostMessageURL = "https://slack.com/api/chat.postMessage"
+
+	signatureVersion = "v0"
+	maxClockSkew     = 5 * time.Minute
+)
+
+type OAuthAccessResponse struct {
+	OK          bool   `json:"ok"`
+	Error       string `json:"error"`
+	AccessToken string `json:"access_token"`
+	Scope       string `json:"scope"`
+	BotUserID   string `json:"bot_user_id"`
+	Team        struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"team"`
+}
+
+func BuildOAuthAuthorizeURL(clientID, redirectURL, scopes, state string) (string, error) {
+	if clientID == "" {
+		return "", errors.New("clientID is required")
+	}
+	u, err := url.Parse(oauthAuthorizeURL)
+	if err != nil {
+		return "", err
+	}
+	q := u.Query()
+	q.Set("client_id", clientID)
+	if scopes != "" {
+		q.Set("scope", scopes)
+	}
+	if redirectURL != "" {
+		q.Set("redirect_uri", redirectURL)
+	}
+	if state != "" {
+		q.Set("state", state)
+	}
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
+
+func ExchangeOAuthCode(ctx context.Context, client *http.Client, clientID, clientSecret, code, redirectURL string) (OAuthAccessResponse, error) {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	if clientID == "" || clientSecret == "" {
+		return OAuthAccessResponse{}, errors.New("client_id and client_secret are required")
+	}
+	if code == "" {
+		return OAuthAccessResponse{}, errors.New("code is required")
+	}
+
+	values := url.Values{}
+	values.Set("client_id", clientID)
+	values.Set("client_secret", clientSecret)
+	values.Set("code", code)
+	if redirectURL != "" {
+		values.Set("redirect_uri", redirectURL)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, oauthAccessURL, strings.NewReader(values.Encode()))
+	if err != nil {
+		return OAuthAccessResponse{}, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return OAuthAccessResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return OAuthAccessResponse{}, fmt.Errorf("slack oauth status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var decoded OAuthAccessResponse
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		return OAuthAccessResponse{}, err
+	}
+	if !decoded.OK {
+		if decoded.Error == "" {
+			decoded.Error = "oauth failed"
+		}
+		return decoded, errors.New(decoded.Error)
+	}
+	if decoded.AccessToken == "" {
+		return decoded, errors.New("oauth response missing access_token")
+	}
+	if decoded.Team.ID == "" {
+		return decoded, errors.New("oauth response missing team.id")
+	}
+	return decoded, nil
+}
+
+func VerifySignature(signingSecret string, headers http.Header, body []byte, now time.Time) error {
+	if strings.TrimSpace(signingSecret) == "" {
+		return errors.New("slack signing secret missing")
+	}
+
+	ts := headers.Get("X-Slack-Request-Timestamp")
+	sig := headers.Get("X-Slack-Signature")
+	if ts == "" || sig == "" {
+		return errors.New("missing slack signature headers")
+	}
+
+	parsedTS, err := strconv.ParseInt(ts, 10, 64)
+	if err != nil {
+		return errors.New("invalid slack timestamp")
+	}
+	t := time.Unix(parsedTS, 0)
+	if now.IsZero() {
+		now = time.Now()
+	}
+	if now.Sub(t) > maxClockSkew || t.Sub(now) > maxClockSkew {
+		return errors.New("slack timestamp outside allowed window")
+	}
+
+	base := fmt.Sprintf("%s:%s:%s", signatureVersion, ts, string(body))
+	mac := hmac.New(sha256.New, []byte(signingSecret))
+	_, _ = mac.Write([]byte(base))
+	expected := signatureVersion + "=" + hex.EncodeToString(mac.Sum(nil))
+
+	if subtle.ConstantTimeCompare([]byte(expected), []byte(sig)) != 1 {
+		return errors.New("invalid slack signature")
+	}
+	return nil
+}
+
+func PostMessage(ctx context.Context, client *http.Client, botToken, channel, text, threadTS string) error {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	if botToken == "" {
+		return errors.New("bot token missing")
+	}
+	if channel == "" {
+		return errors.New("channel missing")
+	}
+	if text == "" {
+		return errors.New("text missing")
+	}
+
+	payload := map[string]any{
+		"channel": channel,
+		"text":    text,
+	}
+	if threadTS != "" {
+		payload["thread_ts"] = threadTS
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, chatPostMessageURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+botToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("slack chat.postMessage status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var decoded struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(respBody, &decoded); err == nil {
+		if !decoded.OK {
+			if decoded.Error == "" {
+				decoded.Error = "chat.postMessage failed"
+			}
+			return errors.New(decoded.Error)
+		}
+	}
+	return nil
+}
+
+

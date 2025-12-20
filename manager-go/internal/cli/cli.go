@@ -132,6 +132,8 @@ func Run(args []string) int {
 		runErr = runTiktokPublish(ctx, jctx, cmdArgs)
 	case "tts:SplitJobs":
 		runErr = runTTSSplitJobs(ctx, jctx, cmdArgs)
+	case "Slack:Serve":
+		runErr = runSlackServe(ctx, jctx, cmdArgs)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", cmd)
 		printUsage()
@@ -450,4 +452,5 @@ func printUsage() {
 	fmt.Println("  sentences:check [id] [--verbose]")
 	fmt.Println("  tiktok:publish [--access-token=...] [--file=...] [--verbose]")
 	fmt.Println("  tts:SplitJobs <content_id> [sentence_id] [--verbose]")
+	fmt.Println("  Slack:Serve [--listen=:8085] [--public-url=https://example.com] [--verbose]")
 }
