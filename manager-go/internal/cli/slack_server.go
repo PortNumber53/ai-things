@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -27,7 +28,7 @@ import (
 
 func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Slack:Serve", flag.ContinueOnError)
-	listen := fs.String("listen", ":8085", "Listen address (host:port)")
+	listen := fs.String("listen", "", "Listen address (host:port). Default is :{slack.port}.")
 	publicURL := fs.String("public-url", "", "Public base URL (used to compute redirect if slack.redirect_url not set)")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
@@ -54,6 +55,14 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 	}
 	if redirectURL == "" {
 		return errors.New("missing slack redirect URL (set slack.redirect_url or pass --public-url)")
+	}
+
+	if *listen == "" {
+		port := cfg.SlackPort
+		if port == 0 {
+			port = 8085
+		}
+		*listen = fmt.Sprintf(":%d", port)
 	}
 
 	client := &http.Client{Timeout: 20 * time.Second}

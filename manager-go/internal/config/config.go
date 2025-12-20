@@ -58,6 +58,7 @@ type Config struct {
 	SlackVerificationToken string
 	SlackScopes           string
 	SlackRedirectURL      string
+	SlackPort             int
 }
 
 func Load() (Config, error) {
@@ -123,6 +124,7 @@ func Load() (Config, error) {
 	cfg.SlackVerificationToken = firstNonEmpty(ini.get("slack", "verification_token"), os.Getenv("SLACK_VERIFICATION_TOKEN"))
 	cfg.SlackScopes = firstNonEmpty(ini.get("slack", "scopes"), os.Getenv("SLACK_SCOPES"))
 	cfg.SlackRedirectURL = firstNonEmpty(ini.get("slack", "redirect_url"), os.Getenv("SLACK_REDIRECT_URL"))
+	cfg.SlackPort = firstNonEmptyIntDefault(8085, ini.get("slack", "port"), os.Getenv("SLACK_PORT"))
 
 	cfg.DBURL = firstNonEmpty(ini.get("db", "url"), ini.get("db", "database_url"))
 	cfg.DBHost = ini.getDefault("db", "host", "127.0.0.1")
@@ -279,6 +281,28 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func firstNonEmptyInt(values ...string) (int, bool) {
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		parsed, err := strconv.Atoi(value)
+		if err != nil {
+			continue
+		}
+		return parsed, true
+	}
+	return 0, false
+}
+
+func firstNonEmptyIntDefault(fallback int, values ...string) int {
+	if parsed, ok := firstNonEmptyInt(values...); ok {
+		return parsed
+	}
+	return fallback
 }
 
 func urlEscape(value string) string {
