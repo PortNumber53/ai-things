@@ -1,0 +1,24 @@
+# Air live-reload config for running the Slack HTTP server during development.
+# Usage:
+#   cd manager-go
+#   air
+#
+# Prereq (if needed):
+#   go install github.com/air-verse/air@latest
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/manager ."
+  bin = "tmp/manager"
+  full_bin = "./tmp/manager Slack:Serve --listen=:8085 --verbose"
+  include_ext = ["go", "toml"]
+  exclude_dir = ["tmp", "vendor", "node_modules"]
+  delay = 200
+  stop_on_error = true
+
+[log]
+  time = true
+
+

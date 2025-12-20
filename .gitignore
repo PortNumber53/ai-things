@@ -28,6 +28,7 @@ storage/*.key
 /manager-go/.env
 /manager-go/manager
 /manager-go/manager.exe
+/manager-go/tmp/
 
 # Local credentials / secrets
 client_secret*.json
