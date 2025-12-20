@@ -69,6 +69,10 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 	client := &http.Client{Timeout: 20 * time.Second}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/slack/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("ok\n"))
+	})
 	mux.HandleFunc("/slack/install", func(w http.ResponseWriter, r *http.Request) {
 		state, err := slackMakeState(cfg.SlackSigningSecret)
 		if err != nil {
@@ -126,6 +130,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 		}
 
 		if err := slack.VerifySignature(cfg.SlackSigningSecret, r.Header, body, time.Now()); err != nil {
+			utils.Logf("slack: events signature verify failed: %v", err)
 			http.Error(w, "invalid signature", http.StatusUnauthorized)
 			return
 		}
@@ -136,8 +141,11 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 			return
 		}
 
+		utils.Logf("slack: events envelope type=%s team_id=%s event_type=%s", envelope.Type, envelope.TeamID, envelope.Event.Type)
+
 		// Optional legacy token check.
 		if cfg.SlackVerificationToken != "" && envelope.Token != "" && envelope.Token != cfg.SlackVerificationToken {
+			utils.Logf("slack: events legacy token mismatch team_id=%s", envelope.TeamID)
 			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return
 		}
@@ -173,7 +181,9 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 				words := slackCountWords(clean)
 				chars := utf8.RuneCountInString(clean)
 				reply := fmt.Sprintf("words=%d chars=%d", words, chars)
-				_ = slack.PostMessage(context.Background(), client, token, channel, reply, threadTS)
+				if err := slack.PostMessage(context.Background(), client, token, channel, reply, threadTS); err != nil {
+					utils.Logf("slack: post message failed team_id=%s channel=%s err=%v", teamID, channel, err)
+				}
 			}()
 			return
 		default:
