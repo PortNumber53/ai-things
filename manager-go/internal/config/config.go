@@ -1,14 +1,18 @@
 package config
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+)
 
-	"github.com/joho/godotenv"
+const (
+	defaultConfigPath = "/etc/ai-things/config.ini"
+	configPathEnv     = "AI_THINGS_CONFIG"
 )
 
 type Config struct {
@@ -39,86 +43,86 @@ type Config struct {
 	RabbitMQUser     string
 	RabbitMQPassword string
 	RabbitMQVHost    string
+
+	OllamaHostname    string
+	OllamaPort        int
+	OllamaModel       string
+	GeminiAPIKey      string
+	TikTokAccessToken string
+	TikTokVideoPath   string
 }
 
 func Load() (Config, error) {
-	root := os.Getenv("MANAGER_ROOT")
-	if root == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return Config{}, err
-		}
-		root = cwd
+	configPath := os.Getenv(configPathEnv)
+	if configPath == "" {
+		configPath = defaultConfigPath
 	}
 
-	// Load .env if present in root.
-	_ = godotenv.Overload(filepath.Join(root, ".env"))
-
-	// Load _extra_env in root or parent (matches ExtraEnv behavior).
-	_ = loadExtraEnv(root)
+	ini, err := readINI(configPath)
+	if err != nil {
+		return Config{}, fmt.Errorf("load config %s: %w", configPath, err)
+	}
 
 	cfg := Config{}
-	cfg.Hostname = getenvDefault("HOSTNAME", "")
+	cfg.Hostname = ini.get("app", "hostname")
 	if cfg.Hostname == "" {
 		if host, err := os.Hostname(); err == nil {
 			cfg.Hostname = host
 		}
 	}
-	cfg.AppEnv = getenvDefault("APP_ENV", "production")
+	cfg.AppEnv = ini.getDefault("app", "env", "production")
 
-	cfg.BaseOutputFolder = os.Getenv("BASE_OUTPUT_FOLDER")
-	cfg.BaseAppFolder = os.Getenv("BASE_APP_FOLDER")
+	cfg.BaseOutputFolder = ini.get("app", "base_output_folder")
+	cfg.BaseAppFolder = ini.get("app", "base_app_folder")
 	cfg.SubtitleFolder = filepath.Join(cfg.BaseOutputFolder, "subtitles")
 
-	cfg.TTSOnnxModel = os.Getenv("TTS_ONNX_MODEL")
-	cfg.TTSConfig = os.Getenv("TT_CONFIG_FILE")
-	cfg.TTSVoice = os.Getenv("TTS_VOICE")
+	cfg.TTSOnnxModel = ini.get("tts", "onnx_model")
+	cfg.TTSConfig = ini.get("tts", "config_file")
+	cfg.TTSVoice = ini.get("tts", "voice")
 
-	cfg.SubtitleScript = os.Getenv("SUBTITLE_SCRIPT")
-	if cfg.SubtitleScript == "" {
-		if cfg.AppEnv == "production" {
-			cfg.SubtitleScript = "python /deploy/ai-things/current/podcast/whisper.py"
-		} else {
-			cfg.SubtitleScript = "python /home/grimlock/ai/ai-things/podcast/whisper.py"
-		}
+	cfg.SubtitleScript = ini.get("paths", "subtitle_script")
+	if cfg.SubtitleScript == "" && cfg.BaseAppFolder != "" {
+		cfg.SubtitleScript = fmt.Sprintf("python %s", filepath.Join(cfg.BaseAppFolder, "podcast", "whisper.py"))
 	}
 
-	cfg.YoutubeUpload = os.Getenv("YOUTUBE_UPLOAD")
-	if cfg.YoutubeUpload == "" {
-		if cfg.AppEnv == "production" {
-			cfg.YoutubeUpload = "python /deploy/ai-things/current/auto-subtitles-generator/upload_video.py"
-		} else {
-			cfg.YoutubeUpload = "python upload_video.py"
-		}
+	cfg.YoutubeUpload = ini.get("paths", "youtube_upload_script")
+	if cfg.YoutubeUpload == "" && cfg.BaseAppFolder != "" {
+		cfg.YoutubeUpload = fmt.Sprintf("python %s", filepath.Join(cfg.BaseAppFolder, "auto-subtitles-generator", "upload_video.py"))
 	}
 
-	cfg.TikTokUploadScript = os.Getenv("TIKTOK_UPLOAD_SCRIPT")
-	if cfg.TikTokUploadScript == "" {
-		if cfg.AppEnv == "production" {
-			cfg.TikTokUploadScript = "python /deploy/ai-things/current/utility/upload-video-to-tiktok.py"
-		} else {
-			cfg.TikTokUploadScript = "python upload-video-to-tiktok.py"
-		}
+	cfg.TikTokUploadScript = ini.get("paths", "tiktok_upload_script")
+	if cfg.TikTokUploadScript == "" && cfg.BaseAppFolder != "" {
+		cfg.TikTokUploadScript = fmt.Sprintf("python %s", filepath.Join(cfg.BaseAppFolder, "utility", "upload-video-to-tiktok.py"))
 	}
 
-	cfg.Portnumber53APIKey = os.Getenv("PORTNUMBER53_API_KEY")
+	cfg.Portnumber53APIKey = ini.get("portnumber53", "api_key")
+	// Accept new config keys; fall back to legacy ollama.brain_host for compatibility.
+	cfg.OllamaHostname = firstNonEmpty(
+		ini.get("ollama", "hostname"),
+		ini.get("ollama", "brain_host"),
+	)
+	cfg.OllamaPort = ini.getIntDefault("ollama", "port", 11434)
+	cfg.OllamaModel = ini.getDefault("ollama", "model", "llama3.2")
+	cfg.GeminiAPIKey = ini.get("gemini", "api_key")
+	cfg.TikTokAccessToken = ini.get("tiktok", "access_token")
+	cfg.TikTokVideoPath = ini.get("tiktok", "video_path")
 
-	cfg.DBURL = firstNonEmpty(os.Getenv("DB_URL"), os.Getenv("DATABASE_URL"))
-	cfg.DBHost = getenvDefault("DB_HOST", "127.0.0.1")
-	cfg.DBPort = getenvInt("DB_PORT", 5432)
-	cfg.DBName = getenvDefault("DB_DATABASE", "laravel")
-	cfg.DBUser = getenvDefault("DB_USERNAME", "root")
-	cfg.DBPassword = os.Getenv("DB_PASSWORD")
-	cfg.DBSSLMode = getenvDefault("DB_SSLMODE", "prefer")
+	cfg.DBURL = firstNonEmpty(ini.get("db", "url"), ini.get("db", "database_url"))
+	cfg.DBHost = ini.getDefault("db", "host", "127.0.0.1")
+	cfg.DBPort = ini.getIntDefault("db", "port", 5432)
+	cfg.DBName = ini.getDefault("db", "name", "laravel")
+	cfg.DBUser = ini.getDefault("db", "user", "root")
+	cfg.DBPassword = ini.get("db", "password")
+	cfg.DBSSLMode = ini.getDefault("db", "sslmode", "prefer")
 
-	cfg.RabbitMQHost = getenvDefault("RABBITMQ_HOST", "127.0.0.1")
-	cfg.RabbitMQPort = getenvInt("RABBITMQ_PORT", 5672)
-	cfg.RabbitMQUser = getenvDefault("RABBITMQ_USER", "guest")
-	cfg.RabbitMQPassword = getenvDefault("RABBITMQ_PASSWORD", "guest")
-	cfg.RabbitMQVHost = getenvDefault("RABBITMQ_VHOST", "/")
+	cfg.RabbitMQHost = ini.getDefault("rabbitmq", "host", "127.0.0.1")
+	cfg.RabbitMQPort = ini.getIntDefault("rabbitmq", "port", 5672)
+	cfg.RabbitMQUser = ini.getDefault("rabbitmq", "user", "guest")
+	cfg.RabbitMQPassword = ini.getDefault("rabbitmq", "password", "guest")
+	cfg.RabbitMQVHost = ini.getDefault("rabbitmq", "vhost", "/")
 
 	if cfg.BaseOutputFolder == "" || cfg.BaseAppFolder == "" {
-		return cfg, errors.New("BASE_OUTPUT_FOLDER and BASE_APP_FOLDER must be set")
+		return cfg, errors.New("app.base_output_folder and app.base_app_folder must be set in config.ini")
 	}
 
 	return cfg, nil
@@ -151,27 +155,96 @@ func (c Config) RabbitMQURL() string {
 	)
 }
 
-func loadExtraEnv(root string) error {
-	candidates := []string{root, filepath.Dir(root)}
-	for _, base := range candidates {
-		path := filepath.Join(base, "_extra_env")
-		if _, err := os.Stat(path); err == nil {
-			return godotenv.Overload(path)
-		}
-	}
-	return nil
+type iniData struct {
+	sections map[string]map[string]string
 }
 
-func getenvDefault(key, fallback string) string {
-	value := os.Getenv(key)
+func readINI(path string) (iniData, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return iniData{}, err
+	}
+	defer file.Close()
+
+	data := iniData{sections: map[string]map[string]string{}}
+	section := "default"
+	data.sections[section] = map[string]string{}
+
+	scanner := bufio.NewScanner(file)
+	lineNo := 0
+	for scanner.Scan() {
+		lineNo++
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = strings.TrimSpace(line[1 : len(line)-1])
+			section = strings.ToLower(section)
+			if section == "" {
+				return iniData{}, fmt.Errorf("invalid section header at line %d", lineNo)
+			}
+			if _, ok := data.sections[section]; !ok {
+				data.sections[section] = map[string]string{}
+			}
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			return iniData{}, fmt.Errorf("invalid line %d: %q", lineNo, line)
+		}
+		key = strings.ToLower(strings.TrimSpace(key))
+		if key == "" {
+			return iniData{}, fmt.Errorf("empty key at line %d", lineNo)
+		}
+		value = strings.TrimSpace(value)
+		value = trimQuotes(value)
+		data.sections[section][key] = value
+	}
+	if err := scanner.Err(); err != nil {
+		return iniData{}, err
+	}
+	return data, nil
+}
+
+func trimQuotes(value string) string {
+	if len(value) < 2 {
+		return value
+	}
+	if value[0] == '"' && value[len(value)-1] == '"' {
+		return value[1 : len(value)-1]
+	}
+	if value[0] == '\'' && value[len(value)-1] == '\'' {
+		return value[1 : len(value)-1]
+	}
+	return value
+}
+
+func (ini iniData) get(section, key string) string {
+	if len(ini.sections) == 0 {
+		return ""
+	}
+	section = strings.ToLower(section)
+	key = strings.ToLower(key)
+	if section == "" {
+		section = "default"
+	}
+	if values, ok := ini.sections[section]; ok {
+		return values[key]
+	}
+	return ""
+}
+
+func (ini iniData) getDefault(section, key, fallback string) string {
+	value := ini.get(section, key)
 	if value == "" {
 		return fallback
 	}
 	return value
 }
 
-func getenvInt(key string, fallback int) int {
-	value := os.Getenv(key)
+func (ini iniData) getIntDefault(section, key string, fallback int) int {
+	value := ini.get(section, key)
 	if value == "" {
 		return fallback
 	}

@@ -1,6 +1,8 @@
 package queue
 
 import (
+	"net/url"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 	"ai-things/manager-go/internal/utils"
 )
@@ -17,7 +19,7 @@ type Message struct {
 }
 
 func New(url string) (*Client, error) {
-	utils.Logf("queue: connect %s", url)
+	utils.Logf("queue: connect %s", redactURL(url))
 	conn, err := amqp.Dial(url)
 	if err != nil {
 		return nil, err
@@ -28,6 +30,23 @@ func New(url string) (*Client, error) {
 		return nil, err
 	}
 	return &Client{conn: conn, ch: ch}, nil
+}
+
+func redactURL(raw string) string {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "<invalid url>"
+	}
+	if parsed.User == nil {
+		return parsed.String()
+	}
+	username := parsed.User.Username()
+	if _, hasPassword := parsed.User.Password(); hasPassword {
+		parsed.User = url.UserPassword(username, "REDACTED")
+	} else {
+		parsed.User = url.User(username)
+	}
+	return parsed.String()
 }
 
 func (c *Client) Close() {

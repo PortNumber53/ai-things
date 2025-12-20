@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"ai-things/manager-go/internal/config"
 	"ai-things/manager-go/internal/db"
@@ -15,6 +16,13 @@ import (
 )
 
 func Run(args []string) int {
+	// Support a global --verbose flag anywhere in the argv (before or after the command).
+	// This is helpful because the stdlib flag parser stops at the first non-flag argument.
+	args, globalVerbose := extractGlobalVerbose(args)
+	if globalVerbose {
+		utils.Verbose = true
+	}
+
 	if len(args) < 2 {
 		printUsage()
 		return 1
@@ -30,6 +38,7 @@ func Run(args []string) int {
 		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
 		return 1
 	}
+	utils.Logf("manager: config loaded env=%s hostname=%s", cfg.AppEnv, cfg.Hostname)
 
 	store, err := db.NewStore(ctx, cfg.DBConnString())
 	if err != nil {
@@ -37,6 +46,7 @@ func Run(args []string) int {
 		return 1
 	}
 	defer store.Close()
+	utils.Logf("manager: db connected")
 
 	queueClient, err := queue.New(cfg.RabbitMQURL())
 	if err != nil {
@@ -44,6 +54,7 @@ func Run(args []string) int {
 		return 1
 	}
 	defer queueClient.Close()
+	utils.Logf("manager: queue connected")
 
 	jctx := jobs.JobContext{
 		Config: cfg,
@@ -53,6 +64,7 @@ func Run(args []string) int {
 
 	cmd := args[1]
 	cmdArgs := args[2:]
+	utils.Logf("manager: cmd=%s args=%v", cmd, cmdArgs)
 
 	var runErr error
 	switch cmd {
@@ -134,6 +146,36 @@ func Run(args []string) int {
 	return 0
 }
 
+func extractGlobalVerbose(args []string) ([]string, bool) {
+	if len(args) == 0 {
+		return args, false
+	}
+	verbose := false
+	out := make([]string, 0, len(args))
+	for _, arg := range args {
+		switch {
+		case arg == "--verbose" || arg == "-verbose":
+			verbose = true
+			continue
+		case strings.HasPrefix(arg, "--verbose="):
+			raw := strings.TrimPrefix(arg, "--verbose=")
+			if parsed, err := strconv.ParseBool(raw); err == nil {
+				verbose = parsed
+			}
+			continue
+		case strings.HasPrefix(arg, "-verbose="):
+			raw := strings.TrimPrefix(arg, "-verbose=")
+			if parsed, err := strconv.ParseBool(raw); err == nil {
+				verbose = parsed
+			}
+			continue
+		default:
+			out = append(out, arg)
+		}
+	}
+	return out, verbose
+}
+
 func parseContentID(args []string) (int64, error) {
 	if len(args) == 0 {
 		return 0, nil
@@ -149,7 +191,7 @@ func runGenerateWav(ctx context.Context, jctx jobs.JobContext, args []string) er
 	fs := flag.NewFlagSet("job:GenerateWav", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -169,7 +211,7 @@ func runGenerateSrt(ctx context.Context, jctx jobs.JobContext, args []string) er
 	fs := flag.NewFlagSet("job:GenerateSrt", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -189,7 +231,7 @@ func runGenerateMp3(ctx context.Context, jctx jobs.JobContext, args []string) er
 	fs := flag.NewFlagSet("job:GenerateMp3", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -210,7 +252,7 @@ func runPromptForImage(ctx context.Context, jctx jobs.JobContext, args []string)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	regenerate := fs.Bool("regenerate", false, "Regenerate the image")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -230,7 +272,7 @@ func runGenerateImage(ctx context.Context, jctx jobs.JobContext, args []string) 
 	fs := flag.NewFlagSet("job:GenerateImage", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -250,7 +292,7 @@ func runGeneratePodcast(ctx context.Context, jctx jobs.JobContext, args []string
 	fs := flag.NewFlagSet("job:GeneratePodcast", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -270,7 +312,7 @@ func runFixSubtitles(ctx context.Context, jctx jobs.JobContext, args []string) e
 	fs := flag.NewFlagSet("job:FixSubtitles", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -290,7 +332,7 @@ func runCorrectSubtitles(ctx context.Context, jctx jobs.JobContext, args []strin
 	fs := flag.NewFlagSet("job:CorrectSubtitles", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -308,7 +350,7 @@ func runCorrectSubtitles(ctx context.Context, jctx jobs.JobContext, args []strin
 
 func runSetupPodcast(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("job:SetupPodcast", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -329,7 +371,7 @@ func runUploadTikTok(ctx context.Context, jctx jobs.JobContext, args []string) e
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	info := fs.Bool("info", false, "Just show info, do not upload")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -351,7 +393,7 @@ func runUploadYouTube(ctx context.Context, jctx jobs.JobContext, args []string) 
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	info := fs.Bool("info", false, "Just show info, do not upload")
 	easyUpload := fs.Bool("easy-upload", false, "Upload with default settings")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -373,6 +415,8 @@ func logJobStart(name string, opts jobs.JobOptions) {
 
 func printUsage() {
 	fmt.Println("Usage: manager <command> [args]")
+	fmt.Println("Global flags:")
+	fmt.Println("  --verbose   Enable diagnostic logging (can appear before or after the command).")
 	fmt.Println("Commands:")
 	fmt.Println("  Ai:GenerateFunFacts [content_id] [--sleep=N] [--queue] [--verbose]")
 	fmt.Println("  Ai:SplitText [--verbose]")

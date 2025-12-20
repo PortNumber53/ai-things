@@ -1,0 +1,80 @@
+# Copy this file to /etc/ai-things/config.ini and edit values.
+
+[app]
+# Hostname used for queue routing; defaults to system hostname.
+hostname=
+# Environment name (production, staging, dev).
+env=production
+# Base output folder for generated assets. Required.
+base_output_folder=/var/lib/ai-things/output
+# Base app folder (repo root) used for scripts. Required.
+base_app_folder=/deploy/ai-things/current
+
+[paths]
+# Python command to generate subtitles.
+subtitle_script=python /deploy/ai-things/current/podcast/whisper.py
+# Python command to upload to YouTube.
+youtube_upload_script=python /deploy/ai-things/current/auto-subtitles-generator/upload_video.py
+# Python command to upload to TikTok.
+tiktok_upload_script=python /deploy/ai-things/current/utility/upload-video-to-tiktok.py
+
+[tts]
+# Path to ONNX model file.
+onnx_model=/deploy/ai-things/current/manager/en_US-lessac-medium.onnx
+# Path to TTS config JSON.
+config_file=/deploy/ai-things/current/manager/en_US-lessac-medium.onnx.json
+# Voice name.
+voice=jenny
+
+[db]
+# Full connection string (optional; overrides other db.* fields).
+url=
+# Optional legacy name for url (kept for compatibility).
+database_url=
+# Database host.
+host=127.0.0.1
+# Database port.
+port=5432
+# Database name.
+name=laravel
+# Database user.
+user=root
+# Database password.
+password=
+# SSL mode.
+sslmode=prefer
+
+[rabbitmq]
+# RabbitMQ host.
+host=127.0.0.1
+# RabbitMQ port.
+port=5672
+# RabbitMQ user.
+user=guest
+# RabbitMQ password.
+password=guest
+# RabbitMQ vhost.
+vhost=/
+
+[ollama]
+# Hostname running Ollama (no scheme/port).
+# Example: localhost, 10.0.0.5, brain.internal
+hostname=localhost
+# Ollama port.
+port=11434
+# Ollama model name (e.g. llama3.2, mistral, etc.)
+model=llama3.2
+
+[gemini]
+# API key for Gemini.
+api_key=
+
+[portnumber53]
+# API key for portnumber53 Ollama gateway.
+api_key=
+
+[tiktok]
+# Access token for TikTok upload.
+access_token=
+# Default video path for upload.
+video_path=

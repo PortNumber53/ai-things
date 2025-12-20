@@ -29,7 +29,7 @@ func runAiGenerateFunFacts(ctx context.Context, jctx jobs.JobContext, args []str
 	fs := flag.NewFlagSet("Ai:GenerateFunFacts", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep duration in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -41,12 +41,14 @@ func runAiGenerateFunFacts(ctx context.Context, jctx jobs.JobContext, args []str
 	if err != nil {
 		return err
 	}
+	utils.Logf("Ai:GenerateFunFacts: start content_id=%d host=%s port=%d model=%s", contentID, jctx.Config.OllamaHostname, jctx.Config.OllamaPort, jctx.Config.OllamaModel)
 
-	text, title, paragraphs, count, err := generateOllamaFunFact(ctx)
+	text, title, paragraphs, count, err := generateOllamaFunFact(ctx, jctx.Config.OllamaHostname, jctx.Config.OllamaPort, jctx.Config.OllamaModel)
 	if err != nil {
 		return err
 	}
 	_ = text
+	utils.Logf("Ai:GenerateFunFacts: got response title_len=%d paragraphs=%d count=%d", len(title), len(paragraphs), count)
 
 	metaJSON, err := json.Marshal(map[string]any{})
 	if err != nil {
@@ -74,20 +76,26 @@ func runAiGenerateFunFacts(ctx context.Context, jctx jobs.JobContext, args []str
 	return jctx.Store.UpdateContentText(ctx, contentID, title, sentencesJSON, count, metaJSON)
 }
 
-func generateOllamaFunFact(ctx context.Context) (string, string, []map[string]any, int, error) {
+func generateOllamaFunFact(ctx context.Context, ollamaHostname string, ollamaPort int, ollamaModel string) (string, string, []map[string]any, int, error) {
 	prompt := strings.TrimSpace(`Write 6 to 10 paragraphs about a single unique random fact about Earth's Rotation,
 make the explanation engaging while keeping it simple.
 Your response must be in format structured exactly like this, no extra formatting required:
 TITLE: The title for the subject comes here
 CONTENT: Your entire fun fact goes here.`)
 
-	brainHost := os.Getenv("BRAIN_HOST")
-	if brainHost == "" {
-		return "", "", nil, 0, errors.New("missing BRAIN_HOST")
+	if ollamaHostname == "" {
+		return "", "", nil, 0, errors.New("missing ollama hostname (set ollama.hostname in config.ini)")
 	}
+	if ollamaPort == 0 {
+		ollamaPort = 11434
+	}
+	if strings.TrimSpace(ollamaModel) == "" {
+		ollamaModel = "llama3.2"
+	}
+	utils.Logf("ollama: generate url=http://%s:%d/api/generate model=%s prompt_len=%d", ollamaHostname, ollamaPort, ollamaModel, len(prompt))
 
 	payload := map[string]any{
-		"model":      "llama3.2",
+		"model":      ollamaModel,
 		"keep_alive": 300,
 		"prompt":     prompt,
 		"stream":     false,
@@ -101,7 +109,7 @@ CONTENT: Your entire fun fact goes here.`)
 		return "", "", nil, 0, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://%s:11434/api/generate", brainHost), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://%s:%d/api/generate", ollamaHostname, ollamaPort), bytes.NewReader(body))
 	if err != nil {
 		return "", "", nil, 0, err
 	}
@@ -113,6 +121,7 @@ CONTENT: Your entire fun fact goes here.`)
 		return "", "", nil, 0, err
 	}
 	defer resp.Body.Close()
+	utils.Logf("ollama: response status=%d", resp.StatusCode)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", "", nil, 0, fmt.Errorf("ollama response status %d", resp.StatusCode)
 	}
@@ -123,6 +132,7 @@ CONTENT: Your entire fun fact goes here.`)
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		return "", "", nil, 0, err
 	}
+	utils.Logf("ollama: decoded response_len=%d", len(decoded.Response))
 
 	title := ""
 	paragraphs := []map[string]any{}
@@ -162,7 +172,7 @@ CONTENT: Your entire fun fact goes here.`)
 
 func runAiSplitText(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Ai:SplitText", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -181,7 +191,7 @@ func runAiSplitText(ctx context.Context, jctx jobs.JobContext, args []string) er
 func runBackfillResponseDataToSentences(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Backfill:ResponseDataToSentences", flag.ContinueOnError)
 	logOnly := fs.Bool("log", false, "Log only, suppress console output")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -354,7 +364,7 @@ type checkPredicate func(content db.Content, meta map[string]any) (bool, error)
 
 func checkGeneratedFiles(ctx context.Context, jctx jobs.JobContext, args []string, statusKey string, predicate checkPredicate, reset checkResetter) error {
 	fs := flag.NewFlagSet("Check:"+statusKey, flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -404,7 +414,7 @@ func checkGeneratedFiles(ctx context.Context, jctx jobs.JobContext, args []strin
 
 func runContentFindDuplicateTitles(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Content:FindDuplicateTitles", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -558,7 +568,7 @@ func metaInt(meta map[string]any, key string) int {
 func runContentIdentifySubject(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Content:IdentifySubject", flag.ContinueOnError)
 	contentID := fs.Int64("content-id", 0, "The ID of the content to analyze")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -582,7 +592,7 @@ func runContentIdentifySubject(ctx context.Context, jctx jobs.JobContext, args [
 
 func runContentQuery(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("content:query", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -630,7 +640,7 @@ func runContentQuery(ctx context.Context, jctx jobs.JobContext, args []string) e
 
 func runGeminiGenerateFunFact(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Gemini:GenerateFunFact", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -667,9 +677,9 @@ func runGeminiGenerateFunFact(ctx context.Context, jctx jobs.JobContext, args []
 }
 
 func generateGeminiFunFact(ctx context.Context, jctx jobs.JobContext, contentID int64) error {
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := jctx.Config.GeminiAPIKey
 	if apiKey == "" {
-		return errors.New("missing GEMINI_API_KEY")
+		return errors.New("missing gemini api key (set gemini.api_key in config.ini)")
 	}
 
 	subject, err := jctx.Store.FindRandomSubject(ctx)
@@ -804,7 +814,7 @@ CONTENT: The content about the fun fact`, subject.Subject)
 
 func runRssSubscribe(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Rss:Subscribe", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -852,7 +862,7 @@ func runRssSubscribe(ctx context.Context, jctx jobs.JobContext, args []string) e
 
 func runRssFetchHtml(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Rss:FetchHtml", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -925,15 +935,15 @@ func runRssFetchHtml(ctx context.Context, jctx jobs.JobContext, args []string) e
 
 func runSubjectProcessCollections(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Subject:ProcessCollections", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	utils.Verbose = *verbose
 
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := jctx.Config.GeminiAPIKey
 	if apiKey == "" {
-		return errors.New("missing GEMINI_API_KEY")
+		return errors.New("missing gemini api key (set gemini.api_key in config.ini)")
 	}
 
 	lastID := int64(0)
@@ -978,7 +988,7 @@ func runSubjectProcessCollections(ctx context.Context, jctx jobs.JobContext, arg
 
 func runYoutubeUpdateMeta(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Youtube:UpdateMeta", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -1072,7 +1082,7 @@ func runAppFabricExtractWisdom(ctx context.Context, jctx jobs.JobContext, args [
 
 func runChatHiennaGPT(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("chat:HiennaGPT", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -1083,9 +1093,9 @@ func runChatHiennaGPT(ctx context.Context, jctx jobs.JobContext, args []string) 
 		return errors.New("query is required")
 	}
 
-	apiKey := os.Getenv("PORTNUMBER53_API_KEY")
+	apiKey := jctx.Config.Portnumber53APIKey
 	if apiKey == "" {
-		return errors.New("missing PORTNUMBER53_API_KEY")
+		return errors.New("missing portnumber53 api key (set portnumber53.api_key in config.ini)")
 	}
 
 	payload := map[string]any{
@@ -1135,7 +1145,7 @@ USER """
 
 func runSentencesCheck(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("sentences:check", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -1268,19 +1278,19 @@ func filenamesContainPrefix(filenames []any, prefix string) bool {
 
 func runTiktokPublish(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("tiktok:publish", flag.ContinueOnError)
-	accessToken := fs.String("access-token", os.Getenv("TIKTOK_ACCESS_TOKEN"), "TikTok access token")
-	videoPath := fs.String("file", os.Getenv("TIKTOK_VIDEO_PATH"), "Video file to upload")
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	accessToken := fs.String("access-token", jctx.Config.TikTokAccessToken, "TikTok access token")
+	videoPath := fs.String("file", jctx.Config.TikTokVideoPath, "Video file to upload")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	utils.Verbose = *verbose
 
 	if *accessToken == "" {
-		return errors.New("missing access token (set TIKTOK_ACCESS_TOKEN or --access-token)")
+		return errors.New("missing access token (set tiktok.access_token in config.ini or --access-token)")
 	}
 	if *videoPath == "" {
-		return errors.New("missing video file (set TIKTOK_VIDEO_PATH or --file)")
+		return errors.New("missing video file (set tiktok.video_path in config.ini or --file)")
 	}
 	info, err := os.Stat(*videoPath)
 	if err != nil {
@@ -1322,7 +1332,7 @@ func runTiktokPublish(ctx context.Context, jctx jobs.JobContext, args []string) 
 
 func runTTSSplitJobs(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("tts:SplitJobs", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", false, "Verbose logging")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
