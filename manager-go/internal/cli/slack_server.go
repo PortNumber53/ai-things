@@ -66,7 +66,10 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 		*listen = fmt.Sprintf(":%d", port)
 	}
 
-	client := &http.Client{Timeout: 20 * time.Second}
+	client := &http.Client{
+		Timeout:   20 * time.Second,
+		Transport: loggingRoundTripper{base: http.DefaultTransport},
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/slack/health", func(w http.ResponseWriter, r *http.Request) {
@@ -194,7 +197,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 
 	server := &http.Server{
 		Addr:              *listen,
-		Handler:           mux,
+		Handler:           httpLoggingMiddleware(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -301,6 +304,78 @@ func slackStripLeadingMention(text string) string {
 func slackCountWords(text string) int {
 	// Use Fields to split on Unicode whitespace.
 	return len(strings.Fields(strings.TrimSpace(text)))
+}
+
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	status int
+	bytes  int
+}
+
+func (w *loggingResponseWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *loggingResponseWriter) Write(p []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	n, err := w.ResponseWriter.Write(p)
+	w.bytes += n
+	return n, err
+}
+
+func httpLoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !utils.Verbose {
+			next.ServeHTTP(w, r)
+			return
+		}
+		start := time.Now()
+		lrw := &loggingResponseWriter{ResponseWriter: w}
+		next.ServeHTTP(lrw, r)
+		dur := time.Since(start)
+		status := lrw.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		utils.Logf(
+			"http: %s %s host=%s status=%d bytes=%d dur=%s remote=%s ua=%q",
+			r.Method,
+			r.URL.Path,
+			r.Host,
+			status,
+			lrw.bytes,
+			dur.Truncate(time.Millisecond).String(),
+			r.RemoteAddr,
+			r.UserAgent(),
+		)
+	})
+}
+
+type loggingRoundTripper struct {
+	base http.RoundTripper
+}
+
+func (t loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	if !utils.Verbose {
+		return base.RoundTrip(req)
+	}
+	start := time.Now()
+	resp, err := base.RoundTrip(req)
+	dur := time.Since(start)
+	if err != nil {
+		utils.Logf("http-out: %s %s error=%v dur=%s", req.Method, req.URL.Redacted(), err, dur.Truncate(time.Millisecond).String())
+		return nil, err
+	}
+	// Never log request headers/body (may contain secrets). Only method/url/status.
+	utils.Logf("http-out: %s %s status=%d dur=%s", req.Method, req.URL.Redacted(), resp.StatusCode, dur.Truncate(time.Millisecond).String())
+	return resp, nil
 }
 
 
