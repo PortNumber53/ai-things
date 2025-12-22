@@ -175,8 +175,32 @@ func requiresQueue(cmd string) bool {
 	}
 }
 
-// Resolve a default migrations directory from config.base_app_folder; fallback to repo-relative.
+func dirExists(path string) bool {
+	st, err := os.Stat(path)
+	return err == nil && st.IsDir()
+}
+
+// Resolve a default migrations directory.
+// Prefer config.app.base_app_folder/db/migrations when it exists (production deployments),
+// otherwise fall back to common dev layouts (running from repo root or from manager-go/).
 func defaultMigrationsDir(cfg config.Config) string {
+	if cfg.BaseAppFolder != "" {
+		candidate := filepath.Join(cfg.BaseAppFolder, "db", "migrations")
+		if dirExists(candidate) {
+			return candidate
+		}
+	}
+
+	// Dev: running from repo root.
+	if dirExists(filepath.Join("db", "migrations")) {
+		return filepath.Join("db", "migrations")
+	}
+	// Dev: running from manager-go/.
+	if dirExists(filepath.Join("..", "db", "migrations")) {
+		return filepath.Join("..", "db", "migrations")
+	}
+
+	// Fall back to the prior behavior so the error message is still meaningful.
 	if cfg.BaseAppFolder != "" {
 		return filepath.Join(cfg.BaseAppFolder, "db", "migrations")
 	}
