@@ -171,7 +171,13 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 
 			teamID := envelope.TeamID
 			channel := envelope.Event.Channel
-			threadTS := envelope.Event.TS
+			// Always reply in-thread:
+			// - If the mention happened inside an existing thread, Slack provides thread_ts (parent thread).
+			// - Otherwise use the event ts to start a new thread off the mention.
+			threadTS := envelope.Event.ThreadTS
+			if threadTS == "" {
+				threadTS = envelope.Event.TS
+			}
 			original := envelope.Event.Text
 			go func() {
 				token, err := jctx.Store.GetSlackBotToken(context.Background(), teamID)
@@ -230,10 +236,11 @@ type slackEventEnvelope struct {
 	Challenge string `json:"challenge"`
 	TeamID    string `json:"team_id"`
 	Event     struct {
-		Type    string `json:"type"`
-		Channel string `json:"channel"`
-		Text    string `json:"text"`
-		TS      string `json:"ts"`
+		Type     string `json:"type"`
+		Channel  string `json:"channel"`
+		Text     string `json:"text"`
+		TS       string `json:"ts"`
+		ThreadTS string `json:"thread_ts"`
 	} `json:"event"`
 }
 
