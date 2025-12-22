@@ -64,12 +64,107 @@ def deployToHost(sshConnection, deployBasePath, envFile, timestamp) {
     def deploymentReleasePath = "${deployBasePath}releases/"
     def deploymentPath = "${deploymentReleasePath}${timestamp}"
 
-    sh """
-        set -x
-        echo '${deploymentPath}'
-        ssh ${sshConnection} mkdir -pv ${deploymentPath} || { echo "Failed to create releases directory"; exit 1; }
-        rsync -rap --exclude=.git --exclude=.env.* --exclude=manager\\@tmp --exclude=manager/storage ./ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
-        rsync -rap --exclude=.git ./.env.${sshConnection} ${sshConnection}:${deploymentPath}/.env || { echo "rsync failed"; exit 1; }
-        ssh ${sshConnection} "cd ${deploymentPath} && ./deploy/deployment-script-${sshConnection}.sh ${deployBasePath} ${deploymentReleasePath} ${deploymentPath} ${timestamp}" || { echo "Deployment script execution failed"; exit 1; }
-    """
+    withCredentials([
+        string(credentialsId: 'ai-things-database-url', variable: 'AI_THINGS_DATABASE_URL'),
+
+        string(credentialsId: 'ai-things-rabbitmq-host', variable: 'AI_THINGS_RABBITMQ_HOST'),
+        string(credentialsId: 'ai-things-rabbitmq-port', variable: 'AI_THINGS_RABBITMQ_PORT'),
+        string(credentialsId: 'ai-things-rabbitmq-username', variable: 'AI_THINGS_RABBITMQ_USERNAME'),
+        string(credentialsId: 'ai-things-rabbitmq-password', variable: 'AI_THINGS_RABBITMQ_PASSWORD'),
+        string(credentialsId: 'ai-things-rabbitmq-vhost', variable: 'AI_THINGS_RABBITMQ_VHOST'),
+
+        string(credentialsId: 'ai-things-base-output-folder', variable: 'AI_THINGS_BASE_OUTPUT_FOLDER'),
+        string(credentialsId: 'ai-things-base-app-folder', variable: 'AI_THINGS_BASE_APP_FOLDER'),
+
+        string(credentialsId: 'ai-things-subtitle-script', variable: 'AI_THINGS_SUBTITLE_SCRIPT'),
+        string(credentialsId: 'ai-things-youtube-upload-script', variable: 'AI_THINGS_YOUTUBE_UPLOAD_SCRIPT'),
+        string(credentialsId: 'ai-things-tiktok-upload-script', variable: 'AI_THINGS_TIKTOK_UPLOAD_SCRIPT'),
+
+        string(credentialsId: 'ai-things-onnx-model', variable: 'AI_THINGS_ONNX_MODEL'),
+        string(credentialsId: 'ai-things-tts-config-file', variable: 'AI_THINGS_TTS_CONFIG_FILE'),
+        string(credentialsId: 'ai-things-tts-voice', variable: 'AI_THINGS_TTS_VOICE'),
+
+        string(credentialsId: 'ai-things-ollama-hostname', variable: 'AI_THINGS_OLLAMA_HOSTNAME'),
+        string(credentialsId: 'ai-things-ollama-port', variable: 'AI_THINGS_OLLAMA_PORT'),
+        string(credentialsId: 'ai-things-ollama-model', variable: 'AI_THINGS_OLLAMA_MODEL'),
+
+        string(credentialsId: 'ai-things-slack-app-id', variable: 'AI_THINGS_SLACK_APP_ID'),
+        string(credentialsId: 'ai-things-slack-client-id', variable: 'AI_THINGS_SLACK_CLIENT_ID'),
+        string(credentialsId: 'ai-things-slack-client-secret', variable: 'AI_THINGS_SLACK_CLIENT_SECRET'),
+        string(credentialsId: 'ai-things-slack-signing-secret', variable: 'AI_THINGS_SLACK_SIGNING_SECRET'),
+        string(credentialsId: 'ai-things-slack-port', variable: 'AI_THINGS_SLACK_PORT'),
+        string(credentialsId: 'ai-things-slack-verification-token', variable: 'AI_THINGS_SLACK_VERIFICATION_TOKEN'),
+        string(credentialsId: 'ai-things-slack-scopes', variable: 'AI_THINGS_SLACK_SCOPES'),
+        string(credentialsId: 'ai-things-slack-redirect-url', variable: 'AI_THINGS_SLACK_REDIRECT_URL'),
+    ]) {
+        sh """
+            set -euo pipefail
+            set -x
+            echo '${deploymentPath}'
+
+            # Resolve per-host hostname (for queue routing).
+            HOST_FQDN="\$(ssh ${sshConnection} 'hostname -f 2>/dev/null || hostname')"
+
+            # Render config.ini locally, then install on host.
+            set +x
+            CONFIG_TMP=".config.${sshConnection}.ini"
+            cleanup() { rm -f "\${CONFIG_TMP}"; }
+            trap cleanup EXIT
+            cat > "\${CONFIG_TMP}" <<EOF
+[app]
+hostname=\${HOST_FQDN}
+env=production
+base_output_folder=\${AI_THINGS_BASE_OUTPUT_FOLDER}
+base_app_folder=\${AI_THINGS_BASE_APP_FOLDER}
+
+[paths]
+subtitle_script=\${AI_THINGS_SUBTITLE_SCRIPT}
+youtube_upload_script=\${AI_THINGS_YOUTUBE_UPLOAD_SCRIPT}
+tiktok_upload_script=\${AI_THINGS_TIKTOK_UPLOAD_SCRIPT}
+
+[tts]
+onnx_model=\${AI_THINGS_ONNX_MODEL}
+config_file=\${AI_THINGS_TTS_CONFIG_FILE}
+voice=\${AI_THINGS_TTS_VOICE}
+
+[db]
+url=\${AI_THINGS_DATABASE_URL}
+database_url=\${AI_THINGS_DATABASE_URL}
+
+[rabbitmq]
+host=\${AI_THINGS_RABBITMQ_HOST}
+port=\${AI_THINGS_RABBITMQ_PORT}
+user=\${AI_THINGS_RABBITMQ_USERNAME}
+password=\${AI_THINGS_RABBITMQ_PASSWORD}
+vhost=\${AI_THINGS_RABBITMQ_VHOST}
+
+[ollama]
+hostname=\${AI_THINGS_OLLAMA_HOSTNAME}
+port=\${AI_THINGS_OLLAMA_PORT}
+model=\${AI_THINGS_OLLAMA_MODEL}
+
+[slack]
+app_id=\${AI_THINGS_SLACK_APP_ID}
+client_id=\${AI_THINGS_SLACK_CLIENT_ID}
+client_secret=\${AI_THINGS_SLACK_CLIENT_SECRET}
+signing_secret=\${AI_THINGS_SLACK_SIGNING_SECRET}
+port=\${AI_THINGS_SLACK_PORT}
+verification_token=\${AI_THINGS_SLACK_VERIFICATION_TOKEN}
+scopes=\${AI_THINGS_SLACK_SCOPES}
+redirect_url=\${AI_THINGS_SLACK_REDIRECT_URL}
+EOF
+            set -x
+
+            ssh ${sshConnection} mkdir -pv ${deploymentPath} || { echo "Failed to create releases directory"; exit 1; }
+            rsync -rap --exclude=.git --exclude=.env.* --exclude=manager\\@tmp --exclude=manager/storage ./ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
+            rsync -rap --exclude=.git ./.env.${sshConnection} ${sshConnection}:${deploymentPath}/.env || { echo "rsync failed"; exit 1; }
+
+            # Install system-wide config.
+            rsync -rap "\${CONFIG_TMP}" ${sshConnection}:/tmp/ai-things-config.ini || { echo "rsync config.ini failed"; exit 1; }
+            ssh ${sshConnection} 'sudo mkdir -p /etc/ai-things && sudo mv /tmp/ai-things-config.ini /etc/ai-things/config.ini && sudo chmod 600 /etc/ai-things/config.ini' || { echo "Failed to install /etc/ai-things/config.ini"; exit 1; }
+            trap - EXIT
+
+            ssh ${sshConnection} "cd ${deploymentPath} && ./deploy/deployment-script-${sshConnection}.sh ${deployBasePath} ${deploymentReleasePath} ${deploymentPath} ${timestamp}" || { echo "Deployment script execution failed"; exit 1; }
+        """
+    }
 }
