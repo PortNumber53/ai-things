@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -40,6 +41,19 @@ func Run(args []string) int {
 	}
 	utils.Logf("manager: config loaded env=%s hostname=%s", cfg.AppEnv, cfg.Hostname)
 
+	cmd := args[1]
+	cmdArgs := args[2:]
+	utils.Logf("manager: cmd=%s args=%v", cmd, cmdArgs)
+
+	// Run migrations without initializing RabbitMQ.
+	if cmd == "migrate" {
+		if err := runMigrate(ctx, cfg, cmdArgs); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+
 	store, err := db.NewStore(ctx, cfg.DBConnString())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "db error: %v\n", err)
@@ -48,23 +62,24 @@ func Run(args []string) int {
 	defer store.Close()
 	utils.Logf("manager: db connected")
 
-	queueClient, err := queue.New(cfg.RabbitMQURL())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "queue error: %v\n", err)
-		return 1
+	var queueClient *queue.Client
+	if requiresQueue(cmd) {
+		queueClient, err = queue.New(cfg.RabbitMQURL())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "queue error: %v\n", err)
+			return 1
+		}
+		defer queueClient.Close()
+		utils.Logf("manager: queue connected")
+	} else {
+		utils.Logf("manager: queue skipped cmd=%s", cmd)
 	}
-	defer queueClient.Close()
-	utils.Logf("manager: queue connected")
 
 	jctx := jobs.JobContext{
 		Config: cfg,
 		Store:  store,
 		Queue:  queueClient,
 	}
-
-	cmd := args[1]
-	cmdArgs := args[2:]
-	utils.Logf("manager: cmd=%s args=%v", cmd, cmdArgs)
 
 	var runErr error
 	switch cmd {
@@ -146,6 +161,26 @@ func Run(args []string) int {
 	}
 
 	return 0
+}
+
+func requiresQueue(cmd string) bool {
+	if strings.HasPrefix(cmd, "job:") {
+		return true
+	}
+	switch cmd {
+	case "Ai:SplitText", "content:query", "tts:SplitJobs":
+		return true
+	default:
+		return false
+	}
+}
+
+// Resolve a default migrations directory from config.base_app_folder; fallback to repo-relative.
+func defaultMigrationsDir(cfg config.Config) string {
+	if cfg.BaseAppFolder != "" {
+		return filepath.Join(cfg.BaseAppFolder, "db", "migrations")
+	}
+	return filepath.Join("..", "db", "migrations")
 }
 
 func extractGlobalVerbose(args []string) ([]string, bool) {
@@ -420,6 +455,7 @@ func printUsage() {
 	fmt.Println("Global flags:")
 	fmt.Println("  --verbose   Enable diagnostic logging (can appear before or after the command).")
 	fmt.Println("Commands:")
+	fmt.Println("  migrate [up] [--dir=../db/migrations] [--dry-run] [--verbose]")
 	fmt.Println("  Ai:GenerateFunFacts [content_id] [--sleep=N] [--queue] [--verbose]")
 	fmt.Println("  Ai:SplitText [--verbose]")
 	fmt.Println("  Backfill:ResponseDataToSentences [content_id] [--log] [--verbose]")

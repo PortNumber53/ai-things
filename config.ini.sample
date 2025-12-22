@@ -76,7 +76,7 @@ client_id=
 client_secret=
 signing_secret=
 # Local port for Slack HTTP server (Slack:Serve). Used when --listen isn't provided.
-port=8085
+port=18085
 # Legacy verification token (deprecated by Slack in favor of signing_secret).
 verification_token=
 # OAuth scopes (comma-separated).
