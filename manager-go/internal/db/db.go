@@ -76,6 +76,16 @@ type SlackInstallation struct {
 	UpdatedAt   time.Time
 }
 
+type SlackThreadSession struct {
+	TeamID            string
+	ChannelID         string
+	ThreadTS          string
+	ActivatedByUserID string
+	ActivatedAt       time.Time
+	LastSeenAt        time.Time
+	ExpiresAt         time.Time
+}
+
 func NewStore(ctx context.Context, connString string) (*Store, error) {
 	pool, err := pgxpool.New(ctx, connString)
 	if err != nil {
@@ -530,6 +540,46 @@ func (s *Store) GetSlackBotToken(ctx context.Context, teamID string) (string, er
 		return "", err
 	}
 	return token, nil
+}
+
+func (s *Store) UpsertSlackThreadSession(ctx context.Context, teamID, channelID, threadTS, activatedByUserID string, ttl time.Duration) error {
+	if teamID == "" || channelID == "" || threadTS == "" {
+		return errors.New("missing teamID/channelID/threadTS")
+	}
+	if ttl <= 0 {
+		ttl = 24 * time.Hour
+	}
+	expiresAt := time.Now().Add(ttl)
+	utils.Logf("db: upsert slack thread session team_id=%s channel=%s thread_ts=%s", teamID, channelID, threadTS)
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO slack_thread_sessions (team_id, channel_id, thread_ts, activated_by_user_id, activated_at, last_seen_at, expires_at)
+		VALUES ($1, $2, $3, $4, NOW(), NOW(), $5)
+		ON CONFLICT (team_id, channel_id, thread_ts) DO UPDATE SET
+			last_seen_at = NOW(),
+			expires_at = GREATEST(slack_thread_sessions.expires_at, EXCLUDED.expires_at),
+			activated_by_user_id = COALESCE(slack_thread_sessions.activated_by_user_id, EXCLUDED.activated_by_user_id)
+	`, teamID, channelID, threadTS, activatedByUserID, expiresAt)
+	return err
+}
+
+func (s *Store) IsSlackThreadSessionActive(ctx context.Context, teamID, channelID, threadTS string) (bool, error) {
+	if teamID == "" || channelID == "" || threadTS == "" {
+		return false, errors.New("missing teamID/channelID/threadTS")
+	}
+	utils.Logf("db: slack thread session active? team_id=%s channel=%s thread_ts=%s", teamID, channelID, threadTS)
+	var active bool
+	err := s.pool.QueryRow(ctx, `
+		SELECT expires_at > NOW()
+		FROM slack_thread_sessions
+		WHERE team_id = $1 AND channel_id = $2 AND thread_ts = $3
+	`, teamID, channelID, threadTS).Scan(&active)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return active, nil
 }
 
 func StatusTrueCondition(flags []string) string {

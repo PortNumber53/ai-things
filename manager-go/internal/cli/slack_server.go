@@ -47,7 +47,8 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 
 	scopes := strings.TrimSpace(cfg.SlackScopes)
 	if scopes == "" {
-		scopes = "chat:write,channels:read,channels:join,app_mentions:read"
+		// Include channels:history so we can receive and handle message.channels events for thread follow-ups.
+		scopes = "chat:write,channels:read,channels:join,channels:history,app_mentions:read"
 	}
 
 	redirectURL := strings.TrimSpace(cfg.SlackRedirectURL)
@@ -165,36 +166,88 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 			if envelope.TeamID == "" || envelope.Event.Type == "" {
 				return
 			}
-			if envelope.Event.Type != "app_mention" {
-				return
-			}
 
 			teamID := envelope.TeamID
 			channel := envelope.Event.Channel
-			// Always reply in-thread:
-			// - If the mention happened inside an existing thread, Slack provides thread_ts (parent thread).
-			// - Otherwise use the event ts to start a new thread off the mention.
-			threadTS := envelope.Event.ThreadTS
-			if threadTS == "" {
-				threadTS = envelope.Event.TS
-			}
 			original := envelope.Event.Text
-			go func() {
-				token, err := jctx.Store.GetSlackBotToken(context.Background(), teamID)
-				if err != nil || token == "" {
-					utils.Logf("slack: no bot token for team_id=%s", teamID)
+			switch envelope.Event.Type {
+			case "app_mention":
+				// Always reply in-thread:
+				// - If the mention happened inside an existing thread, Slack provides thread_ts (parent thread).
+				// - Otherwise use the event ts to start a new thread off the mention.
+				threadTS := envelope.Event.ThreadTS
+				if threadTS == "" {
+					threadTS = envelope.Event.TS
+				}
+				activatedBy := envelope.Event.User
+				go func() {
+					// Mark this thread active so subsequent replies in-thread don't need an explicit @mention.
+					if err := jctx.Store.UpsertSlackThreadSession(context.Background(), teamID, channel, threadTS, activatedBy, 24*time.Hour); err != nil {
+						// Migration might not be applied yet; degrade gracefully.
+						utils.Logf("slack: failed to upsert thread session team_id=%s channel=%s thread_ts=%s err=%v", teamID, channel, threadTS, err)
+					}
+
+					token, err := jctx.Store.GetSlackBotToken(context.Background(), teamID)
+					if err != nil || token == "" {
+						utils.Logf("slack: no bot token for team_id=%s", teamID)
+						return
+					}
+
+					clean := slackStripLeadingMention(original)
+					words := slackCountWords(clean)
+					chars := utf8.RuneCountInString(clean)
+					reply := fmt.Sprintf("words=%d chars=%d", words, chars)
+					if err := slack.PostMessage(context.Background(), client, token, channel, reply, threadTS); err != nil {
+						utils.Logf("slack: post message failed team_id=%s channel=%s err=%v", teamID, channel, err)
+					}
+				}()
+				return
+			case "message":
+				// Ignore message events that aren't threaded. This keeps behavior "sticky" to a thread once activated.
+				if envelope.Event.ThreadTS == "" {
+					return
+				}
+				// Ignore message subtypes (edits, joins, bot_message, etc.).
+				if envelope.Event.Subtype != "" {
+					return
+				}
+				// Ignore bot messages (including our own) to avoid loops.
+				if envelope.Event.BotID != "" {
 					return
 				}
 
-				clean := slackStripLeadingMention(original)
-				words := slackCountWords(clean)
-				chars := utf8.RuneCountInString(clean)
-				reply := fmt.Sprintf("words=%d chars=%d", words, chars)
-				if err := slack.PostMessage(context.Background(), client, token, channel, reply, threadTS); err != nil {
-					utils.Logf("slack: post message failed team_id=%s channel=%s err=%v", teamID, channel, err)
-				}
-			}()
-			return
+				threadTS := envelope.Event.ThreadTS
+				go func() {
+					active, err := jctx.Store.IsSlackThreadSessionActive(context.Background(), teamID, channel, threadTS)
+					if err != nil {
+						// Migration might not be applied yet; degrade gracefully.
+						utils.Logf("slack: failed to check thread session team_id=%s channel=%s thread_ts=%s err=%v", teamID, channel, threadTS, err)
+						return
+					}
+					if !active {
+						return
+					}
+					// Extend TTL on activity.
+					_ = jctx.Store.UpsertSlackThreadSession(context.Background(), teamID, channel, threadTS, "", 24*time.Hour)
+
+					token, err := jctx.Store.GetSlackBotToken(context.Background(), teamID)
+					if err != nil || token == "" {
+						utils.Logf("slack: no bot token for team_id=%s", teamID)
+						return
+					}
+
+					clean := strings.TrimSpace(original)
+					words := slackCountWords(clean)
+					chars := utf8.RuneCountInString(clean)
+					reply := fmt.Sprintf("words=%d chars=%d", words, chars)
+					if err := slack.PostMessage(context.Background(), client, token, channel, reply, threadTS); err != nil {
+						utils.Logf("slack: post message failed team_id=%s channel=%s err=%v", teamID, channel, err)
+					}
+				}()
+				return
+			default:
+				return
+			}
 		default:
 			w.WriteHeader(http.StatusOK)
 			return
@@ -237,7 +290,12 @@ type slackEventEnvelope struct {
 	TeamID    string `json:"team_id"`
 	Event     struct {
 		Type     string `json:"type"`
+		Subtype  string `json:"subtype"`
 		Channel  string `json:"channel"`
+		User     string `json:"user"`
+		BotID    string `json:"bot_id"`
+		// ChannelType is present for message events (e.g. "channel", "group", "im").
+		ChannelType string `json:"channel_type"`
 		Text     string `json:"text"`
 		TS       string `json:"ts"`
 		ThreadTS string `json:"thread_ts"`

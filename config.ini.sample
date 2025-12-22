@@ -80,7 +80,9 @@ port=18085
 # Legacy verification token (deprecated by Slack in favor of signing_secret).
 verification_token=
 # OAuth scopes (comma-separated).
-scopes=chat:write,channels:read,channels:join,app_mentions:read
+# If you want the bot to keep replying in a thread without requiring an @mention each time,
+# include channels:history and subscribe to message.channels events in the Slack app dashboard.
+scopes=chat:write,channels:read,channels:join,channels:history,app_mentions:read
 # Redirect URL for OAuth callback.
 # Example: https://manager.example.com/slack/oauth/callback
 redirect_url=
