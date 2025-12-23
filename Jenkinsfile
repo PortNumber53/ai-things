@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    parameters {
+        // Temporarily disable pinky deployments by default. Flip to true to re-enable.
+        booleanParam(name: 'DEPLOY_PINKY', defaultValue: false, description: 'Deploy to pinky (temporarily disabled by default)')
+    }
+
     environment {
         DEPLOY_PATH = '/deploy/ai-things/'
         TIMESTAMP = new Date().format("yyyyMMddHHmmss")
@@ -29,13 +34,22 @@ pipeline {
                 stage('Prepare Manager') {
                     steps {
                         // Build Go manager and stage env files.
-                        withCredentials([
-                            file(credentialsId: 'ai-things-brain-env-prod-file', variable: 'ENV_FILE_BRAIN'),
-                            file(credentialsId: 'ai-things-pinky-env-prod-file', variable: 'ENV_FILE_PINKY'),
-                        ]) {
+                        script {
                             sh 'cd manager-go && go build -o manager ./cmd/manager'
-                            sh 'cp --no-preserve=mode,ownership $ENV_FILE_BRAIN .env.brain'
-                            sh 'cp --no-preserve=mode,ownership $ENV_FILE_PINKY .env.pinky'
+                            withCredentials([
+                                file(credentialsId: 'ai-things-brain-env-prod-file', variable: 'ENV_FILE_BRAIN'),
+                            ]) {
+                                sh 'cp --no-preserve=mode,ownership $ENV_FILE_BRAIN .env.brain'
+                            }
+                            if (params.DEPLOY_PINKY) {
+                                withCredentials([
+                                    file(credentialsId: 'ai-things-pinky-env-prod-file', variable: 'ENV_FILE_PINKY'),
+                                ]) {
+                                    sh 'cp --no-preserve=mode,ownership $ENV_FILE_PINKY .env.pinky'
+                                }
+                            } else {
+                                echo 'Skipping pinky env staging (DEPLOY_PINKY=false)'
+                            }
                         }
                     }
                 }
@@ -46,11 +60,18 @@ pipeline {
             steps {
                 script {
                     // Deploy to multiple hosts
-                    def hosts = ['brain', 'pinky']
+                    def hosts = ['brain']
+                    if (params.DEPLOY_PINKY) {
+                        hosts.add('pinky')
+                    } else {
+                        echo 'Skipping pinky deployment (DEPLOY_PINKY=false)'
+                    }
                     def ENV_FILES = [
                         brain: 'ai-things-brain-env-prod-file',
-                        pinky: 'ai-things-pinky-env-prod-file',
                     ]
+                    if (params.DEPLOY_PINKY) {
+                        ENV_FILES['pinky'] = 'ai-things-pinky-env-prod-file'
+                    }
                     for (host in hosts) {
                         deployToHost(host, DEPLOY_PATH, ENV_FILES[host], TIMESTAMP)
                     }
