@@ -103,14 +103,12 @@ def deployToHost(sshConnection, deployBasePath, envFile, timestamp) {
             echo '${deploymentPath}'
 
             # Resolve per-host hostname (for queue routing).
-            HOST_FQDN="\$(ssh ${sshConnection} 'hostname -f 2>/dev/null || hostname')"
+            HOST_FQDN="\$(ssh ${sshConnection} 'hostname -f 2>/dev/null || hostname' | tr -d '\\r\\n')"
 
-            # Render config.ini locally, then install on host.
+            # Render config.ini and install on host (no local temp file).
             set +x
-            CONFIG_TMP=".config.${sshConnection}.ini"
-            cleanup() { rm -f "\${CONFIG_TMP}"; }
-            trap cleanup EXIT
-            cat > "\${CONFIG_TMP}" <<EOF
+            ssh ${sshConnection} 'sudo mkdir -p /etc/ai-things' || { echo "Failed to create /etc/ai-things"; exit 1; }
+            cat <<EOF | ssh ${sshConnection} 'sudo tee /etc/ai-things/config.ini >/dev/null' || { echo "Failed to write /etc/ai-things/config.ini"; exit 1; }
 [app]
 hostname=\${HOST_FQDN}
 env=production
@@ -153,16 +151,12 @@ verification_token=\${AI_THINGS_SLACK_VERIFICATION_TOKEN}
 scopes=\${AI_THINGS_SLACK_SCOPES}
 redirect_url=\${AI_THINGS_SLACK_REDIRECT_URL}
 EOF
+            ssh ${sshConnection} 'sudo chmod 600 /etc/ai-things/config.ini' || { echo "Failed to chmod /etc/ai-things/config.ini"; exit 1; }
             set -x
 
             ssh ${sshConnection} mkdir -pv ${deploymentPath} || { echo "Failed to create releases directory"; exit 1; }
             rsync -rap --exclude=.git --exclude=.env.* --exclude=manager\\@tmp --exclude=manager/storage ./ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
             rsync -rap --exclude=.git ./.env.${sshConnection} ${sshConnection}:${deploymentPath}/.env || { echo "rsync failed"; exit 1; }
-
-            # Install system-wide config.
-            rsync -rap "\${CONFIG_TMP}" ${sshConnection}:/tmp/ai-things-config.ini || { echo "rsync config.ini failed"; exit 1; }
-            ssh ${sshConnection} 'sudo mkdir -p /etc/ai-things && sudo mv /tmp/ai-things-config.ini /etc/ai-things/config.ini && sudo chmod 600 /etc/ai-things/config.ini' || { echo "Failed to install /etc/ai-things/config.ini"; exit 1; }
-            trap - EXIT
 
             ssh ${sshConnection} "cd ${deploymentPath} && ./deploy/deployment-script-${sshConnection}.sh ${deployBasePath} ${deploymentReleasePath} ${deploymentPath} ${timestamp}" || { echo "Deployment script execution failed"; exit 1; }
         """
