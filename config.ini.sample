@@ -20,9 +20,9 @@ tiktok_upload_script=python /deploy/ai-things/current/utility/upload-video-to-ti
 
 [tts]
 # Path to ONNX model file.
-onnx_model=/deploy/ai-things/current/manager/en_US-lessac-medium.onnx
+onnx_model=/deploy/ai-things/assets/en_US-lessac-medium.onnx
 # Path to TTS config JSON.
-config_file=/deploy/ai-things/current/manager/en_US-lessac-medium.onnx.json
+config_file=/deploy/ai-things/assets/en_US-lessac-medium.onnx.json
 # Voice name.
 voice=jenny
 

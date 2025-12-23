@@ -42,6 +42,9 @@ Homestead.json
 /.vagrant
 .phpunit.result.cache
 
+# Python bytecode cache
+**/__pycache__/
+
 ### Linux ###
 *~
 
