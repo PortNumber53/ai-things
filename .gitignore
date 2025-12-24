@@ -36,14 +36,22 @@ client_secrets*.json
 service-account-key*.json
 token.pickle
 *_token.pickle
+manager/storage/youtube_cookies.txt
 db_ai_things.sql
+dump.sql
 Homestead.yaml
 Homestead.json
 /.vagrant
 .phpunit.result.cache
 
+# IDE settings
+.vscode/
+
 # Python bytecode cache
 **/__pycache__/
+
+# Local run artifacts
+auto-subtitles-generator/api_out/
 
 ### Linux ###
 *~

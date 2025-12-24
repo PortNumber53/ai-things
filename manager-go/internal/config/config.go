@@ -97,7 +97,9 @@ func Load() (Config, error) {
 
 	cfg.YoutubeUpload = ini.get("paths", "youtube_upload_script")
 	if cfg.YoutubeUpload == "" && cfg.BaseAppFolder != "" {
-		cfg.YoutubeUpload = fmt.Sprintf("python %s", filepath.Join(cfg.BaseAppFolder, "auto-subtitles-generator", "upload_video.py"))
+		py := pythonForProjectVenv(cfg.BaseAppFolder, "auto-subtitles-generator")
+		script := filepath.Join(cfg.BaseAppFolder, "auto-subtitles-generator", "upload_video.py")
+		cfg.YoutubeUpload = fmt.Sprintf("%s %s", py, script)
 	}
 
 	cfg.TikTokUploadScript = ini.get("paths", "tiktok_upload_script")
@@ -310,4 +312,19 @@ func firstNonEmptyIntDefault(fallback int, values ...string) int {
 func urlEscape(value string) string {
 	// Keep it simple for now; RabbitMQ credentials here are typically safe.
 	return value
+}
+
+func pythonForProjectVenv(baseAppFolder, project string) string {
+	// Expected layout:
+	//   /deploy/ai-things/current  (baseAppFolder)
+	//   /deploy/ai-things/venvs/<project>/bin/python
+	if baseAppFolder == "" || project == "" {
+		return "python"
+	}
+	baseDeploy := filepath.Dir(baseAppFolder)
+	candidate := filepath.Join(baseDeploy, "venvs", project, "bin", "python")
+	if _, err := os.Stat(candidate); err == nil {
+		return candidate
+	}
+	return "python"
 }
