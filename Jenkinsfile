@@ -172,6 +172,8 @@ verification_token=\${AI_THINGS_SLACK_VERIFICATION_TOKEN}
 scopes=\${AI_THINGS_SLACK_SCOPES}
 redirect_url=\${AI_THINGS_SLACK_REDIRECT_URL}
 EOF
+            # Ensure the runtime user can read the config; services run as grimlock.
+            ssh ${sshConnection} 'sudo chown grimlock:grimlock /etc/ai-things/config.ini' || { echo "Failed to chown /etc/ai-things/config.ini"; exit 1; }
             ssh ${sshConnection} 'sudo chmod 600 /etc/ai-things/config.ini' || { echo "Failed to chmod /etc/ai-things/config.ini"; exit 1; }
             set -x
 
