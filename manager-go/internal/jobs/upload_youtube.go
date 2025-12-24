@@ -127,6 +127,24 @@ func (j UploadYouTubeJob) processContent(ctx context.Context, jctx JobContext, c
 	}
 
 	filename := filepath.Join(jctx.Config.BaseOutputFolder, "podcast", podcastFilename)
+	if host, _ := podcast["hostname"].(string); host != "" && host != jctx.Config.Hostname {
+		// The podcast video may have been rendered on a different host (e.g. brain).
+		// Fetch it locally before uploading.
+		if err := utils.EnsureDir(filepath.Dir(filename)); err != nil {
+			return err
+		}
+		cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(filename), utils.ShellEscape(filename))
+		if output, err := utils.RunCommand(cmd); err != nil {
+			// If it's actually missing, surface a clean error message so we can re-render.
+			if isMissingFileOutput(output) || !utils.FileExists(filename) {
+				return fmt.Errorf("podcast video missing (expected %s from host %s)", filename, host)
+			}
+			return err
+		}
+	}
+	if !utils.FileExists(filename) {
+		return fmt.Errorf("podcast video missing (expected %s)", filename)
+	}
 	title := fmt.Sprintf("%07d - %s", content.ID, content.Title)
 	category := "27"
 	keywords := ""
