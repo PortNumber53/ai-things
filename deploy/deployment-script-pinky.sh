@@ -17,6 +17,9 @@ echo "Updating release symlink"
 cd ${DEPLOY_BASE_PATH}
 ln -sfn ${DEPLOYMENT_PATH} ./current
 
+echo "-Preparing Python environments"
+bash /deploy/ai-things/current/deploy/setup_python_envs.sh "${DEPLOY_BASE_PATH}" "${DEPLOY_BASE_PATH%/}/current"
+
 
 echo "-Preparing systemd files"
 cd /etc/systemd/system/
