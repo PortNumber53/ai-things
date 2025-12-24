@@ -39,7 +39,8 @@ export const RemotionRoot: React.FC = () => {
 					waveLinesToDisplay: 40,
 					waveNumberOfSamples: '256', // This is string for Remotion controls and will be converted to a number
 					mirrorWave: false,
-					durationInSeconds: __DURATION__,
+					// Placeholder is replaced by manager-go. Keep it as a string here so TypeScript can typecheck the template file.
+					durationInSeconds: Number('__DURATION__'),
 				}}
 				// Determine the length of the video based on the duration of the audio file
 				calculateMetadata={({ props }) => {

@@ -233,7 +233,17 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 		return err
 	}
 
-	cmd := fmt.Sprintf("cd %s && npm run build", utils.ShellEscape(filepath.Join(jctx.Config.BaseAppFolder, "podcast")))
+	buildArgs := ""
+	if utils.Verbose {
+		// Make Remotion show the underlying Chromium stderr, which is often the real cause
+		// (missing shared libraries, missing fonts, etc.).
+		buildArgs = " -- --log=verbose"
+	}
+	cmd := fmt.Sprintf(
+		"cd %s && npm run build%s",
+		utils.ShellEscape(filepath.Join(jctx.Config.BaseAppFolder, "podcast")),
+		buildArgs,
+	)
 	if _, err := utils.RunCommand(cmd); err != nil {
 		return err
 	}
