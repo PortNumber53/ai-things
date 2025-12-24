@@ -1,18 +1,18 @@
 [Unit]
-Description=Go Manager Command for Generating WAV files
+Description=Go Manager Command for Generating WAV files (user service)
 After=network.target
 
 [Service]
 Type=simple
 Environment=CRYPTOGRAPHY_OPENSSL_NO_LEGACY=1
-User=grimlock
-Group=grimlock
-WorkingDirectory=/deploy/ai-things/current
 EnvironmentFile=-/etc/ai-things/systemd.env
+WorkingDirectory=/deploy/ai-things/current
 ExecStart=/deploy/ai-things/current/deploy/systemd/run_with_conda.sh /deploy/ai-things/current/manager-go/manager job:GenerateWav --sleep=30 --verbose
 Restart=always
 RestartSec=3
 SyslogIdentifier=generate_wav
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
+
+

@@ -63,19 +63,19 @@ try_restart_user() {
   systemctl --user try-restart "$@" || true
 }
 
-service_dir="/deploy/ai-things/current/deploy/${host}/systemd"
-if [[ ! -d "${service_dir}" ]]; then
-  echo "WARN: host service dir not found: ${service_dir}; falling back to /deploy/ai-things/current/deploy/systemd" >&2
-  service_dir="/deploy/ai-things/current/deploy/systemd"
-fi
+  common_service_dir="/deploy/ai-things/current/deploy/systemd"
+  host_service_dir="/deploy/ai-things/current/deploy/${host}/systemd"
 
-echo "-Preparing systemd files (dir=${service_dir})"
+  echo "-Preparing systemd files (common=${common_service_dir} host=${host_service_dir})"
 
 case "${host}" in
   ideapad5)
     # User-level systemd on this host.
-    if [[ -f "${service_dir}/generate_wav.service" ]]; then
-      link_user_service "${service_dir}/generate_wav.service"
+    # Prefer host-specific user unit if present; fall back to common.
+    if [[ -f "${host_service_dir}/generate_wav.service" ]]; then
+      link_user_service "${host_service_dir}/generate_wav.service"
+    elif [[ -f "${common_service_dir}/generate_wav.service" ]]; then
+      link_user_service "${common_service_dir}/generate_wav.service"
     fi
     reload_systemd_user
     enable_now_user generate_wav.service
@@ -84,7 +84,11 @@ case "${host}" in
 
   brain)
     # System-level services.
-    for f in "${service_dir}"/*.service; do
+    for f in "${common_service_dir}"/*.service; do
+      [[ -e "$f" ]] || continue
+      link_system_service "$f"
+    done
+    for f in "${host_service_dir}"/*.service; do
       [[ -e "$f" ]] || continue
       link_system_service "$f"
     done
@@ -96,7 +100,11 @@ case "${host}" in
     ;;
 
   pinky)
-    for f in "${service_dir}"/*.service; do
+    for f in "${common_service_dir}"/*.service; do
+      [[ -e "$f" ]] || continue
+      link_system_service "$f"
+    done
+    for f in "${host_service_dir}"/*.service; do
       [[ -e "$f" ]] || continue
       link_system_service "$f"
     done
@@ -107,7 +115,11 @@ case "${host}" in
     ;;
 
   legion)
-    for f in "${service_dir}"/*.service; do
+    for f in "${common_service_dir}"/*.service; do
+      [[ -e "$f" ]] || continue
+      link_system_service "$f"
+    done
+    for f in "${host_service_dir}"/*.service; do
       [[ -e "$f" ]] || continue
       link_system_service "$f"
     done
@@ -117,7 +129,11 @@ case "${host}" in
     ;;
 
   devbox)
-    for f in "${service_dir}"/*.service; do
+    for f in "${common_service_dir}"/*.service; do
+      [[ -e "$f" ]] || continue
+      link_system_service "$f"
+    done
+    for f in "${host_service_dir}"/*.service; do
       [[ -e "$f" ]] || continue
       link_system_service "$f"
     done
@@ -129,7 +145,11 @@ case "${host}" in
 
   *)
     echo "WARN: unknown host '${host}' - linking all services but not enabling anything" >&2
-    for f in "${service_dir}"/*.service; do
+    for f in "${common_service_dir}"/*.service; do
+      [[ -e "$f" ]] || continue
+      link_system_service "$f"
+    done
+    for f in "${host_service_dir}"/*.service; do
       [[ -e "$f" ]] || continue
       link_system_service "$f"
     done
