@@ -109,6 +109,8 @@ def deployToHost(sshConnection, deployBasePath, envFile, timestamp) {
         string(credentialsId: 'ai-things-ollama-port', variable: 'AI_THINGS_OLLAMA_PORT'),
         string(credentialsId: 'ai-things-ollama-model', variable: 'AI_THINGS_OLLAMA_MODEL'),
 
+        string(credentialsId: 'ai-things-portnumber53-api-key', variable: 'AI_THINGS_PORTNUMBER53_API_KEY'),
+
         string(credentialsId: 'ai-things-slack-app-id', variable: 'AI_THINGS_SLACK_APP_ID'),
         string(credentialsId: 'ai-things-slack-client-id', variable: 'AI_THINGS_SLACK_CLIENT_ID'),
         string(credentialsId: 'ai-things-slack-client-secret', variable: 'AI_THINGS_SLACK_CLIENT_SECRET'),
@@ -161,6 +163,9 @@ vhost=\${AI_THINGS_RABBITMQ_VHOST}
 hostname=\${AI_THINGS_OLLAMA_HOSTNAME}
 port=\${AI_THINGS_OLLAMA_PORT}
 model=\${AI_THINGS_OLLAMA_MODEL}
+
+[portnumber53]
+api_key=\${AI_THINGS_PORTNUMBER53_API_KEY}
 
 [slack]
 app_id=\${AI_THINGS_SLACK_APP_ID}
