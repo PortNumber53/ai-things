@@ -37,6 +37,25 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 0
 fi
 
+if [[ ! -d "${CURRENT_PATH}" ]]; then
+  echo "python-env: ERROR: current path is not a directory: ${CURRENT_PATH}" >&2
+  echo "python-env: usage: $0 /deploy/ai-things /deploy/ai-things/current" >&2
+  if [[ "${STRICT}" == "1" ]]; then
+    exit 2
+  fi
+  exit 0
+fi
+
+# Sanity-check that CURRENT_PATH points at the repo root (contains deploy/requirements-runtime.txt).
+if [[ ! -f "${CURRENT_PATH}/deploy/requirements-runtime.txt" ]]; then
+  echo "python-env: ERROR: expected ${CURRENT_PATH}/deploy/requirements-runtime.txt (is CURRENT_PATH the repo root?)" >&2
+  echo "python-env: hint: use: $0 /deploy/ai-things /deploy/ai-things/current" >&2
+  if [[ "${STRICT}" == "1" ]]; then
+    exit 2
+  fi
+  exit 0
+fi
+
 ensure_venv() {
   local venv_path="$1"
   if [[ ! -x "${venv_path}/bin/python" ]]; then
