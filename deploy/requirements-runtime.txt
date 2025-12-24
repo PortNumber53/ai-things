@@ -1,0 +1,8 @@
+# Runtime Python environment for scripts invoked by manager-go (e.g. subtitle generation, uploads).
+# Kept intentionally minimal-ish; prefer adding dependencies to the relevant subproject requirements
+# and referencing them here if needed.
+
+-r auto-subtitles-generator/requirements.txt
+-r utility/requirements.txt
+
+

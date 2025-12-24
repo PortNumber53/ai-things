@@ -6,8 +6,9 @@ After=network.target
 User=grimlock
 Group=grimlock
 Restart=always
+EnvironmentFile=-/etc/ai-things/systemd.env
 WorkingDirectory=/deploy/ai-things/current/tortoise-tts/tortoise/
-ExecStart=/usr/bin/bash -c "source /usr/etc/profile.d/conda.sh && conda activate && /home/grimlock/.conda/envs/tortoise/bin/python do_tts.py"
+ExecStart=/deploy/ai-things/current/deploy/systemd/run_with_uv.sh /deploy/ai-things/venvs/tortoise-tts/bin/python do_tts.py
 
 [Install]
 WantedBy=multi-user.target

@@ -7,7 +7,7 @@ Type=simple
 Environment=CRYPTOGRAPHY_OPENSSL_NO_LEGACY=1
 EnvironmentFile=-/etc/ai-things/systemd.env
 WorkingDirectory=/deploy/ai-things/current
-ExecStart=/deploy/ai-things/current/deploy/systemd/run_with_conda.sh /deploy/ai-things/current/manager-go/manager job:GenerateWav --sleep=30 --verbose
+ExecStart=/deploy/ai-things/current/deploy/systemd/run_with_uv.sh /deploy/ai-things/current/manager-go/manager job:GenerateWav --sleep=30 --verbose
 Restart=always
 RestartSec=3
 SyslogIdentifier=generate_wav

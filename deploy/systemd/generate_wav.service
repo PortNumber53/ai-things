@@ -9,7 +9,7 @@ User=grimlock
 Group=grimlock
 WorkingDirectory=/deploy/ai-things/current
 EnvironmentFile=-/etc/ai-things/systemd.env
-ExecStart=/deploy/ai-things/current/deploy/systemd/run_with_conda.sh /deploy/ai-things/current/manager-go/manager job:GenerateWav --sleep=30 --verbose
+ExecStart=/deploy/ai-things/current/deploy/systemd/run_with_uv.sh /deploy/ai-things/current/manager-go/manager job:GenerateWav --sleep=30 --verbose
 Restart=always
 RestartSec=3
 SyslogIdentifier=generate_wav

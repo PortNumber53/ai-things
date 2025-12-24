@@ -26,6 +26,16 @@ ln -sfn "${DEPLOYMENT_PATH}" ./current
 echo "-Preparing Python environments"
 bash /deploy/ai-things/current/deploy/setup_python_envs.sh "${DEPLOY_BASE_PATH}" "${DEPLOY_BASE_PATH%/}/current"
 
+echo "-Preparing systemd environment file"
+sudo mkdir -p /etc/ai-things
+if [[ ! -f /etc/ai-things/systemd.env ]]; then
+  sudo tee /etc/ai-things/systemd.env >/dev/null <<EOF
+# Deployed by ai-things deploy script. Override locally if needed.
+AI_THINGS_VENV=${DEPLOY_BASE_PATH%/}/venvs/runtime
+EOF
+  sudo chmod 644 /etc/ai-things/systemd.env || true
+fi
+
 link_system_service() {
   local src="$1"
   local dest_name="${2:-$(basename "$src")}"
