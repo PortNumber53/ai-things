@@ -14,7 +14,7 @@ base_app_folder=/deploy/ai-things/current
 # Python command to generate subtitles.
 subtitle_script=python /deploy/ai-things/current/podcast/whisper.py
 # Python command to upload to YouTube.
-youtube_upPload_script=python /deploy/ai-things/current/auto-subtitles-generator/upload_video.py
+youtube_upload_script=python /deploy/ai-things/current/auto-subtitles-generator/upload_video.py
 # Python command to upload to TikTok.
 tiktok_upload_script=python /deploy/ai-things/current/utility/upload-video-to-tiktok.py
 
