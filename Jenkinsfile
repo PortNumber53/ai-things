@@ -3,7 +3,7 @@ pipeline {
 
     parameters {
         // Temporarily disable pinky deployments by default. Flip to true to re-enable.
-        booleanParam(name: 'DEPLOY_PINKY', defaultValue: false, description: 'Deploy to pinky (temporarily disabled by default)')
+        booleanParam(name: 'DEPLOY_PINKY', defaultValue: true, description: 'Deploy to pinky (temporarily disabled by default)')
     }
 
     environment {
@@ -179,7 +179,7 @@ EOF
             rsync -rap --exclude=.git --exclude=.env.* --exclude=manager\\@tmp --exclude=manager/storage ./ ${sshConnection}:${deploymentPath} || { echo "rsync failed"; exit 1; }
             rsync -rap --exclude=.git ./.env.${sshConnection} ${sshConnection}:${deploymentPath}/.env || { echo "rsync failed"; exit 1; }
 
-            ssh ${sshConnection} "cd ${deploymentPath} && ./deploy/deployment-script-${sshConnection}.sh ${deployBasePath} ${deploymentReleasePath} ${deploymentPath} ${timestamp}" || { echo "Deployment script execution failed"; exit 1; }
+            ssh ${sshConnection} "cd ${deploymentPath} && ./deploy/deployment-script.sh ${sshConnection} ${deployBasePath} ${deploymentReleasePath} ${deploymentPath} ${timestamp}" || { echo "Deployment script execution failed"; exit 1; }
         """
     }
 }
