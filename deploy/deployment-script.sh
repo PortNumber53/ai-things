@@ -70,14 +70,14 @@ if [[ -z "${OUT_BASE}" ]]; then
   OUT_BASE="/output"
 fi
 need_out_dirs=0
-for d in funfacts images mp3 podcast results subtitles waves; do
+for d in funfacts images images-ai mp3 podcast results subtitles upload waves movie; do
   if [[ ! -d "${OUT_BASE}/${d}" ]]; then
     need_out_dirs=1
     break
   fi
 done
 if [[ "${need_out_dirs}" == "1" ]]; then
-  sudo mkdir -p "${OUT_BASE}"/{funfacts,images,mp3,podcast,results,subtitles,waves} || true
+  sudo mkdir -p "${OUT_BASE}"/{funfacts,images,images-ai,mp3,podcast,results,subtitles,upload,waves,movie} || true
   sudo chown -R grimlock:grimlock "${OUT_BASE}" || true
 fi
 
