@@ -25,6 +25,7 @@ type Config struct {
 	YoutubeUpload      string
 	TikTokUploadScript string
 	Portnumber53APIKey string
+	Portnumber53TimeoutSeconds int
 
 	TTSOnnxModel string
 	TTSConfig    string
@@ -105,6 +106,7 @@ func Load() (Config, error) {
 	}
 
 	cfg.Portnumber53APIKey = ini.get("portnumber53", "api_key")
+	cfg.Portnumber53TimeoutSeconds = ini.getIntDefault("portnumber53", "timeout_seconds", 1000)
 	// Accept new config keys; fall back to legacy ollama.brain_host for compatibility.
 	cfg.OllamaHostname = firstNonEmpty(
 		ini.get("ollama", "hostname"),

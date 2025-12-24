@@ -1123,7 +1123,11 @@ USER """
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-API-key", apiKey)
 
-	client := &http.Client{Timeout: 300 * time.Second}
+	timeout := jctx.Config.Portnumber53TimeoutSeconds
+	if timeout <= 0 {
+		timeout = 1000
+	}
+	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

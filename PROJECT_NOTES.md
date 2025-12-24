@@ -43,6 +43,10 @@ These values are pulled from Jenkins Credentials during deployment and are **not
 - **ai-things-slack-scopes**
 - **ai-things-slack-redirect-url**
 
+### EXTRA_ENV
+- **ai-things-portnumber53-api-key**
+
+
 ## Deployment behavior
 
 - `app.hostname` is resolved on the target host via `hostname -f` (fallback to `hostname`).
