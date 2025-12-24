@@ -62,20 +62,20 @@ func (j GeneratePodcastJob) Run(ctx context.Context, jctx JobContext, opts JobOp
 
 func (j GeneratePodcastJob) countWaiting(ctx context.Context, jctx JobContext) (int, error) {
 	where := "WHERE type = 'gemini.payload'"
-	finishedTrue := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "podcast_ready"})
-	finishedFalse := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
-	if finishedTrue != "" {
-		where += " AND " + finishedTrue
+	readyTrue := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated"})
+	notReady := db.StatusNotTrueCondition([]string{"podcast_ready"})
+	if readyTrue != "" {
+		where += " AND " + readyTrue
 	}
-	if finishedFalse != "" {
-		where += " AND " + finishedFalse
+	if notReady != "" {
+		where += " AND " + notReady
 	}
 	return jctx.Store.CountContent(ctx, where)
 }
 
 func (j GeneratePodcastJob) selectNext(ctx context.Context, jctx JobContext) (db.Content, error) {
 	where := "WHERE type = 'gemini.payload'"
-	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated"})
+	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated"})
 	falseFlags := db.StatusNotTrueCondition([]string{"podcast_ready"})
 	if trueFlags != "" {
 		where += " AND " + trueFlags
