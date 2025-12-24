@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"ai-things/manager-go/internal/db"
@@ -112,9 +113,25 @@ func (j GenerateWavJob) processContent(ctx context.Context, jctx JobContext, con
 	outputFile := filepath.Join(jctx.Config.BaseOutputFolder, "waves", filename)
 	preFile := filepath.Join(jctx.Config.BaseOutputFolder, "waves", "pre-"+filename)
 
+	piperPath := "piper"
+	// If PATH doesn't include the runtime venv (common when running jobs manually),
+	// try the default deploy location.
+	if jctx.Config.BaseAppFolder != "" {
+		deployRoot := strings.TrimRight(jctx.Config.BaseAppFolder, "/")
+		// If base_app_folder points at /deploy/ai-things/current, step up one directory.
+		if filepath.Base(deployRoot) == "current" {
+			deployRoot = filepath.Dir(deployRoot)
+		}
+		candidate := filepath.Join(deployRoot, "venvs", "runtime", "bin", "piper")
+		if st, err := os.Stat(candidate); err == nil && !st.IsDir() {
+			piperPath = candidate
+		}
+	}
+
 	cmd := fmt.Sprintf(
-		"echo %s | piper --debug --sentence-silence 0.7 --model %s -c %s --output_file %s && sox %s %s pad %d %d && rm %s",
+		"echo %s | %s --debug --sentence-silence 0.7 --model %s -c %s --output_file %s && sox %s %s pad %d %d && rm %s",
 		utils.ShellEscape(text),
+		utils.ShellEscape(piperPath),
 		utils.ShellEscape(jctx.Config.TTSOnnxModel),
 		utils.ShellEscape(jctx.Config.TTSConfig),
 		utils.ShellEscape(preFile),

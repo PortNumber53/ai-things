@@ -2,8 +2,8 @@
 # Kept intentionally minimal-ish; prefer adding dependencies to the relevant subproject requirements
 # and referencing them here if needed.
 
--r auto-subtitles-generator/requirements.txt
--r utility/requirements.txt
+-r ../auto-subtitles-generator/requirements.txt
+-r ../utility/requirements.txt
 
 # TTS CLI used by manager-go jobs (GenerateWav).
 piper-tts

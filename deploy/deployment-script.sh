@@ -69,11 +69,22 @@ fi
 if [[ -z "${OUT_BASE}" ]]; then
   OUT_BASE="/output"
 fi
-sudo mkdir -p "${OUT_BASE}"/{funfacts,images,mp3,podcast,results,subtitles,waves} || true
-sudo chown -R grimlock:grimlock "${OUT_BASE}" || true
+need_out_dirs=0
+for d in funfacts images mp3 podcast results subtitles waves; do
+  if [[ ! -d "${OUT_BASE}/${d}" ]]; then
+    need_out_dirs=1
+    break
+  fi
+done
+if [[ "${need_out_dirs}" == "1" ]]; then
+  sudo mkdir -p "${OUT_BASE}"/{funfacts,images,mp3,podcast,results,subtitles,waves} || true
+  sudo chown -R grimlock:grimlock "${OUT_BASE}" || true
+fi
 
-sudo mkdir -p /storage/ai || true
-sudo chown -R grimlock:grimlock /storage || true
+if [[ ! -d /storage/ai ]]; then
+  sudo mkdir -p /storage/ai || true
+  sudo chown -R grimlock:grimlock /storage || true
+fi
 
 echo "-Checking runtime dependencies"
 require_cmd sox || true
