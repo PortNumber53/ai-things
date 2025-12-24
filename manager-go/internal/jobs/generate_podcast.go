@@ -43,9 +43,9 @@ func (j GeneratePodcastJob) Run(ctx context.Context, jctx JobContext, opts JobOp
 		if err != nil {
 			return err
 		}
-		utils.Logf("GeneratePodcast: waiting=%d max=%d", count, j.MaxWaiting)
+		utils.Debug("GeneratePodcast waiting", "waiting", count, "max_waiting", j.MaxWaiting)
 		if count >= j.MaxWaiting {
-			utils.Logf("GeneratePodcast: too many waiting, sleeping 60s")
+			utils.Warn("GeneratePodcast too many waiting; sleeping", "sleep_s", 60, "waiting", count, "max_waiting", j.MaxWaiting)
 			time.Sleep(60 * time.Second)
 			return nil
 		}
@@ -94,7 +94,7 @@ func (j GeneratePodcastJob) selectNext(ctx context.Context, jctx JobContext) (db
 }
 
 func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext, contentID int64) error {
-	utils.Logf("GeneratePodcast: process content_id=%d", contentID)
+	utils.Info("GeneratePodcast process", "content_id", contentID)
 	content, err := jctx.Store.GetContentByID(ctx, contentID)
 	if err != nil {
 		return err
@@ -106,19 +106,19 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 
 	mp3s, ok := meta["mp3s"].([]any)
 	if !ok || len(mp3s) == 0 {
-		utils.Logf("GeneratePodcast: mp3 metadata missing, resetting mp3_generated")
+		utils.Warn("GeneratePodcast mp3 metadata missing; resetting mp3_generated", "content_id", contentID)
 		_ = resetMp3Status(ctx, jctx, content.ID, meta)
 		return nil
 	}
 	mp3Data, ok := mp3s[0].(map[string]any)
 	if !ok {
-		utils.Logf("GeneratePodcast: mp3 metadata invalid, resetting mp3_generated")
+		utils.Warn("GeneratePodcast mp3 metadata invalid; resetting mp3_generated", "content_id", contentID)
 		_ = resetMp3Status(ctx, jctx, content.ID, meta)
 		return nil
 	}
 	mp3Filename, _ := mp3Data["mp3"].(string)
 	if mp3Filename == "" {
-		utils.Logf("GeneratePodcast: mp3 filename missing, resetting mp3_generated")
+		utils.Warn("GeneratePodcast mp3 filename missing; resetting mp3_generated", "content_id", contentID)
 		_ = resetMp3Status(ctx, jctx, content.ID, meta)
 		return nil
 	}
@@ -128,7 +128,7 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 		cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(mp3Path), utils.ShellEscape(mp3Path))
 		if output, err := utils.RunCommand(cmd); err != nil {
 			if isMissingFileOutput(output) || !utils.FileExists(mp3Path) {
-				utils.Logf("GeneratePodcast: mp3 missing on rsync, resetting mp3_generated")
+				utils.Warn("GeneratePodcast mp3 missing on rsync; resetting mp3_generated", "content_id", contentID, "host", host)
 				_ = resetMp3Status(ctx, jctx, content.ID, meta)
 				return nil
 			}
@@ -137,20 +137,20 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 	}
 
 	if !utils.FileExists(mp3Path) {
-		utils.Logf("GeneratePodcast: mp3 not found at %s, resetting mp3_generated", mp3Path)
+		utils.Warn("GeneratePodcast mp3 not found; resetting mp3_generated", "content_id", contentID, "path", mp3Path)
 		_ = resetMp3Status(ctx, jctx, content.ID, meta)
 		return nil
 	}
 
 	thumbnail, ok := meta["thumbnail"].(map[string]any)
 	if !ok {
-		utils.Logf("GeneratePodcast: thumbnail metadata missing, resetting thumbnail_generated")
+		utils.Warn("GeneratePodcast thumbnail metadata missing; resetting thumbnail_generated", "content_id", contentID)
 		_ = resetThumbnailStatus(ctx, jctx, content.ID, meta)
 		return nil
 	}
 	imageFilename, _ := thumbnail["filename"].(string)
 	if imageFilename == "" {
-		utils.Logf("GeneratePodcast: thumbnail filename missing, resetting thumbnail_generated")
+		utils.Warn("GeneratePodcast thumbnail filename missing; resetting thumbnail_generated", "content_id", contentID)
 		_ = resetThumbnailStatus(ctx, jctx, content.ID, meta)
 		return nil
 	}
@@ -160,7 +160,7 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 		cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(imagePath), utils.ShellEscape(imagePath))
 		if output, err := utils.RunCommand(cmd); err != nil {
 			if isMissingFileOutput(output) || !utils.FileExists(imagePath) {
-				utils.Logf("GeneratePodcast: thumbnail missing on rsync, resetting thumbnail_generated")
+				utils.Warn("GeneratePodcast thumbnail missing on rsync; resetting thumbnail_generated", "content_id", contentID, "host", host)
 				_ = resetThumbnailStatus(ctx, jctx, content.ID, meta)
 				return nil
 			}
@@ -169,7 +169,7 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 	}
 
 	if !utils.FileExists(imagePath) {
-		utils.Logf("GeneratePodcast: thumbnail not found at %s, resetting thumbnail_generated", imagePath)
+		utils.Warn("GeneratePodcast thumbnail not found; resetting thumbnail_generated", "content_id", contentID, "path", imagePath)
 		_ = resetThumbnailStatus(ctx, jctx, content.ID, meta)
 		return nil
 	}
@@ -196,7 +196,7 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 	}
 	srt, _ := subtitles["srt"].(string)
 	if srt == "" {
-		utils.Logf("GeneratePodcast: srt missing, resetting srt_generated")
+		utils.Warn("GeneratePodcast srt missing; resetting srt_generated", "content_id", contentID)
 		_ = resetSrtStatus(ctx, jctx, content.ID, meta)
 		return nil
 	}
@@ -217,11 +217,11 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 	}
 
 	replacements := map[string]string{
-		"__REPLACE_WITH_TITLE__":    fmt.Sprintf("%07d - %s", content.ID, content.Title),
-		"__REPLACE_WITH_MP3__":      "audio.mp3",
-		"__REPLACE_WITH_IMAGE__":    "image.jpg",
+		"__REPLACE_WITH_TITLE__":     fmt.Sprintf("%07d - %s", content.ID, content.Title),
+		"__REPLACE_WITH_MP3__":       "audio.mp3",
+		"__REPLACE_WITH_IMAGE__":     "image.jpg",
 		"__REPLACE_WITH_SUBTITLES__": "podcast.srt",
-		"__DURATION__":              strconv.Itoa(duration),
+		"__DURATION__":               strconv.Itoa(duration),
 	}
 
 	generated := string(templateData)

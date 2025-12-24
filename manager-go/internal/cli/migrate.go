@@ -25,7 +25,7 @@ func runMigrate(ctx context.Context, cfg config.Config, args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	action := "up"
 	if len(fs.Args()) > 0 {
@@ -87,7 +87,7 @@ func runMigrate(ctx context.Context, cfg config.Config, args []string) error {
 			continue
 		}
 		start := time.Now()
-		utils.Logf("migrate: apply %s", name)
+		utils.Info("migrate apply", "migration", name)
 
 		tx, err := pool.Begin(ctx)
 		if err != nil {
@@ -105,7 +105,7 @@ func runMigrate(ctx context.Context, cfg config.Config, args []string) error {
 			return err
 		}
 		appliedCount++
-		utils.Logf("migrate: applied %s dur=%s", name, time.Since(start).Truncate(time.Millisecond).String())
+		utils.Info("migrate applied", "migration", name, "dur", time.Since(start).Truncate(time.Millisecond).String())
 	}
 
 	fmt.Printf("Applied %d migration(s)\n", appliedCount)
@@ -152,5 +152,3 @@ func listSQLFiles(dir string) ([]string, error) {
 	sort.Strings(out)
 	return out, nil
 }
-
-

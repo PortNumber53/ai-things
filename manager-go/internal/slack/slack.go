@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	oauthAuthorizeURL = "https://slack.com/oauth/v2/authorize"
-	oauthAccessURL    = "https://slack.com/api/oauth.v2.access"
+	oauthAuthorizeURL  = "https://slack.com/oauth/v2/authorize"
+	oauthAccessURL     = "https://slack.com/api/oauth.v2.access"
 	chatPostMessageURL = "https://slack.com/api/chat.postMessage"
 
 	signatureVersion = "v0"
@@ -209,5 +209,3 @@ func PostMessage(ctx context.Context, client *http.Client, botToken, channel, te
 	}
 	return nil
 }
-
-

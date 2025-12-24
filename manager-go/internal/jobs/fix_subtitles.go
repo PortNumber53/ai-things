@@ -40,9 +40,9 @@ func (j FixSubtitlesJob) Run(ctx context.Context, jctx JobContext, opts JobOptio
 		if err != nil {
 			return err
 		}
-		utils.Logf("FixSubtitles: waiting=%d max=%d", count, j.MaxWaiting)
+		utils.Debug("FixSubtitles waiting", "waiting", count, "max_waiting", j.MaxWaiting)
 		if count >= j.MaxWaiting {
-			utils.Logf("FixSubtitles: too many waiting, sleeping 60s")
+			utils.Warn("FixSubtitles too many waiting; sleeping", "sleep_s", 60, "waiting", count, "max_waiting", j.MaxWaiting)
 			time.Sleep(60 * time.Second)
 			return nil
 		}
@@ -83,7 +83,7 @@ func (j FixSubtitlesJob) selectNext(ctx context.Context, jctx JobContext) (db.Co
 }
 
 func (j FixSubtitlesJob) processContent(ctx context.Context, jctx JobContext, contentID int64) error {
-	utils.Logf("FixSubtitles: process content_id=%d", contentID)
+	utils.Info("FixSubtitles process", "content_id", contentID)
 	content, err := jctx.Store.GetContentByID(ctx, contentID)
 	if err != nil {
 		return err

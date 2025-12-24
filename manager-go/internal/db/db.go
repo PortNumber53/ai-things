@@ -101,7 +101,7 @@ func (s *Store) Close() {
 }
 
 func (s *Store) GetContentByID(ctx context.Context, id int64) (Content, error) {
-	utils.Logf("db: get content id=%d", id)
+	utils.Debug("db get content", "id", id)
 	row := s.pool.QueryRow(ctx, `
 		SELECT id, title, status, type, sentences, count, meta, archive, created_at, updated_at
 		FROM contents
@@ -132,7 +132,7 @@ func (s *Store) FindFirstContent(ctx context.Context, where string, args ...any)
 		ORDER BY id
 		LIMIT 1
 	`
-	utils.Logf("db: find first query=%s args=%v", strings.TrimSpace(query), args)
+	utils.Debug("db find first", "query", strings.TrimSpace(query), "args", args)
 	row := s.pool.QueryRow(ctx, query, args...)
 	var c Content
 	err := row.Scan(
@@ -152,14 +152,14 @@ func (s *Store) FindFirstContent(ctx context.Context, where string, args ...any)
 
 func (s *Store) CountContent(ctx context.Context, where string, args ...any) (int, error) {
 	query := `SELECT COUNT(*) FROM contents ` + where
-	utils.Logf("db: count query=%s args=%v", strings.TrimSpace(query), args)
+	utils.Debug("db count", "query", strings.TrimSpace(query), "args", args)
 	row := s.pool.QueryRow(ctx, query, args...)
 	var count int
 	return count, row.Scan(&count)
 }
 
 func (s *Store) UpdateContentMetaStatus(ctx context.Context, id int64, status string, meta map[string]any) error {
-	utils.Logf("db: update meta+status id=%d status=%s", id, status)
+	utils.Debug("db update meta+status", "id", id, "status", status)
 	metaJSON, err := json.Marshal(meta)
 	if err != nil {
 		return err
@@ -175,7 +175,7 @@ func (s *Store) UpdateContentMetaStatus(ctx context.Context, id int64, status st
 }
 
 func (s *Store) UpdateContentMeta(ctx context.Context, id int64, meta map[string]any) error {
-	utils.Logf("db: update meta id=%d", id)
+	utils.Debug("db update meta", "id", id)
 	metaJSON, err := json.Marshal(meta)
 	if err != nil {
 		return err
@@ -190,7 +190,7 @@ func (s *Store) UpdateContentMeta(ctx context.Context, id int64, meta map[string
 }
 
 func (s *Store) UpdateContentStatus(ctx context.Context, id int64, status string) error {
-	utils.Logf("db: update status id=%d status=%s", id, status)
+	utils.Debug("db update status", "id", id, "status", status)
 	_, err := s.pool.Exec(ctx, `
 		UPDATE contents
 		SET status = $1,
@@ -201,7 +201,7 @@ func (s *Store) UpdateContentStatus(ctx context.Context, id int64, status string
 }
 
 func (s *Store) UpdateContentType(ctx context.Context, id int64, contentType string) error {
-	utils.Logf("db: update type id=%d type=%s", id, contentType)
+	utils.Debug("db update type", "id", id, "type", contentType)
 	_, err := s.pool.Exec(ctx, `
 		UPDATE contents
 		SET type = $1,
@@ -212,7 +212,7 @@ func (s *Store) UpdateContentType(ctx context.Context, id int64, contentType str
 }
 
 func (s *Store) UpdateContentText(ctx context.Context, id int64, title string, sentences []byte, count int, meta []byte) error {
-	utils.Logf("db: update text payload id=%d", id)
+	utils.Debug("db update text payload", "id", id, "title_len", len(title), "count", count)
 	_, err := s.pool.Exec(ctx, `
 		UPDATE contents
 		SET title = $1,
@@ -226,7 +226,7 @@ func (s *Store) UpdateContentText(ctx context.Context, id int64, title string, s
 }
 
 func (s *Store) UpdateContentArchive(ctx context.Context, id int64, archive []byte) error {
-	utils.Logf("db: update archive id=%d", id)
+	utils.Debug("db update archive", "id", id, "bytes", len(archive))
 	_, err := s.pool.Exec(ctx, `
 		UPDATE contents
 		SET archive = $1,
@@ -237,7 +237,7 @@ func (s *Store) UpdateContentArchive(ctx context.Context, id int64, archive []by
 }
 
 func (s *Store) CreateContent(ctx context.Context, content Content) (int64, error) {
-	utils.Logf("db: create content title=%s", content.Title)
+	utils.Debug("db create content", "title_len", len(content.Title), "count", content.Count)
 	row := s.pool.QueryRow(ctx, `
 		INSERT INTO contents (title, status, type, sentences, count, meta, archive, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
@@ -254,7 +254,7 @@ func (s *Store) UpsertContentByID(ctx context.Context, content Content) error {
 	if content.ID == 0 {
 		return errors.New("missing content ID for upsert")
 	}
-	utils.Logf("db: upsert content id=%d", content.ID)
+	utils.Debug("db upsert content", "id", content.ID, "title_len", len(content.Title), "count", content.Count)
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO contents (id, title, status, type, sentences, count, meta, archive, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
@@ -335,7 +335,7 @@ func (s *Store) ListActiveSubscriptions(ctx context.Context) ([]Subscription, er
 }
 
 func (s *Store) InsertSubscription(ctx context.Context, sub Subscription) error {
-	utils.Logf("db: insert subscription url=%s", sub.FeedURL)
+	utils.Debug("db insert subscription", "url", sub.FeedURL)
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO subscriptions (feed_url, title, description, site_url, last_fetched_at, last_build_date, is_active, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
@@ -371,7 +371,7 @@ func (s *Store) GetCollectionByURL(ctx context.Context, url string) (Collection,
 }
 
 func (s *Store) InsertCollection(ctx context.Context, c Collection) error {
-	utils.Logf("db: insert collection url=%s", c.URL)
+	utils.Debug("db insert collection", "url", c.URL)
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO collections (url, title, language, html_content, fetched_at, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
@@ -380,7 +380,7 @@ func (s *Store) InsertCollection(ctx context.Context, c Collection) error {
 }
 
 func (s *Store) UpdateCollectionHTML(ctx context.Context, id int64, html string) error {
-	utils.Logf("db: update collection html id=%d", id)
+	utils.Debug("db update collection html", "id", id, "html_len", len(html))
 	_, err := s.pool.Exec(ctx, `
 		UPDATE collections
 		SET html_content = $1,
@@ -392,7 +392,7 @@ func (s *Store) UpdateCollectionHTML(ctx context.Context, id int64, html string)
 }
 
 func (s *Store) MarkCollectionProcessed(ctx context.Context, id int64) error {
-	utils.Logf("db: mark collection processed id=%d", id)
+	utils.Debug("db mark collection processed", "id", id)
 	_, err := s.pool.Exec(ctx, `
 		UPDATE collections
 		SET processed_at = NOW(),
@@ -490,7 +490,7 @@ func (s *Store) GetSubjectByName(ctx context.Context, name string) (Subject, err
 }
 
 func (s *Store) InsertSubject(ctx context.Context, name string) error {
-	utils.Logf("db: insert subject name=%s", name)
+	utils.Debug("db insert subject", "subject_len", len(name))
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO subjects (subject, is_active, podcasts_count, created_at, updated_at)
 		VALUES ($1, true, 0, NOW(), NOW())
@@ -499,7 +499,7 @@ func (s *Store) InsertSubject(ctx context.Context, name string) error {
 }
 
 func (s *Store) IncrementSubjectPodcasts(ctx context.Context, id int64) error {
-	utils.Logf("db: increment subject podcasts id=%d", id)
+	utils.Debug("db increment subject podcasts", "id", id)
 	_, err := s.pool.Exec(ctx, `
 		UPDATE subjects
 		SET podcasts_count = podcasts_count + 1,
@@ -511,7 +511,7 @@ func (s *Store) IncrementSubjectPodcasts(ctx context.Context, id int64) error {
 }
 
 func (s *Store) UpsertSlackInstallation(ctx context.Context, inst SlackInstallation) error {
-	utils.Logf("db: upsert slack installation team_id=%s", inst.TeamID)
+	utils.Debug("db upsert slack installation", "team_id", inst.TeamID)
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO slack_installations (team_id, team_name, bot_user_id, bot_token, scope, installed_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
@@ -526,7 +526,7 @@ func (s *Store) UpsertSlackInstallation(ctx context.Context, inst SlackInstallat
 }
 
 func (s *Store) GetSlackBotToken(ctx context.Context, teamID string) (string, error) {
-	utils.Logf("db: get slack bot token team_id=%s", teamID)
+	utils.Debug("db get slack bot token", "team_id", teamID)
 	var token string
 	err := s.pool.QueryRow(ctx, `
 		SELECT bot_token
@@ -550,7 +550,7 @@ func (s *Store) UpsertSlackThreadSession(ctx context.Context, teamID, channelID,
 		ttl = 24 * time.Hour
 	}
 	expiresAt := time.Now().Add(ttl)
-	utils.Logf("db: upsert slack thread session team_id=%s channel=%s thread_ts=%s", teamID, channelID, threadTS)
+	utils.Debug("db upsert slack thread session", "team_id", teamID, "channel", channelID, "thread_ts", threadTS)
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO slack_thread_sessions (team_id, channel_id, thread_ts, activated_by_user_id, activated_at, last_seen_at, expires_at)
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), $5)
@@ -566,7 +566,7 @@ func (s *Store) IsSlackThreadSessionActive(ctx context.Context, teamID, channelI
 	if teamID == "" || channelID == "" || threadTS == "" {
 		return false, errors.New("missing teamID/channelID/threadTS")
 	}
-	utils.Logf("db: slack thread session active? team_id=%s channel=%s thread_ts=%s", teamID, channelID, threadTS)
+	utils.Debug("db slack thread session active?", "team_id", teamID, "channel", channelID, "thread_ts", threadTS)
 	var active bool
 	err := s.pool.QueryRow(ctx, `
 		SELECT expires_at > NOW()

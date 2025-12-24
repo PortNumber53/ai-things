@@ -45,9 +45,9 @@ func (j GenerateImageJob) Run(ctx context.Context, jctx JobContext, opts JobOpti
 		if err != nil {
 			return err
 		}
-		utils.Logf("GenerateImage: waiting=%d max=%d", count, j.MaxWaiting)
+		utils.Debug("GenerateImage waiting", "waiting", count, "max_waiting", j.MaxWaiting)
 		if count >= j.MaxWaiting {
-			utils.Logf("GenerateImage: too many waiting, sleeping 60s")
+			utils.Warn("GenerateImage too many waiting; sleeping", "sleep_s", 60, "waiting", count, "max_waiting", j.MaxWaiting)
 			time.Sleep(60 * time.Second)
 			return nil
 		}
@@ -96,21 +96,21 @@ func (j GenerateImageJob) selectNext(ctx context.Context, jctx JobContext) (db.C
 }
 
 func (j GenerateImageJob) processContent(ctx context.Context, jctx JobContext, contentID int64, targetHostname string) error {
-	utils.Logf("GenerateImage: process content_id=%d target_host=%s", contentID, targetHostname)
+	utils.Info("GenerateImage process", "content_id", contentID, "target_host", targetHostname)
 	content, err := jctx.Store.GetContentByID(ctx, contentID)
 	if err != nil {
 		return err
 	}
 
 	payload := map[string]any{
-		"prompt":          content.Title,
-		"steps":           32,
-		"width":           800,
-		"height":          600,
-		"negative_prompt": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
-		"enable_hr":       true,
-		"restore_faces":   true,
-		"hr_upscaler":     "Nearest",
+		"prompt":             content.Title,
+		"steps":              32,
+		"width":              800,
+		"height":             600,
+		"negative_prompt":    "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
+		"enable_hr":          true,
+		"restore_faces":      true,
+		"hr_upscaler":        "Nearest",
 		"denoising_strength": 0.7,
 	}
 	body, _ := json.Marshal(payload)

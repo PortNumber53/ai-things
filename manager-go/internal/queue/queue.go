@@ -3,8 +3,8 @@ package queue
 import (
 	"net/url"
 
-	amqp "github.com/rabbitmq/amqp091-go"
 	"ai-things/manager-go/internal/utils"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Client struct {
@@ -19,7 +19,7 @@ type Message struct {
 }
 
 func New(url string) (*Client, error) {
-	utils.Logf("queue: connect %s", redactURL(url))
+	utils.Info("queue connect", "url", redactURL(url))
 	conn, err := amqp.Dial(url)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (c *Client) Close() {
 }
 
 func (c *Client) ensureQueue(name string) error {
-	utils.Logf("queue: ensure %s", name)
+	utils.Debug("queue ensure", "queue", name)
 	_, err := c.ch.QueueDeclare(
 		name,
 		true,
@@ -72,7 +72,7 @@ func (c *Client) ensureQueue(name string) error {
 }
 
 func (c *Client) Publish(queueName string, payload []byte) error {
-	utils.Logf("queue: publish queue=%s bytes=%d", queueName, len(payload))
+	utils.Info("queue publish", "queue", queueName, "bytes", len(payload))
 	if err := c.ensureQueue(queueName); err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (c *Client) Publish(queueName string, payload []byte) error {
 }
 
 func (c *Client) Pop(queueName string) (*Message, error) {
-	utils.Logf("queue: pop queue=%s", queueName)
+	utils.Debug("queue pop", "queue", queueName)
 	if err := c.ensureQueue(queueName); err != nil {
 		return nil, err
 	}
@@ -98,10 +98,10 @@ func (c *Client) Pop(queueName string) (*Message, error) {
 		return nil, err
 	}
 	if !ok {
-		utils.Logf("queue: empty queue=%s", queueName)
+		utils.Debug("queue empty", "queue", queueName)
 		return nil, nil
 	}
-	utils.Logf("queue: received queue=%s bytes=%d", queueName, len(msg.Body))
+	utils.Info("queue received", "queue", queueName, "bytes", len(msg.Body))
 	return &Message{
 		Body: msg.Body,
 		ack:  msg.Ack,
@@ -113,7 +113,7 @@ func (m *Message) Ack() error {
 	if m == nil || m.ack == nil {
 		return nil
 	}
-	utils.Logf("queue: ack")
+	utils.Debug("queue ack")
 	return m.ack(false)
 }
 
@@ -121,6 +121,6 @@ func (m *Message) Nack(requeue bool) error {
 	if m == nil || m.nack == nil {
 		return nil
 	}
-	utils.Logf("queue: nack requeue=%t", requeue)
+	utils.Debug("queue nack", "requeue", requeue)
 	return m.nack(false, requeue)
 }

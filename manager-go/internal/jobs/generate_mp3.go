@@ -44,9 +44,9 @@ func (j GenerateMp3Job) Run(ctx context.Context, jctx JobContext, opts JobOption
 		if err != nil {
 			return err
 		}
-		utils.Logf("GenerateMp3: waiting=%d max=%d", count, j.MaxWaiting)
+		utils.Debug("GenerateMp3 waiting", "waiting", count, "max_waiting", j.MaxWaiting)
 		if count >= j.MaxWaiting {
-			utils.Logf("GenerateMp3: too many waiting, sleeping 60s")
+			utils.Warn("GenerateMp3 too many waiting; sleeping", "sleep_s", 60, "waiting", count, "max_waiting", j.MaxWaiting)
 			time.Sleep(60 * time.Second)
 			return nil
 		}
@@ -95,7 +95,7 @@ func (j GenerateMp3Job) selectNext(ctx context.Context, jctx JobContext) (db.Con
 }
 
 func (j GenerateMp3Job) processContent(ctx context.Context, jctx JobContext, contentID int64) error {
-	utils.Logf("GenerateMp3: process content_id=%d", contentID)
+	utils.Info("GenerateMp3 process", "content_id", contentID)
 	content, err := jctx.Store.GetContentByID(ctx, contentID)
 	if err != nil {
 		return err
@@ -119,17 +119,23 @@ func (j GenerateMp3Job) processContent(ctx context.Context, jctx JobContext, con
 		cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(wavPath), utils.ShellEscape(wavPath))
 		if output, err := utils.RunCommand(cmd); err != nil {
 			if !utils.FileExists(wavPath) {
-				utils.Logf("GenerateMp3: wav missing on rsync, resetting wav_generated")
+				utils.Warn("GenerateMp3 wav missing on rsync; resetting wav_generated", "content_id", contentID, "host", host)
 				_ = resetWavStatus(ctx, jctx, content.ID, meta)
 				return nil
 			}
-			utils.Logf("GenerateMp3: rsync failed but wav exists, output=%s", strings.TrimSpace(output))
+			utils.Warn(
+				"GenerateMp3 rsync failed but wav exists",
+				"content_id", contentID,
+				"host", host,
+				"output", strings.TrimSpace(output),
+				"err", err,
+			)
 			return err
 		}
 	}
 
 	if !utils.FileExists(wavPath) {
-		utils.Logf("GenerateMp3: wav not found at %s, resetting wav_generated", wavPath)
+		utils.Warn("GenerateMp3 wav not found; resetting wav_generated", "content_id", contentID, "path", wavPath)
 		_ = resetWavStatus(ctx, jctx, content.ID, meta)
 		return nil
 	}

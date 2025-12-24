@@ -20,7 +20,7 @@ func NewSetupPodcastJob() SetupPodcastJob {
 }
 
 func (j SetupPodcastJob) Run(ctx context.Context, jctx JobContext, opts JobOptions) error {
-	utils.Logf("SetupPodcast: process content_id=%d", opts.ContentID)
+	utils.Info("SetupPodcast process", "content_id", opts.ContentID)
 	contentID := opts.ContentID
 	var content db.Content
 	var err error

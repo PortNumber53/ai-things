@@ -40,9 +40,9 @@ func (j UploadTikTokJob) Run(ctx context.Context, jctx JobContext, opts JobOptio
 		if err != nil {
 			return err
 		}
-		utils.Logf("UploadTikTok: waiting=%d max=%d", count, j.MaxWaiting)
+		utils.Debug("UploadTikTok waiting", "waiting", count, "max_waiting", j.MaxWaiting)
 		if count >= j.MaxWaiting {
-			utils.Logf("UploadTikTok: too many waiting, sleeping 60s")
+			utils.Warn("UploadTikTok too many waiting; sleeping", "sleep_s", 60, "waiting", count, "max_waiting", j.MaxWaiting)
 			time.Sleep(60 * time.Second)
 			return nil
 		}
@@ -99,7 +99,7 @@ func (j UploadTikTokJob) selectNext(ctx context.Context, jctx JobContext) (db.Co
 }
 
 func (j UploadTikTokJob) processContent(ctx context.Context, jctx JobContext, contentID int64, info bool) error {
-	utils.Logf("UploadTikTok: process content_id=%d info=%t", contentID, info)
+	utils.Info("UploadTikTok process", "content_id", contentID, "info", info)
 	content, err := jctx.Store.GetContentByID(ctx, contentID)
 	if err != nil {
 		return err

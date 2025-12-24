@@ -20,9 +20,7 @@ func Run(args []string) int {
 	// Support a global --verbose flag anywhere in the argv (before or after the command).
 	// This is helpful because the stdlib flag parser stops at the first non-flag argument.
 	args, globalVerbose := extractGlobalVerbose(args)
-	if globalVerbose {
-		utils.Verbose = true
-	}
+	utils.ConfigureLogging(globalVerbose)
 
 	if len(args) < 2 {
 		printUsage()
@@ -39,11 +37,11 @@ func Run(args []string) int {
 		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
 		return 1
 	}
-	utils.Logf("manager: config loaded env=%s hostname=%s", cfg.AppEnv, cfg.Hostname)
+	utils.Info("config loaded", "env", cfg.AppEnv, "hostname", cfg.Hostname)
 
 	cmd := args[1]
 	cmdArgs := args[2:]
-	utils.Logf("manager: cmd=%s args=%v", cmd, cmdArgs)
+	utils.Info("command start", "cmd", cmd, "args", cmdArgs)
 
 	// Run migrations without initializing RabbitMQ.
 	if cmd == "migrate" {
@@ -60,7 +58,7 @@ func Run(args []string) int {
 		return 1
 	}
 	defer store.Close()
-	utils.Logf("manager: db connected")
+	utils.Info("db connected")
 
 	var queueClient *queue.Client
 	if requiresQueue(cmd) {
@@ -70,9 +68,9 @@ func Run(args []string) int {
 			return 1
 		}
 		defer queueClient.Close()
-		utils.Logf("manager: queue connected")
+		utils.Info("queue connected")
 	} else {
-		utils.Logf("manager: queue skipped cmd=%s", cmd)
+		utils.Debug("queue skipped", "cmd", cmd)
 	}
 
 	jctx := jobs.JobContext{
@@ -256,7 +254,7 @@ func runGenerateWav(ctx context.Context, jctx jobs.JobContext, args []string) er
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
 		return err
@@ -276,7 +274,7 @@ func runGenerateSrt(ctx context.Context, jctx jobs.JobContext, args []string) er
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
 		return err
@@ -296,7 +294,7 @@ func runGenerateMp3(ctx context.Context, jctx jobs.JobContext, args []string) er
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
 		return err
@@ -317,7 +315,7 @@ func runPromptForImage(ctx context.Context, jctx jobs.JobContext, args []string)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
 		return err
@@ -337,7 +335,7 @@ func runGenerateImage(ctx context.Context, jctx jobs.JobContext, args []string) 
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
 		return err
@@ -357,7 +355,7 @@ func runGeneratePodcast(ctx context.Context, jctx jobs.JobContext, args []string
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
 		return err
@@ -377,7 +375,7 @@ func runFixSubtitles(ctx context.Context, jctx jobs.JobContext, args []string) e
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
 		return err
@@ -397,7 +395,7 @@ func runCorrectSubtitles(ctx context.Context, jctx jobs.JobContext, args []strin
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
 		return err
@@ -415,7 +413,7 @@ func runSetupPodcast(ctx context.Context, jctx jobs.JobContext, args []string) e
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
 		return err
@@ -436,7 +434,7 @@ func runUploadTikTok(ctx context.Context, jctx jobs.JobContext, args []string) e
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
 		return err
@@ -458,7 +456,7 @@ func runUploadYouTube(ctx context.Context, jctx jobs.JobContext, args []string) 
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
 		return err
@@ -471,7 +469,16 @@ func runUploadYouTube(ctx context.Context, jctx jobs.JobContext, args []string) 
 }
 
 func logJobStart(name string, opts jobs.JobOptions) {
-	utils.Logf("start %s content_id=%d queue=%t sleep=%d regenerate=%t info=%t easy_upload=%t", name, opts.ContentID, opts.Queue, opts.Sleep, opts.Regenerate, opts.Info, opts.EasyUpload)
+	utils.Info(
+		"job start",
+		"job", name,
+		"content_id", opts.ContentID,
+		"queue", opts.Queue,
+		"sleep_s", opts.Sleep,
+		"regenerate", opts.Regenerate,
+		"info", opts.Info,
+		"easy_upload", opts.EasyUpload,
+	)
 }
 
 func printUsage() {

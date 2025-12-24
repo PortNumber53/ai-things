@@ -19,13 +19,13 @@ type JobContext struct {
 }
 
 type JobOptions struct {
-	ContentID   int64
-	Sleep       int
-	Queue       bool
-	Regenerate  bool
-	Info        bool
-	EasyUpload  bool
-	QueueOnce   bool
+	ContentID  int64
+	Sleep      int
+	Queue      bool
+	Regenerate bool
+	Info       bool
+	EasyUpload bool
+	QueueOnce  bool
 }
 
 type BaseJob struct {
@@ -57,7 +57,7 @@ func (b BaseJob) RunQueue(ctx context.Context, jctx JobContext, opts JobOptions,
 			return err
 		}
 		if msg == nil {
-			utils.Logf("queue: no message, sleep=%ds", sleep)
+			utils.Debug("queue empty", "queue", b.QueueInput, "sleep_s", sleep)
 			time.Sleep(time.Duration(sleep) * time.Second)
 			if opts.QueueOnce {
 				return nil
@@ -67,24 +67,25 @@ func (b BaseJob) RunQueue(ctx context.Context, jctx JobContext, opts JobOptions,
 
 		var payload QueuePayload
 		if err := json.Unmarshal(msg.Body, &payload); err != nil {
+			utils.Warn("queue payload json decode failed", "queue", b.QueueInput, "err", err)
 			_ = msg.Ack()
 			continue
 		}
 		if payload.ContentID == 0 {
-			utils.Logf("queue: invalid payload (missing content_id)")
+			utils.Warn("queue payload invalid (missing content_id)", "queue", b.QueueInput)
 			_ = msg.Ack()
 			continue
 		}
 
 		if !b.IgnoreHostCheck && payload.Hostname != "" && payload.Hostname != jctx.Config.Hostname {
-			utils.Logf("queue: host mismatch message_host=%s local=%s", payload.Hostname, jctx.Config.Hostname)
+			utils.Warn("queue host mismatch", "queue", b.QueueInput, "message_host", payload.Hostname, "local_host", jctx.Config.Hostname)
 			_ = msg.Nack(true)
 			time.Sleep(time.Duration(sleep) * time.Second)
 			continue
 		}
 
 		if err := handler(ctx, payload.ContentID, payload.Hostname); err != nil {
-			utils.Logf("queue: handler error content_id=%d err=%v", payload.ContentID, err)
+			utils.Error("queue handler error", "queue", b.QueueInput, "content_id", payload.ContentID, "err", err)
 			_ = msg.Nack(true)
 			continue
 		}

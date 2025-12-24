@@ -33,7 +33,7 @@ func runAiGenerateFunFacts(ctx context.Context, jctx jobs.JobContext, args []str
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 	_ = sleep
 	_ = queueFlag
 
@@ -41,14 +41,20 @@ func runAiGenerateFunFacts(ctx context.Context, jctx jobs.JobContext, args []str
 	if err != nil {
 		return err
 	}
-	utils.Logf("Ai:GenerateFunFacts: start content_id=%d host=%s port=%d model=%s", contentID, jctx.Config.OllamaHostname, jctx.Config.OllamaPort, jctx.Config.OllamaModel)
+	utils.Info(
+		"Ai:GenerateFunFacts start",
+		"content_id", contentID,
+		"host", jctx.Config.OllamaHostname,
+		"port", jctx.Config.OllamaPort,
+		"model", jctx.Config.OllamaModel,
+	)
 
 	text, title, paragraphs, count, err := generateOllamaFunFact(ctx, jctx.Config.OllamaHostname, jctx.Config.OllamaPort, jctx.Config.OllamaModel)
 	if err != nil {
 		return err
 	}
 	_ = text
-	utils.Logf("Ai:GenerateFunFacts: got response title_len=%d paragraphs=%d count=%d", len(title), len(paragraphs), count)
+	utils.Debug("Ai:GenerateFunFacts response", "title_len", len(title), "paragraphs", len(paragraphs), "count", count)
 
 	metaJSON, err := json.Marshal(map[string]any{})
 	if err != nil {
@@ -92,7 +98,12 @@ CONTENT: Your entire fun fact goes here.`)
 	if strings.TrimSpace(ollamaModel) == "" {
 		ollamaModel = "llama3.2"
 	}
-	utils.Logf("ollama: generate url=http://%s:%d/api/generate model=%s prompt_len=%d", ollamaHostname, ollamaPort, ollamaModel, len(prompt))
+	utils.Debug(
+		"ollama generate",
+		"url", fmt.Sprintf("http://%s:%d/api/generate", ollamaHostname, ollamaPort),
+		"model", ollamaModel,
+		"prompt_len", len(prompt),
+	)
 
 	payload := map[string]any{
 		"model":      ollamaModel,
@@ -121,7 +132,7 @@ CONTENT: Your entire fun fact goes here.`)
 		return "", "", nil, 0, err
 	}
 	defer resp.Body.Close()
-	utils.Logf("ollama: response status=%d", resp.StatusCode)
+	utils.Debug("ollama response", "status", resp.StatusCode)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", "", nil, 0, fmt.Errorf("ollama response status %d", resp.StatusCode)
 	}
@@ -132,7 +143,7 @@ CONTENT: Your entire fun fact goes here.`)
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		return "", "", nil, 0, err
 	}
-	utils.Logf("ollama: decoded response_len=%d", len(decoded.Response))
+	utils.Debug("ollama decoded", "response_len", len(decoded.Response))
 
 	title := ""
 	paragraphs := []map[string]any{}
@@ -176,7 +187,7 @@ func runAiSplitText(ctx context.Context, jctx jobs.JobContext, args []string) er
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	if jctx.Queue == nil {
 		return errors.New("queue client is not configured")
@@ -195,7 +206,7 @@ func runBackfillResponseDataToSentences(ctx context.Context, jctx jobs.JobContex
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
@@ -368,7 +379,7 @@ func checkGeneratedFiles(ctx context.Context, jctx jobs.JobContext, args []strin
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	where := ""
 	if statusKey != "" {
@@ -418,7 +429,7 @@ func runContentFindDuplicateTitles(ctx context.Context, jctx jobs.JobContext, ar
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	rows, err := jctx.Store.QueryContents(ctx, `
 		SELECT id, title, status, type, sentences, count, meta, archive, created_at, updated_at
@@ -572,7 +583,7 @@ func runContentIdentifySubject(ctx context.Context, jctx jobs.JobContext, args [
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	if *contentID == 0 {
 		return errors.New("content-id is required")
@@ -596,7 +607,7 @@ func runContentQuery(ctx context.Context, jctx jobs.JobContext, args []string) e
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	startID, endID, err := parseOptionalRange(fs.Args())
 	if err != nil {
@@ -644,7 +655,7 @@ func runGeminiGenerateFunFact(ctx context.Context, jctx jobs.JobContext, args []
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
@@ -818,7 +829,7 @@ func runRssSubscribe(ctx context.Context, jctx jobs.JobContext, args []string) e
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	if len(fs.Args()) == 0 {
 		return errors.New("url is required")
@@ -866,7 +877,7 @@ func runRssFetchHtml(ctx context.Context, jctx jobs.JobContext, args []string) e
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	subscriptions, err := jctx.Store.ListActiveSubscriptions(ctx)
 	if err != nil {
@@ -939,7 +950,7 @@ func runSubjectProcessCollections(ctx context.Context, jctx jobs.JobContext, arg
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	apiKey := jctx.Config.GeminiAPIKey
 	if apiKey == "" {
@@ -992,7 +1003,7 @@ func runYoutubeUpdateMeta(ctx context.Context, jctx jobs.JobContext, args []stri
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	lastID := int64(0)
 	for {
@@ -1086,7 +1097,7 @@ func runChatHiennaGPT(ctx context.Context, jctx jobs.JobContext, args []string) 
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	query := strings.TrimSpace(strings.Join(fs.Args(), " "))
 	if query == "" {
@@ -1153,7 +1164,7 @@ func runSentencesCheck(ctx context.Context, jctx jobs.JobContext, args []string)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	contentID, err := parseContentID(fs.Args())
 	if err != nil {
@@ -1288,7 +1299,7 @@ func runTiktokPublish(ctx context.Context, jctx jobs.JobContext, args []string) 
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	if *accessToken == "" {
 		return errors.New("missing access token (set tiktok.access_token in config.ini or --access-token)")
@@ -1340,7 +1351,7 @@ func runTTSSplitJobs(ctx context.Context, jctx jobs.JobContext, args []string) e
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	contentID, sentenceID, err := parseContentSentenceArgs(fs.Args())
 	if err != nil {

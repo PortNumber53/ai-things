@@ -44,9 +44,9 @@ func (j PromptForImageJob) Run(ctx context.Context, jctx JobContext, opts JobOpt
 		if err != nil {
 			return err
 		}
-		utils.Logf("PromptForImage: waiting=%d max=%d", count, j.MaxWaiting)
+		utils.Debug("PromptForImage waiting", "waiting", count, "max_waiting", j.MaxWaiting)
 		if count >= j.MaxWaiting {
-			utils.Logf("PromptForImage: too many waiting, sleeping 60s")
+			utils.Warn("PromptForImage too many waiting; sleeping", "sleep_s", 60, "waiting", count, "max_waiting", j.MaxWaiting)
 			time.Sleep(60 * time.Second)
 			return nil
 		}
@@ -95,7 +95,7 @@ func (j PromptForImageJob) selectNext(ctx context.Context, jctx JobContext) (db.
 }
 
 func (j PromptForImageJob) processContent(ctx context.Context, jctx JobContext, contentID int64, regenerate bool) error {
-	utils.Logf("PromptForImage: process content_id=%d regenerate=%t", contentID, regenerate)
+	utils.Info("PromptForImage process", "content_id", contentID, "regenerate", regenerate)
 	content, err := jctx.Store.GetContentByID(ctx, contentID)
 	if err != nil {
 		return err

@@ -40,9 +40,9 @@ func (j GenerateSrtJob) Run(ctx context.Context, jctx JobContext, opts JobOption
 		if err != nil {
 			return err
 		}
-		utils.Logf("GenerateSrt: waiting=%d max=%d", count, j.MaxWaiting)
+		utils.Debug("GenerateSrt waiting", "waiting", count, "max_waiting", j.MaxWaiting)
 		if count >= j.MaxWaiting {
-			utils.Logf("GenerateSrt: too many waiting, sleeping 60s")
+			utils.Warn("GenerateSrt too many waiting; sleeping", "sleep_s", 60, "waiting", count, "max_waiting", j.MaxWaiting)
 			time.Sleep(60 * time.Second)
 			return nil
 		}
@@ -91,7 +91,7 @@ func (j GenerateSrtJob) selectNext(ctx context.Context, jctx JobContext) (db.Con
 }
 
 func (j GenerateSrtJob) processContent(ctx context.Context, jctx JobContext, contentID int64) error {
-	utils.Logf("GenerateSrt: process content_id=%d", contentID)
+	utils.Info("GenerateSrt process", "content_id", contentID)
 	content, err := jctx.Store.GetContentByID(ctx, contentID)
 	if err != nil {
 		return err

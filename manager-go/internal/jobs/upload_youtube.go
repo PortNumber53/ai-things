@@ -43,9 +43,9 @@ func (j UploadYouTubeJob) Run(ctx context.Context, jctx JobContext, opts JobOpti
 		if err != nil {
 			return err
 		}
-		utils.Logf("UploadYouTube: waiting=%d max=%d", count, j.MaxWaiting)
+		utils.Debug("UploadYouTube waiting", "waiting", count, "max_waiting", j.MaxWaiting)
 		if count >= j.MaxWaiting {
-			utils.Logf("UploadYouTube: too many waiting, sleeping 60s")
+			utils.Warn("UploadYouTube too many waiting; sleeping", "sleep_s", 60, "waiting", count, "max_waiting", j.MaxWaiting)
 			time.Sleep(60 * time.Second)
 			return nil
 		}
@@ -102,7 +102,7 @@ func (j UploadYouTubeJob) selectNext(ctx context.Context, jctx JobContext) (db.C
 }
 
 func (j UploadYouTubeJob) processContent(ctx context.Context, jctx JobContext, contentID int64, info bool, easyUpload bool) error {
-	utils.Logf("UploadYouTube: process content_id=%d info=%t easy_upload=%t", contentID, info, easyUpload)
+	utils.Info("UploadYouTube process", "content_id", contentID, "info", info, "easy_upload", easyUpload)
 	content, err := jctx.Store.GetContentByID(ctx, contentID)
 	if err != nil {
 		return err

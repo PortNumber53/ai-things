@@ -16,15 +16,15 @@ const (
 )
 
 type Config struct {
-	Hostname           string
-	AppEnv             string
-	BaseOutputFolder   string
-	BaseAppFolder      string
-	SubtitleFolder     string
-	SubtitleScript     string
-	YoutubeUpload      string
-	TikTokUploadScript string
-	Portnumber53APIKey string
+	Hostname                   string
+	AppEnv                     string
+	BaseOutputFolder           string
+	BaseAppFolder              string
+	SubtitleFolder             string
+	SubtitleScript             string
+	YoutubeUpload              string
+	TikTokUploadScript         string
+	Portnumber53APIKey         string
 	Portnumber53TimeoutSeconds int
 
 	TTSOnnxModel string
@@ -52,14 +52,14 @@ type Config struct {
 	TikTokAccessToken string
 	TikTokVideoPath   string
 
-	SlackAppID            string
-	SlackClientID         string
-	SlackClientSecret     string
-	SlackSigningSecret    string
+	SlackAppID             string
+	SlackClientID          string
+	SlackClientSecret      string
+	SlackSigningSecret     string
 	SlackVerificationToken string
-	SlackScopes           string
-	SlackRedirectURL      string
-	SlackPort             int
+	SlackScopes            string
+	SlackRedirectURL       string
+	SlackPort              int
 }
 
 func Load() (Config, error) {

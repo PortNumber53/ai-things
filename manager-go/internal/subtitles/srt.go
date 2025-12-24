@@ -12,7 +12,7 @@ type Caption struct {
 	Text      string
 }
 
-var timeRegex = regexp.MustCompile(`(\d\d:\d\d:\d\d,\d\d\d)\s-->\s(\d\d:\d\d:\d\d,\d\d\d)`) 
+var timeRegex = regexp.MustCompile(`(\d\d:\d\d:\d\d,\d\d\d)\s-->\s(\d\d:\d\d:\d\d,\d\d\d)`)
 
 func ParseSRT(input string) []Caption {
 	trimmed := strings.TrimSpace(input)

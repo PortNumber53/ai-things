@@ -35,7 +35,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	utils.Verbose = *verbose
+	utils.ConfigureLogging(*verbose)
 
 	cfg := jctx.Config
 	if cfg.SlackClientID == "" || cfg.SlackClientSecret == "" {
@@ -88,7 +88,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 			http.Error(w, "failed to build install url", http.StatusInternalServerError)
 			return
 		}
-		utils.Logf("slack: install redirect")
+		utils.Debug("slack install redirect")
 		http.Redirect(w, r, authURL, http.StatusFound)
 	})
 
@@ -121,7 +121,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 			return
 		}
 
-		utils.Logf("slack: installed team_id=%s team_name=%s", resp.Team.ID, resp.Team.Name)
+		utils.Info("slack installed", "team_id", resp.Team.ID, "team_name", resp.Team.Name)
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("Slack installed successfully. You can close this window.\n"))
 	})
@@ -134,7 +134,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 		}
 
 		if err := slack.VerifySignature(cfg.SlackSigningSecret, r.Header, body, time.Now()); err != nil {
-			utils.Logf("slack: events signature verify failed: %v", err)
+			utils.Warn("slack events signature verify failed", "err", err)
 			http.Error(w, "invalid signature", http.StatusUnauthorized)
 			return
 		}
@@ -145,11 +145,11 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 			return
 		}
 
-		utils.Logf("slack: events envelope type=%s team_id=%s event_type=%s", envelope.Type, envelope.TeamID, envelope.Event.Type)
+		utils.Debug("slack events", "envelope_type", envelope.Type, "team_id", envelope.TeamID, "event_type", envelope.Event.Type)
 
 		// Optional legacy token check.
 		if cfg.SlackVerificationToken != "" && envelope.Token != "" && envelope.Token != cfg.SlackVerificationToken {
-			utils.Logf("slack: events legacy token mismatch team_id=%s", envelope.TeamID)
+			utils.Warn("slack events legacy token mismatch", "team_id", envelope.TeamID)
 			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return
 		}
@@ -184,12 +184,12 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 					// Mark this thread active so subsequent replies in-thread don't need an explicit @mention.
 					if err := jctx.Store.UpsertSlackThreadSession(context.Background(), teamID, channel, threadTS, activatedBy, 24*time.Hour); err != nil {
 						// Migration might not be applied yet; degrade gracefully.
-						utils.Logf("slack: failed to upsert thread session team_id=%s channel=%s thread_ts=%s err=%v", teamID, channel, threadTS, err)
+						utils.Warn("slack thread session upsert failed", "team_id", teamID, "channel", channel, "thread_ts", threadTS, "err", err)
 					}
 
 					token, err := jctx.Store.GetSlackBotToken(context.Background(), teamID)
 					if err != nil || token == "" {
-						utils.Logf("slack: no bot token for team_id=%s", teamID)
+						utils.Warn("slack no bot token", "team_id", teamID, "err", err)
 						return
 					}
 
@@ -198,7 +198,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 					chars := utf8.RuneCountInString(clean)
 					reply := fmt.Sprintf("words=%d chars=%d", words, chars)
 					if err := slack.PostMessage(context.Background(), client, token, channel, reply, threadTS); err != nil {
-						utils.Logf("slack: post message failed team_id=%s channel=%s err=%v", teamID, channel, err)
+						utils.Warn("slack post message failed", "team_id", teamID, "channel", channel, "err", err)
 					}
 				}()
 				return
@@ -221,7 +221,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 					active, err := jctx.Store.IsSlackThreadSessionActive(context.Background(), teamID, channel, threadTS)
 					if err != nil {
 						// Migration might not be applied yet; degrade gracefully.
-						utils.Logf("slack: failed to check thread session team_id=%s channel=%s thread_ts=%s err=%v", teamID, channel, threadTS, err)
+						utils.Warn("slack thread session check failed", "team_id", teamID, "channel", channel, "thread_ts", threadTS, "err", err)
 						return
 					}
 					if !active {
@@ -232,7 +232,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 
 					token, err := jctx.Store.GetSlackBotToken(context.Background(), teamID)
 					if err != nil || token == "" {
-						utils.Logf("slack: no bot token for team_id=%s", teamID)
+						utils.Warn("slack no bot token", "team_id", teamID, "err", err)
 						return
 					}
 
@@ -241,7 +241,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 					chars := utf8.RuneCountInString(clean)
 					reply := fmt.Sprintf("words=%d chars=%d", words, chars)
 					if err := slack.PostMessage(context.Background(), client, token, channel, reply, threadTS); err != nil {
-						utils.Logf("slack: post message failed team_id=%s channel=%s err=%v", teamID, channel, err)
+						utils.Warn("slack post message failed", "team_id", teamID, "channel", channel, "err", err)
 					}
 				}()
 				return
@@ -265,7 +265,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 
 	errCh := make(chan error, 1)
 	go func() {
-		utils.Logf("Slack:Serve: listen=%s redirect_url=%s", *listen, redirectURL)
+		utils.Info("slack server listen", "listen", *listen, "redirect_url", redirectURL)
 		errCh <- server.ListenAndServe()
 	}()
 
@@ -289,16 +289,16 @@ type slackEventEnvelope struct {
 	Challenge string `json:"challenge"`
 	TeamID    string `json:"team_id"`
 	Event     struct {
-		Type     string `json:"type"`
-		Subtype  string `json:"subtype"`
-		Channel  string `json:"channel"`
-		User     string `json:"user"`
-		BotID    string `json:"bot_id"`
+		Type    string `json:"type"`
+		Subtype string `json:"subtype"`
+		Channel string `json:"channel"`
+		User    string `json:"user"`
+		BotID   string `json:"bot_id"`
 		// ChannelType is present for message events (e.g. "channel", "group", "im").
 		ChannelType string `json:"channel_type"`
-		Text     string `json:"text"`
-		TS       string `json:"ts"`
-		ThreadTS string `json:"thread_ts"`
+		Text        string `json:"text"`
+		TS          string `json:"ts"`
+		ThreadTS    string `json:"thread_ts"`
 	} `json:"event"`
 }
 
@@ -405,16 +405,16 @@ func httpLoggingMiddleware(next http.Handler) http.Handler {
 		if status == 0 {
 			status = http.StatusOK
 		}
-		utils.Logf(
-			"http: %s %s host=%s status=%d bytes=%d dur=%s remote=%s ua=%q",
-			r.Method,
-			r.URL.Path,
-			r.Host,
-			status,
-			lrw.bytes,
-			dur.Truncate(time.Millisecond).String(),
-			r.RemoteAddr,
-			r.UserAgent(),
+		utils.Debug(
+			"http request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"host", r.Host,
+			"status", status,
+			"bytes", lrw.bytes,
+			"dur", dur.Truncate(time.Millisecond).String(),
+			"remote", r.RemoteAddr,
+			"ua", r.UserAgent(),
 		)
 	})
 }
@@ -435,12 +435,10 @@ func (t loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 	resp, err := base.RoundTrip(req)
 	dur := time.Since(start)
 	if err != nil {
-		utils.Logf("http-out: %s %s error=%v dur=%s", req.Method, req.URL.Redacted(), err, dur.Truncate(time.Millisecond).String())
+		utils.Warn("http outbound error", "method", req.Method, "url", req.URL.Redacted(), "dur", dur.Truncate(time.Millisecond).String(), "err", err)
 		return nil, err
 	}
 	// Never log request headers/body (may contain secrets). Only method/url/status.
-	utils.Logf("http-out: %s %s status=%d dur=%s", req.Method, req.URL.Redacted(), resp.StatusCode, dur.Truncate(time.Millisecond).String())
+	utils.Debug("http outbound", "method", req.Method, "url", req.URL.Redacted(), "status", resp.StatusCode, "dur", dur.Truncate(time.Millisecond).String())
 	return resp, nil
 }
-
-
