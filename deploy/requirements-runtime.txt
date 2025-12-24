@@ -5,4 +5,7 @@
 -r auto-subtitles-generator/requirements.txt
 -r utility/requirements.txt
 
+# TTS CLI used by manager-go jobs (GenerateWav).
+piper-tts
+
 
