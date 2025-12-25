@@ -69,9 +69,11 @@ func CreateChannel(ctx context.Context, client *http.Client, botToken, name stri
 	}
 
 	var decoded struct {
-		OK      bool   `json:"ok"`
-		Error   string `json:"error"`
-		Channel struct {
+		OK       bool   `json:"ok"`
+		Error    string `json:"error"`
+		Needed   string `json:"needed"`
+		Provided string `json:"provided"`
+		Channel  struct {
 			ID string `json:"id"`
 		} `json:"channel"`
 	}
@@ -81,6 +83,10 @@ func CreateChannel(ctx context.Context, client *http.Client, botToken, name stri
 	if !decoded.OK {
 		if decoded.Error == "" {
 			decoded.Error = "conversations.create failed"
+		}
+		// Slack includes helpful fields like "needed" and "provided" for missing_scope.
+		if strings.TrimSpace(decoded.Needed) != "" || strings.TrimSpace(decoded.Provided) != "" {
+			return "", fmt.Errorf("%s (needed=%s provided=%s)", decoded.Error, strings.TrimSpace(decoded.Needed), strings.TrimSpace(decoded.Provided))
 		}
 		return "", errors.New(decoded.Error)
 	}
@@ -125,13 +131,18 @@ func JoinChannel(ctx context.Context, client *http.Client, botToken, channelID s
 		return fmt.Errorf("slack conversations.join status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
 	}
 	var decoded struct {
-		OK    bool   `json:"ok"`
-		Error string `json:"error"`
+		OK       bool   `json:"ok"`
+		Error    string `json:"error"`
+		Needed   string `json:"needed"`
+		Provided string `json:"provided"`
 	}
 	if err := json.Unmarshal(respBody, &decoded); err == nil {
 		if !decoded.OK {
 			if decoded.Error == "" {
 				decoded.Error = "conversations.join failed"
+			}
+			if strings.TrimSpace(decoded.Needed) != "" || strings.TrimSpace(decoded.Provided) != "" {
+				return fmt.Errorf("%s (needed=%s provided=%s)", decoded.Error, strings.TrimSpace(decoded.Needed), strings.TrimSpace(decoded.Provided))
 			}
 			return errors.New(decoded.Error)
 		}
