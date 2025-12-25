@@ -44,12 +44,9 @@ func (j SlackPromptForImageJob) Run(ctx context.Context, jctx JobContext, opts J
 		if err != nil {
 			return err
 		}
-		utils.Debug("SlackPromptForImage waiting", "waiting", count, "max_waiting", j.MaxWaiting)
-		if count >= j.MaxWaiting {
-			utils.Warn("SlackPromptForImage too many waiting; sleeping", "sleep_s", 60, "waiting", count, "max_waiting", j.MaxWaiting)
-			time.Sleep(60 * time.Second)
-			return nil
-		}
+		// Unlike the pipeline jobs, this Slack job is user-interactive and rate-limited by humans.
+		// We process at most ONE item per invocation, so a large backlog shouldn't cause us to sleep.
+		utils.Debug("SlackPromptForImage backlog", "waiting", count)
 
 		content, err := j.selectNext(ctx, jctx)
 		if err != nil {
