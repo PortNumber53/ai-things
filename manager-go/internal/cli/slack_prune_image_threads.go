@@ -16,7 +16,9 @@ import (
 
 func runSlackPruneImageThreads(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Slack:PruneImageThreads", flag.ContinueOnError)
-	days := fs.Int("days", 7, "Prune completed image threads older than N days")
+	days := fs.Int("days", 7, "Prune completed image threads older than N days (used only if --hours/--minutes are not set)")
+	hours := fs.Int("hours", 0, "Prune completed image threads older than N hours (overrides --days when set)")
+	minutes := fs.Int("minutes", 0, "Prune completed image threads older than N minutes (overrides --days when set)")
 	limit := fs.Int("limit", 200, "Maximum threads to prune in one run")
 	dryRun := fs.Bool("dry-run", true, "Show what would be pruned without deleting")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
@@ -25,10 +27,23 @@ func runSlackPruneImageThreads(ctx context.Context, jctx jobs.JobContext, args [
 	}
 	utils.ConfigureLogging(*verbose)
 
-	if *days <= 0 {
-		return errors.New("--days must be > 0")
+	var cutoff time.Duration
+	if *hours > 0 || *minutes > 0 {
+		if *hours < 0 || *minutes < 0 {
+			return errors.New("--hours/--minutes must be >= 0")
+		}
+		cutoff = time.Duration(*hours)*time.Hour + time.Duration(*minutes)*time.Minute
+		if cutoff <= 0 {
+			return errors.New("cutoff must be > 0 (set --hours and/or --minutes)")
+		}
+	} else {
+		if *days <= 0 {
+			return errors.New("--days must be > 0 (or set --hours/--minutes)")
+		}
+		cutoff = time.Duration(*days) * 24 * time.Hour
 	}
-	olderThan := time.Now().Add(-time.Duration(*days) * 24 * time.Hour)
+
+	olderThan := time.Now().Add(-cutoff)
 	threads, err := jctx.Store.ListCompletedSlackImageThreadsToPrune(ctx, olderThan, *limit)
 	if err != nil {
 		return err
