@@ -24,10 +24,94 @@ const (
 	chatPostMessageURL     = "https://slack.com/api/chat.postMessage"
 	conversationsCreateURL = "https://slack.com/api/conversations.create"
 	conversationsJoinURL   = "https://slack.com/api/conversations.join"
+	conversationsListURL   = "https://slack.com/api/conversations.list"
 
 	signatureVersion = "v0"
 	maxClockSkew     = 5 * time.Minute
 )
+
+func FindChannelByName(ctx context.Context, client *http.Client, botToken, name string) (string, error) {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	if strings.TrimSpace(botToken) == "" {
+		return "", errors.New("bot token missing")
+	}
+	name = strings.TrimSpace(strings.TrimPrefix(name, "#"))
+	if name == "" {
+		return "", errors.New("channel name missing")
+	}
+
+	cursor := ""
+	for i := 0; i < 20; i++ {
+		u, _ := url.Parse(conversationsListURL)
+		q := u.Query()
+		q.Set("exclude_archived", "true")
+		q.Set("limit", "200")
+		// Most workspaces will allow listing public channels with channels:read.
+		// If you want private channels too, the token must also have groups:read and we can add private_channel.
+		q.Set("types", "public_channel")
+		if cursor != "" {
+			q.Set("cursor", cursor)
+		}
+		u.RawQuery = q.Encode()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("Authorization", "Bearer "+botToken)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return "", err
+		}
+		respBody, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return "", fmt.Errorf("slack conversations.list status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		}
+
+		var decoded struct {
+			OK       bool   `json:"ok"`
+			Error    string `json:"error"`
+			Needed   string `json:"needed"`
+			Provided string `json:"provided"`
+			Channels []struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"channels"`
+			ResponseMetadata struct {
+				NextCursor string `json:"next_cursor"`
+			} `json:"response_metadata"`
+		}
+		if err := json.Unmarshal(respBody, &decoded); err != nil {
+			return "", err
+		}
+		if !decoded.OK {
+			if decoded.Error == "" {
+				decoded.Error = "conversations.list failed"
+			}
+			if strings.TrimSpace(decoded.Needed) != "" || strings.TrimSpace(decoded.Provided) != "" {
+				return "", fmt.Errorf("%s (needed=%s provided=%s)", decoded.Error, strings.TrimSpace(decoded.Needed), strings.TrimSpace(decoded.Provided))
+			}
+			return "", errors.New(decoded.Error)
+		}
+
+		for _, ch := range decoded.Channels {
+			if strings.EqualFold(ch.Name, name) && ch.ID != "" {
+				return ch.ID, nil
+			}
+		}
+
+		cursor = strings.TrimSpace(decoded.ResponseMetadata.NextCursor)
+		if cursor == "" {
+			break
+		}
+	}
+	return "", nil
+}
 
 func CreateChannel(ctx context.Context, client *http.Client, botToken, name string, isPrivate bool) (string, error) {
 	if client == nil {

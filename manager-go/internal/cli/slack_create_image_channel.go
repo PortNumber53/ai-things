@@ -51,7 +51,19 @@ func runSlackCreateImageChannel(ctx context.Context, jctx jobs.JobContext, args 
 	client := &http.Client{Timeout: 20 * time.Second}
 	channelID, err := slack.CreateChannel(ctx, client, token, chName, *private)
 	if err != nil {
-		return err
+		// If it already exists, find it and use it.
+		if strings.TrimSpace(err.Error()) == "name_taken" {
+			existing, findErr := slack.FindChannelByName(ctx, client, token, chName)
+			if findErr != nil {
+				return fmt.Errorf("channel exists but lookup failed: %w", findErr)
+			}
+			if existing == "" {
+				return errors.New("channel name_taken but could not find channel id via conversations.list (try joining it manually or add required read scopes)")
+			}
+			channelID = existing
+		} else {
+			return err
+		}
 	}
 
 	// Join ensures posting works even if workspace defaults change.
@@ -61,6 +73,6 @@ func runSlackCreateImageChannel(ctx context.Context, jctx jobs.JobContext, args 
 		return err
 	}
 
-	fmt.Printf("team_id=%s image_channel_id=%s\n", teamID, channelID)
+	fmt.Printf("team_id=%s image_channel_id=%s channel_url=https://app.slack.com/client/%s/%s\n", teamID, channelID, teamID, channelID)
 	return nil
 }
