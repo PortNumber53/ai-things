@@ -92,6 +92,8 @@ type SlackImageThread struct {
 	ChannelID   string
 	ThreadTS    string
 	PromptTS    string
+	UploadTS    string
+	FileID      string
 	CompletedAt time.Time
 }
 
@@ -704,6 +706,8 @@ func (s *Store) ListCompletedSlackImageThreadsToPrune(ctx context.Context, older
 			meta->'slack_image_request'->>'channel_id' as channel_id,
 			meta->'slack_image_request'->>'thread_ts' as thread_ts,
 			COALESCE(meta->'slack_image_request'->>'prompt_ts','') as prompt_ts,
+			COALESCE(meta->'slack_image_request'->>'upload_ts','') as upload_ts,
+			COALESCE(meta->'slack_image_request'->>'file_id','') as file_id,
 			(meta->'slack_image_request'->>'completed_at')::timestamptz as completed_at
 		FROM contents
 		WHERE meta->'slack_image_request'->>'completed' = 'true'
@@ -720,7 +724,7 @@ func (s *Store) ListCompletedSlackImageThreadsToPrune(ctx context.Context, older
 	out := []SlackImageThread{}
 	for rows.Next() {
 		var t SlackImageThread
-		if err := rows.Scan(&t.ContentID, &t.TeamID, &t.ChannelID, &t.ThreadTS, &t.PromptTS, &t.CompletedAt); err != nil {
+		if err := rows.Scan(&t.ContentID, &t.TeamID, &t.ChannelID, &t.ThreadTS, &t.PromptTS, &t.UploadTS, &t.FileID, &t.CompletedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, t)

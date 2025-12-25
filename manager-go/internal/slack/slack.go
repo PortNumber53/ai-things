@@ -26,10 +26,63 @@ const (
 	conversationsJoinURL   = "https://slack.com/api/conversations.join"
 	conversationsListURL   = "https://slack.com/api/conversations.list"
 	chatDeleteURL          = "https://slack.com/api/chat.delete"
+	filesDeleteURL         = "https://slack.com/api/files.delete"
 
 	signatureVersion = "v0"
 	maxClockSkew     = 5 * time.Minute
 )
+
+func DeleteFile(ctx context.Context, client *http.Client, botToken, fileID string) error {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	if strings.TrimSpace(botToken) == "" {
+		return errors.New("bot token missing")
+	}
+	if strings.TrimSpace(fileID) == "" {
+		return errors.New("file id missing")
+	}
+
+	// Slack expects application/x-www-form-urlencoded for files.delete.
+	values := url.Values{}
+	values.Set("file", fileID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, filesDeleteURL, strings.NewReader(values.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Authorization", "Bearer "+botToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("slack files.delete status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var decoded struct {
+		OK       bool   `json:"ok"`
+		Error    string `json:"error"`
+		Needed   string `json:"needed"`
+		Provided string `json:"provided"`
+	}
+	if err := json.Unmarshal(respBody, &decoded); err != nil {
+		return err
+	}
+	if !decoded.OK {
+		if decoded.Error == "" {
+			decoded.Error = "files.delete failed"
+		}
+		if strings.TrimSpace(decoded.Needed) != "" || strings.TrimSpace(decoded.Provided) != "" {
+			return fmt.Errorf("%s (needed=%s provided=%s)", decoded.Error, strings.TrimSpace(decoded.Needed), strings.TrimSpace(decoded.Provided))
+		}
+		return errors.New(decoded.Error)
+	}
+	return nil
+}
 
 func DeleteMessage(ctx context.Context, client *http.Client, botToken, channelID, ts string) error {
 	if client == nil {

@@ -57,9 +57,20 @@ func runSlackPruneImageThreads(ctx context.Context, jctx jobs.JobContext, args [
 		}
 
 		// Delete prompt reply first (if we have it), then delete the root thread message.
+		// Best-effort: also attempt to delete the upload message and Slack file, if we have IDs.
 		if strings.TrimSpace(t.PromptTS) != "" {
 			if err := slack.DeleteMessage(ctx, client, token, t.ChannelID, t.PromptTS); err != nil {
 				utils.Warn("prune: delete prompt failed", "content_id", t.ContentID, "channel", t.ChannelID, "ts", t.PromptTS, "err", err)
+			}
+		}
+		if strings.TrimSpace(t.UploadTS) != "" {
+			if err := slack.DeleteMessage(ctx, client, token, t.ChannelID, t.UploadTS); err != nil {
+				utils.Warn("prune: delete upload message failed", "content_id", t.ContentID, "channel", t.ChannelID, "ts", t.UploadTS, "err", err)
+			}
+		}
+		if strings.TrimSpace(t.FileID) != "" {
+			if err := slack.DeleteFile(ctx, client, token, t.FileID); err != nil {
+				utils.Warn("prune: delete slack file failed", "content_id", t.ContentID, "file_id", t.FileID, "err", err)
 			}
 		}
 		if err := slack.DeleteMessage(ctx, client, token, t.ChannelID, t.ThreadTS); err != nil {

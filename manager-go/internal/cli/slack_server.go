@@ -233,6 +233,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 							teamID,
 							channel,
 							threadTS,
+							envelope.Event.TS,
 							envelope.Event.Files,
 						); handled {
 							return
@@ -481,7 +482,7 @@ func handleSlackImageUpload(
 	ctx context.Context,
 	jctx jobs.JobContext,
 	client *http.Client,
-	teamID, channelID, threadTS string,
+	teamID, channelID, threadTS, messageTS string,
 	files []struct {
 		ID         string `json:"id"`
 		Name       string `json:"name"`
@@ -574,6 +575,12 @@ func handleSlackImageUpload(
 		req["completed"] = true
 		req["completed_hostname"] = jctx.Config.Hostname
 		req["completed_at"] = time.Now().Format(time.RFC3339)
+		if strings.TrimSpace(messageTS) != "" {
+			req["upload_ts"] = strings.TrimSpace(messageTS)
+		}
+		if len(files) > 0 && strings.TrimSpace(files[0].ID) != "" {
+			req["file_id"] = strings.TrimSpace(files[0].ID)
+		}
 	} else {
 		meta["slack_image_request"] = map[string]any{
 			"team_id":            teamID,
@@ -582,6 +589,8 @@ func handleSlackImageUpload(
 			"completed":          true,
 			"completed_hostname": jctx.Config.Hostname,
 			"completed_at":       time.Now().Format(time.RFC3339),
+			"upload_ts":          strings.TrimSpace(messageTS),
+			"file_id":            strings.TrimSpace(files[0].ID),
 		}
 	}
 
