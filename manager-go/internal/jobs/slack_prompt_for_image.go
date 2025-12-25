@@ -161,6 +161,12 @@ func (j SlackPromptForImageJob) processContent(ctx context.Context, jctx JobCont
 
 	client := &http.Client{Timeout: 20 * time.Second}
 
+	// Ensure the bot is in the channel before posting (some workspaces require membership to post).
+	// If this fails due to missing scopes or restrictions, fail loudly so we don't set slack_image_requested incorrectly.
+	if err := slack.JoinChannel(ctx, client, token, channelID); err != nil {
+		return fmt.Errorf("failed to join slack channel %s: %w", channelID, err)
+	}
+
 	// Post the main message, and capture its ts so we can reply in-thread.
 	threadTS, err := slack.PostMessageWithTS(ctx, client, token, channelID, label, "")
 	if err != nil {
@@ -170,6 +176,7 @@ func (j SlackPromptForImageJob) processContent(ctx context.Context, jctx JobCont
 	if err := slack.PostMessage(ctx, client, token, channelID, prompt, threadTS); err != nil {
 		return err
 	}
+	utils.Info("SlackPromptForImage posted", "team_id", teamID, "channel_id", channelID, "thread_ts", threadTS, "content_id", content.ID)
 
 	meta["slack_image_request"] = map[string]any{
 		"team_id":    teamID,
