@@ -60,6 +60,9 @@ type Config struct {
 	SlackScopes            string
 	SlackRedirectURL       string
 	SlackPort              int
+	// Slack image workflow (used by Slack-driven image generation).
+	SlackTeamID       string
+	SlackImageChannel string
 }
 
 func Load() (Config, error) {
@@ -129,6 +132,8 @@ func Load() (Config, error) {
 	cfg.SlackScopes = firstNonEmpty(ini.get("slack", "scopes"), os.Getenv("SLACK_SCOPES"))
 	cfg.SlackRedirectURL = firstNonEmpty(ini.get("slack", "redirect_url"), os.Getenv("SLACK_REDIRECT_URL"))
 	cfg.SlackPort = firstNonEmptyIntDefault(8085, ini.get("slack", "port"), os.Getenv("SLACK_PORT"))
+	cfg.SlackTeamID = firstNonEmpty(ini.get("slack", "team_id"), os.Getenv("SLACK_TEAM_ID"))
+	cfg.SlackImageChannel = firstNonEmpty(ini.get("slack", "image_channel"), os.Getenv("SLACK_IMAGE_CHANNEL"))
 
 	cfg.DBURL = firstNonEmpty(ini.get("db", "url"), ini.get("db", "database_url"))
 	cfg.DBHost = ini.getDefault("db", "host", "127.0.0.1")

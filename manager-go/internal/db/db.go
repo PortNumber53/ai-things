@@ -300,6 +300,43 @@ func (s *Store) QueryContents(ctx context.Context, query string, args ...any) ([
 	return contents, rows.Err()
 }
 
+// FindContentBySlackImageThread finds a content row linked to a Slack image request thread.
+// The linkage is stored in contents.meta.slack_image_request.{team_id,channel_id,thread_ts}.
+func (s *Store) FindContentBySlackImageThread(ctx context.Context, teamID, channelID, threadTS string) (Content, error) {
+	if strings.TrimSpace(teamID) == "" || strings.TrimSpace(channelID) == "" || strings.TrimSpace(threadTS) == "" {
+		return Content{}, errors.New("missing teamID/channelID/threadTS")
+	}
+	row := s.pool.QueryRow(ctx, `
+		SELECT id, title, status, type, sentences, count, meta, archive, created_at, updated_at
+		FROM contents
+		WHERE meta->'slack_image_request'->>'team_id' = $1
+		  AND meta->'slack_image_request'->>'channel_id' = $2
+		  AND meta->'slack_image_request'->>'thread_ts' = $3
+		ORDER BY id
+		LIMIT 1
+	`, teamID, channelID, threadTS)
+	var c Content
+	err := row.Scan(
+		&c.ID,
+		&c.Title,
+		&c.Status,
+		&c.Type,
+		&c.Sentences,
+		&c.Count,
+		&c.Meta,
+		&c.Archive,
+		&c.CreatedAt,
+		&c.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Content{}, nil
+		}
+		return Content{}, err
+	}
+	return c, nil
+}
+
 func (s *Store) ListActiveSubscriptions(ctx context.Context) ([]Subscription, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, feed_url, title, description, site_url, last_fetched_at, last_build_date, is_active, created_at, updated_at

@@ -82,10 +82,16 @@ verification_token=
 # OAuth scopes (comma-separated).
 # If you want the bot to keep replying in a thread without requiring an @mention each time,
 # include channels:history and subscribe to message.channels events in the Slack app dashboard.
-scopes=chat:write,channels:read,channels:join,channels:history,app_mentions:read
+scopes=chat:write,channels:read,channels:join,channels:history,app_mentions:read,files:read
 # Redirect URL for OAuth callback.
 # Example: https://manager.example.com/slack/oauth/callback
 redirect_url=
+
+# Slack workspace + channel used for Slack-driven image generation jobs.
+# team_id: workspace/team ID (e.g. T0123ABC)
+# image_channel: channel ID (e.g. C0123ABC). Use an ID, not a name.
+team_id=
+image_channel=
 
 [portnumber53]
 # API key for portnumber53 Ollama gateway.

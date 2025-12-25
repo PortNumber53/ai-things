@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -48,7 +49,8 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 	scopes := strings.TrimSpace(cfg.SlackScopes)
 	if scopes == "" {
 		// Include channels:history so we can receive and handle message.channels events for thread follow-ups.
-		scopes = "chat:write,channels:read,channels:join,channels:history,app_mentions:read"
+		// Include files:read so we can download images uploaded to threads (url_private).
+		scopes = "chat:write,channels:read,channels:join,channels:history,app_mentions:read,files:read"
 	}
 
 	redirectURL := strings.TrimSpace(cfg.SlackRedirectURL)
@@ -218,6 +220,21 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 
 				threadTS := envelope.Event.ThreadTS
 				go func() {
+					// First: handle Slack-driven image workflow (upload image to the thread).
+					if len(envelope.Event.Files) > 0 {
+						if handled := handleSlackImageUpload(
+							context.Background(),
+							jctx,
+							client,
+							teamID,
+							channel,
+							threadTS,
+							envelope.Event.Files,
+						); handled {
+							return
+						}
+					}
+
 					active, err := jctx.Store.IsSlackThreadSessionActive(context.Background(), teamID, channel, threadTS)
 					if err != nil {
 						// Migration might not be applied yet; degrade gracefully.
@@ -299,6 +316,13 @@ type slackEventEnvelope struct {
 		Text        string `json:"text"`
 		TS          string `json:"ts"`
 		ThreadTS    string `json:"thread_ts"`
+		Files       []struct {
+			ID         string `json:"id"`
+			Name       string `json:"name"`
+			Mimetype   string `json:"mimetype"`
+			Filetype   string `json:"filetype"`
+			URLPrivate string `json:"url_private"`
+		} `json:"files"`
 	} `json:"event"`
 }
 
@@ -441,4 +465,120 @@ func (t loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 	// Never log request headers/body (may contain secrets). Only method/url/status.
 	utils.Debug("http outbound", "method", req.Method, "url", req.URL.Redacted(), "status", resp.StatusCode, "dur", dur.Truncate(time.Millisecond).String())
 	return resp, nil
+}
+
+func handleSlackImageUpload(
+	ctx context.Context,
+	jctx jobs.JobContext,
+	client *http.Client,
+	teamID, channelID, threadTS string,
+	files []struct {
+		ID         string `json:"id"`
+		Name       string `json:"name"`
+		Mimetype   string `json:"mimetype"`
+		Filetype   string `json:"filetype"`
+		URLPrivate string `json:"url_private"`
+	},
+) bool {
+	if teamID == "" || channelID == "" || threadTS == "" || len(files) == 0 {
+		return false
+	}
+
+	// Only accept common image types.
+	pick := func() (string, string, string, bool) {
+		for _, f := range files {
+			ft := strings.ToLower(strings.TrimSpace(f.Filetype))
+			if ft == "" {
+				ft = strings.ToLower(strings.TrimSpace(f.Mimetype))
+			}
+			switch ft {
+			case "jpg", "jpeg", "image/jpeg":
+				return "jpg", f.Name, f.URLPrivate, strings.TrimSpace(f.URLPrivate) != ""
+			case "png", "image/png":
+				return "png", f.Name, f.URLPrivate, strings.TrimSpace(f.URLPrivate) != ""
+			case "webp", "image/webp":
+				return "webp", f.Name, f.URLPrivate, strings.TrimSpace(f.URLPrivate) != ""
+			}
+		}
+		return "", "", "", false
+	}
+
+	ext, origName, urlPrivate, ok := pick()
+	if !ok {
+		return false
+	}
+
+	content, err := jctx.Store.FindContentBySlackImageThread(ctx, teamID, channelID, threadTS)
+	if err != nil {
+		utils.Warn("slack image: lookup failed", "team_id", teamID, "channel", channelID, "thread_ts", threadTS, "err", err)
+		return true
+	}
+	if content.ID == 0 {
+		// Not for us; let other handlers handle this thread.
+		return false
+	}
+
+	token, err := jctx.Store.GetSlackBotToken(ctx, teamID)
+	if err != nil || token == "" {
+		utils.Warn("slack image: missing bot token", "team_id", teamID, "err", err)
+		return true
+	}
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	imgBytes, err := slack.DownloadFile(ctx, client, token, urlPrivate)
+	if err != nil {
+		utils.Warn("slack image: download failed", "content_id", content.ID, "url", urlPrivate, "err", err)
+		_ = slack.PostMessage(ctx, client, token, channelID, "I couldn't download that image (missing `files:read` scope or token?).", threadTS)
+		return true
+	}
+
+	filename := fmt.Sprintf("%010d.%s", content.ID, ext)
+	fullPath := filepath.Join(jctx.Config.BaseOutputFolder, "images", filename)
+	if err := utils.EnsureDir(filepath.Dir(fullPath)); err != nil {
+		utils.Warn("slack image: ensure dir failed", "content_id", content.ID, "err", err)
+		return true
+	}
+	if err := os.WriteFile(fullPath, imgBytes, 0o644); err != nil {
+		utils.Warn("slack image: write failed", "content_id", content.ID, "path", fullPath, "err", err)
+		return true
+	}
+
+	meta, err := utils.DecodeMeta(content.Meta)
+	if err != nil {
+		utils.Warn("slack image: decode meta failed", "content_id", content.ID, "err", err)
+		return true
+	}
+	meta["thumbnail"] = map[string]any{
+		"filename": filename,
+		"hostname": jctx.Config.Hostname,
+		"source":   "slack",
+		"original": origName,
+	}
+	utils.SetStatus(meta, "thumbnail_generated", true)
+	utils.SetStatus(meta, "slack_image_requested", true)
+	if req, ok := utils.GetMap(meta, "slack_image_request"); ok {
+		req["completed"] = true
+		req["completed_hostname"] = jctx.Config.Hostname
+		req["completed_at"] = time.Now().Format(time.RFC3339)
+	} else {
+		meta["slack_image_request"] = map[string]any{
+			"team_id":            teamID,
+			"channel_id":         channelID,
+			"thread_ts":          threadTS,
+			"completed":          true,
+			"completed_hostname": jctx.Config.Hostname,
+			"completed_at":       time.Now().Format(time.RFC3339),
+		}
+	}
+
+	if err := jctx.Store.UpdateContentMetaStatus(ctx, content.ID, "thumbnail_generated", meta); err != nil {
+		utils.Warn("slack image: db update failed", "content_id", content.ID, "err", err)
+		return true
+	}
+
+	utils.Info("slack image saved", "content_id", content.ID, "path", fullPath)
+	_ = slack.PostMessage(ctx, client, token, channelID, fmt.Sprintf("Saved image as %s and marked thumbnail_generated=true.", filename), threadTS)
+	return true
 }

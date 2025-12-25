@@ -27,6 +27,35 @@ const (
 	maxClockSkew     = 5 * time.Minute
 )
 
+func DownloadFile(ctx context.Context, client *http.Client, botToken, url string) ([]byte, error) {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	if strings.TrimSpace(botToken) == "" {
+		return nil, errors.New("bot token missing")
+	}
+	if strings.TrimSpace(url) == "" {
+		return nil, errors.New("url missing")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+botToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("slack file download status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return body, nil
+}
+
 type OAuthAccessResponse struct {
 	OK          bool   `json:"ok"`
 	Error       string `json:"error"`
@@ -208,4 +237,76 @@ func PostMessage(ctx context.Context, client *http.Client, botToken, channel, te
 		}
 	}
 	return nil
+}
+
+// PostMessageWithTS posts a message and returns the created message ts.
+// If threadTS is empty, the returned ts can be used as a thread root.
+func PostMessageWithTS(ctx context.Context, client *http.Client, botToken, channel, text, threadTS string) (string, error) {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	if strings.TrimSpace(botToken) == "" {
+		return "", errors.New("bot token missing")
+	}
+	if strings.TrimSpace(channel) == "" {
+		return "", errors.New("channel missing")
+	}
+	if strings.TrimSpace(text) == "" {
+		return "", errors.New("text missing")
+	}
+
+	payload := map[string]any{
+		"channel": channel,
+		"text":    text,
+	}
+	if threadTS != "" {
+		payload["thread_ts"] = threadTS
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, chatPostMessageURL, bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+botToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("slack chat.postMessage status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var decoded struct {
+		OK      bool   `json:"ok"`
+		Error   string `json:"error"`
+		TS      string `json:"ts"`
+		Message struct {
+			TS string `json:"ts"`
+		} `json:"message"`
+	}
+	if err := json.Unmarshal(respBody, &decoded); err != nil {
+		return "", err
+	}
+	if !decoded.OK {
+		if decoded.Error == "" {
+			decoded.Error = "chat.postMessage failed"
+		}
+		return "", errors.New(decoded.Error)
+	}
+	if decoded.TS != "" {
+		return decoded.TS, nil
+	}
+	if decoded.Message.TS != "" {
+		return decoded.Message.TS, nil
+	}
+	return "", nil
 }

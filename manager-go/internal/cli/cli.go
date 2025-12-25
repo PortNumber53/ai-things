@@ -113,6 +113,8 @@ func Run(args []string) int {
 		runErr = runGenerateMp3(ctx, jctx, cmdArgs)
 	case "job:PromptForImage":
 		runErr = runPromptForImage(ctx, jctx, cmdArgs)
+	case "job:SlackPromptForImage":
+		runErr = runSlackPromptForImage(ctx, jctx, cmdArgs)
 	case "job:GenerateImage":
 		runErr = runGenerateImage(ctx, jctx, cmdArgs)
 	case "job:GeneratePodcast":
@@ -347,6 +349,27 @@ func runGenerateImage(ctx context.Context, jctx jobs.JobContext, args []string) 
 	return job.Run(ctx, jctx, opts)
 }
 
+func runSlackPromptForImage(ctx context.Context, jctx jobs.JobContext, args []string) error {
+	fs := flag.NewFlagSet("job:SlackPromptForImage", flag.ContinueOnError)
+	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
+	queueFlag := fs.Bool("queue", false, "Process queue messages")
+	regenerate := fs.Bool("regenerate", false, "Re-request the image via Slack even if already requested")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	utils.ConfigureLogging(*verbose)
+	contentID, err := parseContentID(fs.Args())
+	if err != nil {
+		return err
+	}
+	opts := jobs.JobOptions{ContentID: contentID, Sleep: *sleep, Queue: *queueFlag, Regenerate: *regenerate}
+	logJobStart("job:SlackPromptForImage", opts)
+
+	job := jobs.NewSlackPromptForImageJob()
+	return job.Run(ctx, jctx, opts)
+}
+
 func runGeneratePodcast(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("job:GeneratePodcast", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
@@ -503,6 +526,7 @@ func printUsage() {
 	fmt.Println("  job:GenerateSrt [content_id] [--sleep=N] [--queue] [--verbose]")
 	fmt.Println("  job:GenerateMp3 [content_id] [--sleep=N] [--queue] [--verbose]")
 	fmt.Println("  job:PromptForImage [content_id] [--sleep=N] [--queue] [--regenerate] [--verbose]")
+	fmt.Println("  job:SlackPromptForImage [content_id] [--sleep=N] [--queue] [--regenerate] [--verbose]")
 	fmt.Println("  job:GenerateImage [content_id] [--sleep=N] [--queue] [--verbose]")
 	fmt.Println("  job:GeneratePodcast [content_id] [--sleep=N] [--queue] [--verbose]")
 	fmt.Println("  job:FixSubtitles [content_id] [--sleep=N] [--queue] [--verbose]")
