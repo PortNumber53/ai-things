@@ -103,11 +103,20 @@ func (j SlackPromptForImageJob) processContent(ctx context.Context, jctx JobCont
 	utils.Info("SlackPromptForImage process", "content_id", contentID, "regenerate", regenerate)
 
 	cfg := jctx.Config
-	if cfg.SlackTeamID == "" {
-		return errors.New("missing slack.team_id (set slack.team_id in config.ini or SLACK_TEAM_ID)")
-	}
 	if cfg.SlackImageChannel == "" {
 		return errors.New("missing slack.image_channel (set slack.image_channel in config.ini or SLACK_IMAGE_CHANNEL)")
+	}
+	teamID := strings.TrimSpace(cfg.SlackTeamID)
+	if teamID == "" {
+		// Prefer the team_id from the most recent Slack installation stored in the DB.
+		detectedTeamID, detectErr := jctx.Store.GetDefaultSlackTeamID(ctx)
+		if detectErr != nil {
+			return detectErr
+		}
+		teamID = detectedTeamID
+		if teamID == "" {
+			return errors.New("missing slack.team_id and no slack installation found in DB (run Slack:Serve and install the app, or set slack.team_id)")
+		}
 	}
 
 	content, err := jctx.Store.GetContentByID(ctx, contentID)
@@ -126,9 +135,9 @@ func (j SlackPromptForImageJob) processContent(ctx context.Context, jctx JobCont
 		}
 	}
 
-	token, err := jctx.Store.GetSlackBotToken(ctx, cfg.SlackTeamID)
+	token, err := jctx.Store.GetSlackBotToken(ctx, teamID)
 	if err != nil || token == "" {
-		return fmt.Errorf("missing slack bot token for team_id=%s (install the Slack app first)", cfg.SlackTeamID)
+		return fmt.Errorf("missing slack bot token for team_id=%s (install the Slack app first)", teamID)
 	}
 
 	// Compose the user-facing “work item” message.
@@ -154,7 +163,7 @@ func (j SlackPromptForImageJob) processContent(ctx context.Context, jctx JobCont
 	}
 
 	meta["slack_image_request"] = map[string]any{
-		"team_id":    cfg.SlackTeamID,
+		"team_id":    teamID,
 		"channel_id": cfg.SlackImageChannel,
 		"thread_ts":  threadTS,
 		"prompt":     prompt,

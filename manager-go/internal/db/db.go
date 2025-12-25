@@ -579,6 +579,25 @@ func (s *Store) GetSlackBotToken(ctx context.Context, teamID string) (string, er
 	return token, nil
 }
 
+// GetDefaultSlackTeamID returns a "best guess" Slack workspace team_id for this DB.
+// If multiple installations exist, this returns the most recently updated installation.
+func (s *Store) GetDefaultSlackTeamID(ctx context.Context) (string, error) {
+	var teamID string
+	err := s.pool.QueryRow(ctx, `
+		SELECT team_id
+		FROM slack_installations
+		ORDER BY updated_at DESC
+		LIMIT 1
+	`).Scan(&teamID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return teamID, nil
+}
+
 func (s *Store) UpsertSlackThreadSession(ctx context.Context, teamID, channelID, threadTS, activatedByUserID string, ttl time.Duration) error {
 	if teamID == "" || channelID == "" || threadTS == "" {
 		return errors.New("missing teamID/channelID/threadTS")
