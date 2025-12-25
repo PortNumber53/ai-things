@@ -178,13 +178,55 @@ func (j SlackPromptForImageJob) processContent(ctx context.Context, jctx JobCont
 	}
 	utils.Info("SlackPromptForImage posted", "team_id", teamID, "channel_id", channelID, "thread_ts", threadTS, "content_id", content.ID)
 
-	meta["slack_image_request"] = map[string]any{
+	newReq := map[string]any{
 		"team_id":    teamID,
 		"channel_id": channelID,
 		"thread_ts":  threadTS,
 		"prompt":     prompt,
 		"hostname":   cfg.Hostname,
 	}
+	// Preserve prior requests so uploads to older threads can still be matched.
+	// Keep the latest request in slack_image_request for convenience, but also maintain an append-only history list.
+	history, _ := meta["slack_image_requests"].([]any)
+	if history == nil {
+		history = []any{}
+	}
+	// Ensure the previous slack_image_request is also in history (if present).
+	if prev, ok := utils.GetMap(meta, "slack_image_request"); ok {
+		prevThread, _ := prev["thread_ts"].(string)
+		already := false
+		for _, item := range history {
+			m, _ := item.(map[string]any)
+			if m == nil {
+				continue
+			}
+			if ts, _ := m["thread_ts"].(string); ts != "" && ts == prevThread {
+				already = true
+				break
+			}
+		}
+		if prevThread != "" && !already {
+			history = append(history, prev)
+		}
+	}
+	// Add the new request to history if not already present.
+	already := false
+	for _, item := range history {
+		m, _ := item.(map[string]any)
+		if m == nil {
+			continue
+		}
+		if ts, _ := m["thread_ts"].(string); ts != "" && ts == threadTS {
+			already = true
+			break
+		}
+	}
+	if !already {
+		history = append(history, newReq)
+	}
+
+	meta["slack_image_request"] = newReq
+	meta["slack_image_requests"] = history
 	utils.SetStatus(meta, j.QueueOutput, true)
 
 	// Don’t claim thumbnail_generated yet — Slack:Serve will finalize when an image is uploaded.

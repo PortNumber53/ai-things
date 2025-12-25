@@ -301,20 +301,30 @@ func (s *Store) QueryContents(ctx context.Context, query string, args ...any) ([
 }
 
 // FindContentBySlackImageThread finds a content row linked to a Slack image request thread.
-// The linkage is stored in contents.meta.slack_image_request.{team_id,channel_id,thread_ts}.
+// The linkage is stored in contents.meta.slack_image_request.{team_id,channel_id,thread_ts}
+// and may also be present in contents.meta.slack_image_requests[] (history).
 func (s *Store) FindContentBySlackImageThread(ctx context.Context, teamID, channelID, threadTS string) (Content, error) {
 	if strings.TrimSpace(teamID) == "" || strings.TrimSpace(channelID) == "" || strings.TrimSpace(threadTS) == "" {
 		return Content{}, errors.New("missing teamID/channelID/threadTS")
 	}
+	needle, _ := json.Marshal([]map[string]string{{
+		"team_id":    teamID,
+		"channel_id": channelID,
+		"thread_ts":  threadTS,
+	}})
 	row := s.pool.QueryRow(ctx, `
 		SELECT id, title, status, type, sentences, count, meta, archive, created_at, updated_at
 		FROM contents
-		WHERE meta->'slack_image_request'->>'team_id' = $1
-		  AND meta->'slack_image_request'->>'channel_id' = $2
-		  AND meta->'slack_image_request'->>'thread_ts' = $3
+		WHERE (
+			(meta->'slack_image_request'->>'team_id' = $1
+			 AND meta->'slack_image_request'->>'channel_id' = $2
+			 AND meta->'slack_image_request'->>'thread_ts' = $3)
+			OR
+			(COALESCE(meta->'slack_image_requests', '[]'::jsonb) @> $4::jsonb)
+		)
 		ORDER BY id
 		LIMIT 1
-	`, teamID, channelID, threadTS)
+	`, teamID, channelID, threadTS, string(needle))
 	var c Content
 	err := row.Scan(
 		&c.ID,
