@@ -160,6 +160,7 @@ func (j GenerateImageJob) processContent(ctx context.Context, jctx JobContext, c
 	meta["thumbnail"] = map[string]any{
 		"filename": filename,
 		"hostname": jctx.Config.Hostname,
+		"sha256":   utils.SHA256Bytes(imageData),
 	}
 	utils.SetStatus(meta, j.QueueOutput, true)
 

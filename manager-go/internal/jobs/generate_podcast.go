@@ -122,17 +122,48 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 		_ = resetMp3Status(ctx, jctx, content.ID, meta)
 		return nil
 	}
+	mp3SHA, _ := mp3Data["sha256"].(string)
 	mp3Path := filepath.Join(jctx.Config.BaseOutputFolder, "mp3", mp3Filename)
 
 	if host, _ := mp3Data["hostname"].(string); host != "" && host != jctx.Config.Hostname {
-		cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(mp3Path), utils.ShellEscape(mp3Path))
-		if output, err := utils.RunCommand(cmd); err != nil {
-			if isMissingFileOutput(output) || !utils.FileExists(mp3Path) {
-				utils.Warn("GeneratePodcast mp3 missing on rsync; resetting mp3_generated", "content_id", contentID, "host", host)
-				_ = resetMp3Status(ctx, jctx, content.ID, meta)
-				return nil
+		needRsync := true
+		if utils.FileExists(mp3Path) {
+			if mp3SHA == "" {
+				needRsync = false
+				utils.Debug("GeneratePodcast mp3 present locally; skipping rsync", "content_id", contentID, "path", mp3Path)
+			} else {
+				haveSHA, err := utils.SHA256File(mp3Path)
+				if err != nil {
+					return err
+				}
+				if haveSHA == mp3SHA {
+					needRsync = false
+					utils.Debug("GeneratePodcast mp3 checksum match; skipping rsync", "content_id", contentID, "path", mp3Path)
+				} else {
+					utils.Debug("GeneratePodcast mp3 checksum mismatch; will rsync", "content_id", contentID, "path", mp3Path)
+				}
 			}
-			return err
+		}
+		if needRsync {
+			cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(mp3Path), utils.ShellEscape(mp3Path))
+			output, err := utils.RunCommand(cmd)
+			if err != nil {
+				if isMissingFileOutput(output) || !utils.FileExists(mp3Path) {
+					utils.Warn("GeneratePodcast mp3 missing on rsync; resetting mp3_generated", "content_id", contentID, "host", host)
+					_ = resetMp3Status(ctx, jctx, content.ID, meta)
+					return nil
+				}
+				return err
+			}
+			if mp3SHA != "" {
+				haveSHA, err := utils.SHA256File(mp3Path)
+				if err != nil {
+					return err
+				}
+				if haveSHA != mp3SHA {
+					return fmt.Errorf("mp3 checksum mismatch after rsync: %s", mp3Path)
+				}
+			}
 		}
 	}
 
@@ -154,17 +185,48 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 		_ = resetThumbnailStatus(ctx, jctx, content.ID, meta)
 		return nil
 	}
+	imageSHA, _ := thumbnail["sha256"].(string)
 	imagePath := filepath.Join(jctx.Config.BaseOutputFolder, "images", imageFilename)
 
 	if host, _ := thumbnail["hostname"].(string); host != "" && host != jctx.Config.Hostname {
-		cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(imagePath), utils.ShellEscape(imagePath))
-		if output, err := utils.RunCommand(cmd); err != nil {
-			if isMissingFileOutput(output) || !utils.FileExists(imagePath) {
-				utils.Warn("GeneratePodcast thumbnail missing on rsync; resetting thumbnail_generated", "content_id", contentID, "host", host)
-				_ = resetThumbnailStatus(ctx, jctx, content.ID, meta)
-				return nil
+		needRsync := true
+		if utils.FileExists(imagePath) {
+			if imageSHA == "" {
+				needRsync = false
+				utils.Debug("GeneratePodcast thumbnail present locally; skipping rsync", "content_id", contentID, "path", imagePath)
+			} else {
+				haveSHA, err := utils.SHA256File(imagePath)
+				if err != nil {
+					return err
+				}
+				if haveSHA == imageSHA {
+					needRsync = false
+					utils.Debug("GeneratePodcast thumbnail checksum match; skipping rsync", "content_id", contentID, "path", imagePath)
+				} else {
+					utils.Debug("GeneratePodcast thumbnail checksum mismatch; will rsync", "content_id", contentID, "path", imagePath)
+				}
 			}
-			return err
+		}
+		if needRsync {
+			cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(imagePath), utils.ShellEscape(imagePath))
+			output, err := utils.RunCommand(cmd)
+			if err != nil {
+				if isMissingFileOutput(output) || !utils.FileExists(imagePath) {
+					utils.Warn("GeneratePodcast thumbnail missing on rsync; resetting thumbnail_generated", "content_id", contentID, "host", host)
+					_ = resetThumbnailStatus(ctx, jctx, content.ID, meta)
+					return nil
+				}
+				return err
+			}
+			if imageSHA != "" {
+				haveSHA, err := utils.SHA256File(imagePath)
+				if err != nil {
+					return err
+				}
+				if haveSHA != imageSHA {
+					return fmt.Errorf("thumbnail checksum mismatch after rsync: %s", imagePath)
+				}
+			}
 		}
 	}
 
@@ -255,9 +317,15 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 		return err
 	}
 
+	podcastSHA, err := utils.SHA256File(podcastTarget)
+	if err != nil {
+		return err
+	}
+
 	meta["podcast"] = map[string]any{
 		"filename": podcastFilename,
 		"hostname": jctx.Config.Hostname,
+		"sha256":   podcastSHA,
 	}
 	utils.SetStatus(meta, j.QueueOutput, true)
 

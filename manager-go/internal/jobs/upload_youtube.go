@@ -128,18 +128,50 @@ func (j UploadYouTubeJob) processContent(ctx context.Context, jctx JobContext, c
 
 	filename := filepath.Join(jctx.Config.BaseOutputFolder, "podcast", podcastFilename)
 	if host, _ := podcast["hostname"].(string); host != "" && host != jctx.Config.Hostname {
+		wantSHA, _ := podcast["sha256"].(string)
+		needRsync := true
+		if utils.FileExists(filename) {
+			if wantSHA == "" {
+				needRsync = false
+				utils.Debug("UploadYoutube podcast present locally; skipping rsync", "content_id", contentID, "path", filename)
+			} else {
+				haveSHA, err := utils.SHA256File(filename)
+				if err != nil {
+					return err
+				}
+				if haveSHA == wantSHA {
+					needRsync = false
+					utils.Debug("UploadYoutube podcast checksum match; skipping rsync", "content_id", contentID, "path", filename)
+				} else {
+					utils.Debug("UploadYoutube podcast checksum mismatch; will rsync", "content_id", contentID, "path", filename)
+				}
+			}
+		}
+
 		// The podcast video may have been rendered on a different host (e.g. brain).
 		// Fetch it locally before uploading.
-		if err := utils.EnsureDir(filepath.Dir(filename)); err != nil {
-			return err
-		}
-		cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(filename), utils.ShellEscape(filename))
-		if output, err := utils.RunCommand(cmd); err != nil {
-			// If it's actually missing, surface a clean error message so we can re-render.
-			if isMissingFileOutput(output) || !utils.FileExists(filename) {
-				return fmt.Errorf("podcast video missing (expected %s from host %s)", filename, host)
+		if needRsync {
+			if err := utils.EnsureDir(filepath.Dir(filename)); err != nil {
+				return err
 			}
-			return err
+			cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(filename), utils.ShellEscape(filename))
+			output, err := utils.RunCommand(cmd)
+			if err != nil {
+				// If it's actually missing, surface a clean error message so we can re-render.
+				if isMissingFileOutput(output) || !utils.FileExists(filename) {
+					return fmt.Errorf("podcast video missing (expected %s from host %s)", filename, host)
+				}
+				return err
+			}
+			if wantSHA != "" {
+				haveSHA, err := utils.SHA256File(filename)
+				if err != nil {
+					return err
+				}
+				if haveSHA != wantSHA {
+					return fmt.Errorf("podcast checksum mismatch after rsync: %s", filename)
+				}
+			}
 		}
 	}
 	if !utils.FileExists(filename) {

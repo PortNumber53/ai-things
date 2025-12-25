@@ -112,10 +112,44 @@ func (j GenerateSrtJob) processContent(ctx context.Context, jctx JobContext, con
 	wavPath := filepath.Join(jctx.Config.BaseOutputFolder, "waves", wavFilename)
 
 	if host, _ := wavMeta["hostname"].(string); host != "" && host != jctx.Config.Hostname {
-		cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(wavPath), utils.ShellEscape(wavPath))
-		if _, err := utils.RunCommand(cmd); err != nil {
-			return err
+		wantSHA, _ := wavMeta["sha256"].(string)
+		needRsync := true
+		if utils.FileExists(wavPath) {
+			if wantSHA == "" {
+				needRsync = false
+				utils.Debug("GenerateSrt wav present locally; skipping rsync", "content_id", contentID, "path", wavPath)
+			} else {
+				haveSHA, err := utils.SHA256File(wavPath)
+				if err != nil {
+					return err
+				}
+				if haveSHA == wantSHA {
+					needRsync = false
+					utils.Debug("GenerateSrt wav checksum match; skipping rsync", "content_id", contentID, "path", wavPath)
+				} else {
+					utils.Debug("GenerateSrt wav checksum mismatch; will rsync", "content_id", contentID, "path", wavPath)
+				}
+			}
 		}
+		if needRsync {
+			cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(wavPath), utils.ShellEscape(wavPath))
+			if _, err := utils.RunCommand(cmd); err != nil {
+				return err
+			}
+			if wantSHA != "" {
+				haveSHA, err := utils.SHA256File(wavPath)
+				if err != nil {
+					return err
+				}
+				if haveSHA != wantSHA {
+					return fmt.Errorf("wav checksum mismatch after rsync: %s", wavPath)
+				}
+			}
+		}
+	}
+
+	if !utils.FileExists(wavPath) {
+		return fmt.Errorf("wav file missing (expected %s)", wavPath)
 	}
 
 	cmd := fmt.Sprintf("%s %s %d", jctx.Config.SubtitleScript, utils.ShellEscape(wavPath), content.ID)

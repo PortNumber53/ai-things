@@ -154,10 +154,16 @@ func (j GenerateWavJob) processContent(ctx context.Context, jctx JobContext, con
 		return fmt.Errorf("output file is stale: %s", outputFile)
 	}
 
+	sha256sum, err := utils.SHA256File(outputFile)
+	if err != nil {
+		return err
+	}
+
 	meta["wav"] = map[string]any{
 		"filename":    filename,
 		"sentence_id": 0,
 		"hostname":    jctx.Config.Hostname,
+		"sha256":      sha256sum,
 	}
 	utils.SetStatus(meta, j.QueueOutput, true)
 

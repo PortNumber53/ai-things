@@ -116,21 +116,52 @@ func (j GenerateMp3Job) processContent(ctx context.Context, jctx JobContext, con
 	wavPath := filepath.Join(jctx.Config.BaseOutputFolder, "waves", wavFilename)
 
 	if host, _ := wavMeta["hostname"].(string); host != "" && host != jctx.Config.Hostname {
-		cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(wavPath), utils.ShellEscape(wavPath))
-		if output, err := utils.RunCommand(cmd); err != nil {
-			if !utils.FileExists(wavPath) {
-				utils.Warn("GenerateMp3 wav missing on rsync; resetting wav_generated", "content_id", contentID, "host", host)
-				_ = resetWavStatus(ctx, jctx, content.ID, meta)
-				return nil
+		wantSHA, _ := wavMeta["sha256"].(string)
+		needRsync := true
+		if utils.FileExists(wavPath) {
+			if wantSHA == "" {
+				needRsync = false
+				utils.Debug("GenerateMp3 wav present locally; skipping rsync", "content_id", contentID, "path", wavPath)
+			} else {
+				haveSHA, err := utils.SHA256File(wavPath)
+				if err != nil {
+					return err
+				}
+				if haveSHA == wantSHA {
+					needRsync = false
+					utils.Debug("GenerateMp3 wav checksum match; skipping rsync", "content_id", contentID, "path", wavPath)
+				} else {
+					utils.Debug("GenerateMp3 wav checksum mismatch; will rsync", "content_id", contentID, "path", wavPath)
+				}
 			}
-			utils.Warn(
-				"GenerateMp3 rsync failed but wav exists",
-				"content_id", contentID,
-				"host", host,
-				"output", strings.TrimSpace(output),
-				"err", err,
-			)
-			return err
+		}
+		if needRsync {
+			cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(wavPath), utils.ShellEscape(wavPath))
+			output, err := utils.RunCommand(cmd)
+			if err != nil {
+				if !utils.FileExists(wavPath) {
+					utils.Warn("GenerateMp3 wav missing on rsync; resetting wav_generated", "content_id", contentID, "host", host)
+					_ = resetWavStatus(ctx, jctx, content.ID, meta)
+					return nil
+				}
+				utils.Warn(
+					"GenerateMp3 rsync failed but wav exists",
+					"content_id", contentID,
+					"host", host,
+					"output", strings.TrimSpace(output),
+					"err", err,
+				)
+				return err
+			}
+			if wantSHA != "" {
+				haveSHA, err := utils.SHA256File(wavPath)
+				if err != nil {
+					return err
+				}
+				if haveSHA != wantSHA {
+					return fmt.Errorf("wav checksum mismatch after rsync: %s", wavPath)
+				}
+			}
 		}
 	}
 
@@ -159,6 +190,11 @@ func (j GenerateMp3Job) processContent(ctx context.Context, jctx JobContext, con
 		return fmt.Errorf("mp3 file is stale: %s", outputPath)
 	}
 
+	mp3SHA, err := utils.SHA256File(outputPath)
+	if err != nil {
+		return err
+	}
+
 	duration, err := probeDuration(outputPath)
 	if err != nil {
 		return err
@@ -171,6 +207,7 @@ func (j GenerateMp3Job) processContent(ctx context.Context, jctx JobContext, con
 			"sentence_id": int(sentenceID),
 			"duration":    duration,
 			"hostname":    jctx.Config.Hostname,
+			"sha256":      mp3SHA,
 		},
 	}
 	meta["mp3s"] = converted

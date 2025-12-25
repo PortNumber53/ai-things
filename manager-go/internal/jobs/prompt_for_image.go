@@ -164,9 +164,15 @@ func (j PromptForImageJob) processContent(ctx context.Context, jctx JobContext, 
 		time.Sleep(2 * time.Second)
 	}
 
+	sha256sum, err := utils.SHA256File(fullPath)
+	if err != nil {
+		return err
+	}
+
 	meta["thumbnail"] = map[string]any{
 		"filename": filename,
 		"hostname": jctx.Config.Hostname,
+		"sha256":   sha256sum,
 	}
 	utils.SetStatus(meta, j.QueueOutput, true)
 

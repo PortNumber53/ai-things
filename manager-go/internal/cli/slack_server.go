@@ -566,6 +566,7 @@ func handleSlackImageUpload(
 	meta["thumbnail"] = map[string]any{
 		"filename": filename,
 		"hostname": jctx.Config.Hostname,
+		"sha256":   utils.SHA256Bytes(imgBytes),
 		"source":   "slack",
 		"original": origName,
 	}
