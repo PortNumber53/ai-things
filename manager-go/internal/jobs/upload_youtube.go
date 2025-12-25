@@ -157,9 +157,11 @@ func (j UploadYouTubeJob) processContent(ctx context.Context, jctx JobContext, c
 			cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(filename), utils.ShellEscape(filename))
 			output, err := utils.RunCommand(cmd)
 			if err != nil {
-				// If it's actually missing, surface a clean error message so we can re-render.
+				// If it's actually missing/unreachable, reset so it can be re-rendered.
 				if isMissingFileOutput(output) || !utils.FileExists(filename) {
-					return fmt.Errorf("podcast video missing (expected %s from host %s)", filename, host)
+					utils.Warn("UploadYouTube podcast missing/unreachable; resetting podcast_ready", "content_id", contentID, "host", host, "path", filename)
+					_ = resetPodcastStatus(ctx, jctx, contentID, meta)
+					return nil
 				}
 				return err
 			}
@@ -169,13 +171,17 @@ func (j UploadYouTubeJob) processContent(ctx context.Context, jctx JobContext, c
 					return err
 				}
 				if haveSHA != wantSHA {
-					return fmt.Errorf("podcast checksum mismatch after rsync: %s", filename)
+					utils.Warn("UploadYouTube podcast checksum mismatch after rsync; resetting podcast_ready", "content_id", contentID, "host", host, "path", filename)
+					_ = resetPodcastStatus(ctx, jctx, contentID, meta)
+					return nil
 				}
 			}
 		}
 	}
 	if !utils.FileExists(filename) {
-		return fmt.Errorf("podcast video missing (expected %s)", filename)
+		utils.Warn("UploadYouTube podcast missing; resetting podcast_ready", "content_id", contentID, "path", filename)
+		_ = resetPodcastStatus(ctx, jctx, contentID, meta)
+		return nil
 	}
 	title := fmt.Sprintf("%07d - %s", content.ID, content.Title)
 	category := "27"
@@ -300,4 +306,10 @@ func extractYouTubeID(input string) string {
 	}
 
 	return ""
+}
+
+func resetPodcastStatus(ctx context.Context, jctx JobContext, contentID int64, meta map[string]any) error {
+	delete(meta, "podcast")
+	utils.SetStatus(meta, "podcast_ready", false)
+	return jctx.Store.UpdateContentMetaStatus(ctx, contentID, "thumbnail_generated", meta)
 }
