@@ -19,13 +19,125 @@ import (
 )
 
 const (
-	oauthAuthorizeURL  = "https://slack.com/oauth/v2/authorize"
-	oauthAccessURL     = "https://slack.com/api/oauth.v2.access"
-	chatPostMessageURL = "https://slack.com/api/chat.postMessage"
+	oauthAuthorizeURL      = "https://slack.com/oauth/v2/authorize"
+	oauthAccessURL         = "https://slack.com/api/oauth.v2.access"
+	chatPostMessageURL     = "https://slack.com/api/chat.postMessage"
+	conversationsCreateURL = "https://slack.com/api/conversations.create"
+	conversationsJoinURL   = "https://slack.com/api/conversations.join"
 
 	signatureVersion = "v0"
 	maxClockSkew     = 5 * time.Minute
 )
+
+func CreateChannel(ctx context.Context, client *http.Client, botToken, name string, isPrivate bool) (string, error) {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	if strings.TrimSpace(botToken) == "" {
+		return "", errors.New("bot token missing")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", errors.New("channel name missing")
+	}
+
+	payload := map[string]any{
+		"name":       name,
+		"is_private": isPrivate,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, conversationsCreateURL, bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+botToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("slack conversations.create status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var decoded struct {
+		OK      bool   `json:"ok"`
+		Error   string `json:"error"`
+		Channel struct {
+			ID string `json:"id"`
+		} `json:"channel"`
+	}
+	if err := json.Unmarshal(respBody, &decoded); err != nil {
+		return "", err
+	}
+	if !decoded.OK {
+		if decoded.Error == "" {
+			decoded.Error = "conversations.create failed"
+		}
+		return "", errors.New(decoded.Error)
+	}
+	if decoded.Channel.ID == "" {
+		return "", errors.New("conversations.create missing channel.id")
+	}
+	return decoded.Channel.ID, nil
+}
+
+func JoinChannel(ctx context.Context, client *http.Client, botToken, channelID string) error {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	if strings.TrimSpace(botToken) == "" {
+		return errors.New("bot token missing")
+	}
+	if strings.TrimSpace(channelID) == "" {
+		return errors.New("channel id missing")
+	}
+
+	payload := map[string]any{
+		"channel": channelID,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, conversationsJoinURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+botToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("slack conversations.join status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+	var decoded struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(respBody, &decoded); err == nil {
+		if !decoded.OK {
+			if decoded.Error == "" {
+				decoded.Error = "conversations.join failed"
+			}
+			return errors.New(decoded.Error)
+		}
+	}
+	return nil
+}
 
 func DownloadFile(ctx context.Context, client *http.Client, botToken, url string) ([]byte, error) {
 	if client == nil {

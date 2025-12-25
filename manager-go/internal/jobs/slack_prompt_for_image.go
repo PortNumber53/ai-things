@@ -103,9 +103,6 @@ func (j SlackPromptForImageJob) processContent(ctx context.Context, jctx JobCont
 	utils.Info("SlackPromptForImage process", "content_id", contentID, "regenerate", regenerate)
 
 	cfg := jctx.Config
-	if cfg.SlackImageChannel == "" {
-		return errors.New("missing slack.image_channel (set slack.image_channel in config.ini or SLACK_IMAGE_CHANNEL)")
-	}
 	teamID := strings.TrimSpace(cfg.SlackTeamID)
 	if teamID == "" {
 		// Prefer the team_id from the most recent Slack installation stored in the DB.
@@ -116,6 +113,18 @@ func (j SlackPromptForImageJob) processContent(ctx context.Context, jctx JobCont
 		teamID = detectedTeamID
 		if teamID == "" {
 			return errors.New("missing slack.team_id and no slack installation found in DB (run Slack:Serve and install the app, or set slack.team_id)")
+		}
+	}
+	channelID := strings.TrimSpace(cfg.SlackImageChannel)
+	if channelID == "" {
+		// Prefer DB-stored image channel created by Slack:CreateImageChannel.
+		dbChannel, chErr := jctx.Store.GetSlackImageChannel(ctx, teamID)
+		if chErr != nil {
+			return chErr
+		}
+		channelID = dbChannel
+		if channelID == "" {
+			return errors.New("missing slack.image_channel and no stored image channel found in DB (run Slack:CreateImageChannel --name=ai-images or set slack.image_channel)")
 		}
 	}
 
@@ -153,18 +162,18 @@ func (j SlackPromptForImageJob) processContent(ctx context.Context, jctx JobCont
 	client := &http.Client{Timeout: 20 * time.Second}
 
 	// Post the main message, and capture its ts so we can reply in-thread.
-	threadTS, err := slack.PostMessageWithTS(ctx, client, token, cfg.SlackImageChannel, label, "")
+	threadTS, err := slack.PostMessageWithTS(ctx, client, token, channelID, label, "")
 	if err != nil {
 		return err
 	}
 
-	if err := slack.PostMessage(ctx, client, token, cfg.SlackImageChannel, prompt, threadTS); err != nil {
+	if err := slack.PostMessage(ctx, client, token, channelID, prompt, threadTS); err != nil {
 		return err
 	}
 
 	meta["slack_image_request"] = map[string]any{
 		"team_id":    teamID,
-		"channel_id": cfg.SlackImageChannel,
+		"channel_id": channelID,
 		"thread_ts":  threadTS,
 		"prompt":     prompt,
 		"hostname":   cfg.Hostname,

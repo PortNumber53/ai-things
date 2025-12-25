@@ -598,6 +598,39 @@ func (s *Store) GetDefaultSlackTeamID(ctx context.Context) (string, error) {
 	return teamID, nil
 }
 
+func (s *Store) UpsertSlackImageChannel(ctx context.Context, teamID, channelID string) error {
+	if strings.TrimSpace(teamID) == "" || strings.TrimSpace(channelID) == "" {
+		return errors.New("missing teamID/channelID")
+	}
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO slack_team_settings (team_id, image_channel_id, created_at, updated_at)
+		VALUES ($1, $2, NOW(), NOW())
+		ON CONFLICT (team_id) DO UPDATE SET
+			image_channel_id = EXCLUDED.image_channel_id,
+			updated_at = NOW()
+	`, teamID, channelID)
+	return err
+}
+
+func (s *Store) GetSlackImageChannel(ctx context.Context, teamID string) (string, error) {
+	if strings.TrimSpace(teamID) == "" {
+		return "", errors.New("missing teamID")
+	}
+	var channelID string
+	err := s.pool.QueryRow(ctx, `
+		SELECT image_channel_id
+		FROM slack_team_settings
+		WHERE team_id = $1
+	`, teamID).Scan(&channelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return strings.TrimSpace(channelID), nil
+}
+
 func (s *Store) UpsertSlackThreadSession(ctx context.Context, teamID, channelID, threadTS, activatedByUserID string, ttl time.Duration) error {
 	if teamID == "" || channelID == "" || threadTS == "" {
 		return errors.New("missing teamID/channelID/threadTS")
