@@ -147,7 +147,15 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 			return
 		}
 
-		utils.Debug("slack events", "envelope_type", envelope.Type, "team_id", envelope.TeamID, "event_type", envelope.Event.Type)
+		utils.Debug(
+			"slack events",
+			"envelope_type", envelope.Type,
+			"team_id", envelope.TeamID,
+			"event_type", envelope.Event.Type,
+			"subtype", envelope.Event.Subtype,
+			"thread_ts", envelope.Event.ThreadTS,
+			"files", len(envelope.Event.Files),
+		)
 
 		// Optional legacy token check.
 		if cfg.SlackVerificationToken != "" && envelope.Token != "" && envelope.Token != cfg.SlackVerificationToken {
@@ -209,10 +217,6 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 				if envelope.Event.ThreadTS == "" {
 					return
 				}
-				// Ignore message subtypes (edits, joins, bot_message, etc.).
-				if envelope.Event.Subtype != "" {
-					return
-				}
 				// Ignore bot messages (including our own) to avoid loops.
 				if envelope.Event.BotID != "" {
 					return
@@ -233,6 +237,12 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 						); handled {
 							return
 						}
+					}
+
+					// Ignore message subtypes (edits, joins, file_share, etc.) for the non-image logic below.
+					// File uploads are handled above.
+					if envelope.Event.Subtype != "" {
+						return
 					}
 
 					active, err := jctx.Store.IsSlackThreadSessionActive(context.Background(), teamID, channel, threadTS)
@@ -505,6 +515,7 @@ func handleSlackImageUpload(
 
 	ext, origName, urlPrivate, ok := pick()
 	if !ok {
+		utils.Debug("slack image: files present but none supported", "team_id", teamID, "channel", channelID, "thread_ts", threadTS, "files", len(files))
 		return false
 	}
 
@@ -515,6 +526,7 @@ func handleSlackImageUpload(
 	}
 	if content.ID == 0 {
 		// Not for us; let other handlers handle this thread.
+		utils.Debug("slack image: no linked content for thread", "team_id", teamID, "channel", channelID, "thread_ts", threadTS)
 		return false
 	}
 
