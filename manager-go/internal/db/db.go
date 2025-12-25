@@ -86,6 +86,15 @@ type SlackThreadSession struct {
 	ExpiresAt         time.Time
 }
 
+type SlackImageThread struct {
+	ContentID   int64
+	TeamID      string
+	ChannelID   string
+	ThreadTS    string
+	PromptTS    string
+	CompletedAt time.Time
+}
+
 func NewStore(ctx context.Context, connString string) (*Store, error) {
 	pool, err := pgxpool.New(ctx, connString)
 	if err != nil {
@@ -679,6 +688,44 @@ func (s *Store) IsSlackThreadSessionActive(ctx context.Context, teamID, channelI
 		return false, err
 	}
 	return active, nil
+}
+
+func (s *Store) ListCompletedSlackImageThreadsToPrune(ctx context.Context, olderThan time.Time, limit int) ([]SlackImageThread, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if olderThan.IsZero() {
+		olderThan = time.Now().Add(-7 * 24 * time.Hour)
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT
+			id,
+			meta->'slack_image_request'->>'team_id' as team_id,
+			meta->'slack_image_request'->>'channel_id' as channel_id,
+			meta->'slack_image_request'->>'thread_ts' as thread_ts,
+			COALESCE(meta->'slack_image_request'->>'prompt_ts','') as prompt_ts,
+			(meta->'slack_image_request'->>'completed_at')::timestamptz as completed_at
+		FROM contents
+		WHERE meta->'slack_image_request'->>'completed' = 'true'
+		  AND COALESCE(meta->'slack_image_request'->>'pruned','false') <> 'true'
+		  AND (meta->'slack_image_request'->>'completed_at')::timestamptz < $1
+		ORDER BY (meta->'slack_image_request'->>'completed_at')::timestamptz ASC
+		LIMIT $2
+	`, olderThan, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []SlackImageThread{}
+	for rows.Next() {
+		var t SlackImageThread
+		if err := rows.Scan(&t.ContentID, &t.TeamID, &t.ChannelID, &t.ThreadTS, &t.PromptTS, &t.CompletedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
 }
 
 func StatusTrueCondition(flags []string) string {

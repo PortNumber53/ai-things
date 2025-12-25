@@ -25,10 +25,72 @@ const (
 	conversationsCreateURL = "https://slack.com/api/conversations.create"
 	conversationsJoinURL   = "https://slack.com/api/conversations.join"
 	conversationsListURL   = "https://slack.com/api/conversations.list"
+	chatDeleteURL          = "https://slack.com/api/chat.delete"
 
 	signatureVersion = "v0"
 	maxClockSkew     = 5 * time.Minute
 )
+
+func DeleteMessage(ctx context.Context, client *http.Client, botToken, channelID, ts string) error {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	if strings.TrimSpace(botToken) == "" {
+		return errors.New("bot token missing")
+	}
+	if strings.TrimSpace(channelID) == "" {
+		return errors.New("channel id missing")
+	}
+	if strings.TrimSpace(ts) == "" {
+		return errors.New("ts missing")
+	}
+
+	payload := map[string]any{
+		"channel": channelID,
+		"ts":      ts,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, chatDeleteURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+botToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("slack chat.delete status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var decoded struct {
+		OK       bool   `json:"ok"`
+		Error    string `json:"error"`
+		Needed   string `json:"needed"`
+		Provided string `json:"provided"`
+	}
+	if err := json.Unmarshal(respBody, &decoded); err != nil {
+		return err
+	}
+	if !decoded.OK {
+		if decoded.Error == "" {
+			decoded.Error = "chat.delete failed"
+		}
+		if strings.TrimSpace(decoded.Needed) != "" || strings.TrimSpace(decoded.Provided) != "" {
+			return fmt.Errorf("%s (needed=%s provided=%s)", decoded.Error, strings.TrimSpace(decoded.Needed), strings.TrimSpace(decoded.Provided))
+		}
+		return errors.New(decoded.Error)
+	}
+	return nil
+}
 
 func FindChannelByName(ctx context.Context, client *http.Client, botToken, name string) (string, error) {
 	if client == nil {

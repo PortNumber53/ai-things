@@ -151,6 +151,8 @@ func Run(args []string) int {
 		runErr = runSlackServe(ctx, jctx, cmdArgs)
 	case "Slack:CreateImageChannel":
 		runErr = runSlackCreateImageChannel(ctx, jctx, cmdArgs)
+	case "Slack:PruneImageThreads":
+		runErr = runSlackPruneImageThreads(ctx, jctx, cmdArgs)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", cmd)
 		printUsage()
@@ -547,4 +549,5 @@ func printUsage() {
 	fmt.Println("  tts:SplitJobs <content_id> [sentence_id] [--verbose]")
 	fmt.Println("  Slack:Serve [--listen=:8085] [--public-url=https://example.com] [--verbose]")
 	fmt.Println("  Slack:CreateImageChannel --name=ai-images [--private] [--verbose]")
+	fmt.Println("  Slack:PruneImageThreads [--days=7] [--limit=200] [--dry-run] [--verbose]")
 }

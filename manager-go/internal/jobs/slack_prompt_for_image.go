@@ -173,7 +173,8 @@ func (j SlackPromptForImageJob) processContent(ctx context.Context, jctx JobCont
 		return err
 	}
 
-	if err := slack.PostMessage(ctx, client, token, channelID, prompt, threadTS); err != nil {
+	promptTS, err := slack.PostMessageWithTS(ctx, client, token, channelID, prompt, threadTS)
+	if err != nil {
 		return err
 	}
 	utils.Info("SlackPromptForImage posted", "team_id", teamID, "channel_id", channelID, "thread_ts", threadTS, "content_id", content.ID)
@@ -182,6 +183,7 @@ func (j SlackPromptForImageJob) processContent(ctx context.Context, jctx JobCont
 		"team_id":    teamID,
 		"channel_id": channelID,
 		"thread_ts":  threadTS,
+		"prompt_ts":  promptTS,
 		"prompt":     prompt,
 		"hostname":   cfg.Hostname,
 	}
