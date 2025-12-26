@@ -361,6 +361,51 @@ func runCheckPodcastIsGenerated(ctx context.Context, jctx jobs.JobContext, args 
 	})
 }
 
+func runCheckYoutubeIsUploadable(ctx context.Context, jctx jobs.JobContext, args []string) error {
+	where := "WHERE type = 'gemini.payload'"
+	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready"})
+	notTrue := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	missing := db.MetaKeyMissingCondition([]string{"video_id.v1"})
+	if trueFlags != "" {
+		where += " AND " + trueFlags
+	}
+	if notTrue != "" {
+		where += " AND " + notTrue
+	}
+	if missing != "" {
+		where += " AND " + missing
+	}
+
+	// Validate the same artifact UploadPodcastToYoutube needs: local podcast mp4 is present (and matches sha256 if recorded).
+	return checkGeneratedFilesWhere(ctx, jctx, args, "YoutubeIsUploadable", where, func(content db.Content, meta map[string]any) (bool, string, error) {
+		podcast, ok := meta["podcast"].(map[string]any)
+		if !ok {
+			return true, "podcast meta missing", nil
+		}
+		filename, _ := podcast["filename"].(string)
+		if filename == "" {
+			return true, "podcast filename missing", nil
+		}
+		podcastPath := filepath.Join(jctx.Config.BaseOutputFolder, "podcast", filename)
+		if !utils.FileExists(podcastPath) {
+			return true, "podcast file missing", nil
+		}
+		if wantSHA, _ := podcast["sha256"].(string); wantSHA != "" {
+			haveSHA, err := utils.SHA256File(podcastPath)
+			if err != nil {
+				return false, "", err
+			}
+			if haveSHA != wantSHA {
+				return true, "podcast checksum mismatch", nil
+			}
+		}
+		return false, "podcast ok", nil
+	}, func(meta map[string]any) {
+		delete(meta, "podcast")
+		utils.SetStatus(meta, "podcast_ready", false)
+	})
+}
+
 func runCheckSrtIsGenerated(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	return checkGeneratedFiles(ctx, jctx, args, "srt_generated", func(content db.Content, meta map[string]any) (bool, string, error) {
 		srtPath := filepath.Join(jctx.Config.SubtitleFolder, fmt.Sprintf("transcription_%d.srt", content.ID))
@@ -411,13 +456,6 @@ type checkResetter func(meta map[string]any)
 type checkPredicate func(content db.Content, meta map[string]any) (bool, string, error)
 
 func checkGeneratedFiles(ctx context.Context, jctx jobs.JobContext, args []string, statusKey string, predicate checkPredicate, reset checkResetter) error {
-	fs := flag.NewFlagSet("Check:"+statusKey, flag.ContinueOnError)
-	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	utils.ConfigureLogging(*verbose)
-
 	where := ""
 	if statusKey != "" {
 		cond := db.StatusTrueCondition([]string{statusKey})
@@ -425,6 +463,16 @@ func checkGeneratedFiles(ctx context.Context, jctx jobs.JobContext, args []strin
 			where = "WHERE " + cond
 		}
 	}
+	return checkGeneratedFilesWhere(ctx, jctx, args, statusKey, where, predicate, reset)
+}
+
+func checkGeneratedFilesWhere(ctx context.Context, jctx jobs.JobContext, args []string, checkName string, where string, predicate checkPredicate, reset checkResetter) error {
+	fs := flag.NewFlagSet("Check:"+checkName, flag.ContinueOnError)
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	utils.ConfigureLogging(*verbose)
 
 	checked := 0
 	valid := 0
@@ -451,7 +499,7 @@ func checkGeneratedFiles(ctx context.Context, jctx jobs.JobContext, args []strin
 			checked++
 			if needsReset {
 				flagged++
-				utils.Warn("check row", "check", statusKey, "content_id", content.ID, "decision", "flagged", "reason", reason)
+				utils.Warn("check row", "check", checkName, "content_id", content.ID, "decision", "flagged", "reason", reason)
 				reset(meta)
 				if err := jctx.Store.UpdateContentMeta(ctx, content.ID, meta); err != nil {
 					return err
@@ -460,14 +508,14 @@ func checkGeneratedFiles(ctx context.Context, jctx jobs.JobContext, args []strin
 			} else {
 				valid++
 				if utils.Verbose {
-					utils.Debug("check row", "check", statusKey, "content_id", content.ID, "decision", "valid", "reason", reason)
+					utils.Debug("check row", "check", checkName, "content_id", content.ID, "decision", "valid", "reason", reason)
 				}
 			}
 			lastID = content.ID
 		}
 	}
 
-	utils.Info("check summary", "check", statusKey, "checked", checked, "valid", valid, "flagged", flagged, "updated", fixed)
+	utils.Info("check summary", "check", checkName, "checked", checked, "valid", valid, "flagged", flagged, "updated", fixed)
 	fmt.Printf("Fixed %d rows\n", fixed)
 	return nil
 }

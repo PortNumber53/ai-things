@@ -44,6 +44,10 @@ func (j UploadYouTubeJob) Run(ctx context.Context, jctx JobContext, opts JobOpti
 			return err
 		}
 		utils.Debug("UploadYouTube waiting", "waiting", count, "max_waiting", j.MaxWaiting)
+		if count == 0 {
+			utils.Info("UploadYouTube nothing to do")
+			return nil
+		}
 		if count >= j.MaxWaiting {
 			utils.Warn("UploadYouTube too many waiting; sleeping", "sleep_s", 60, "waiting", count, "max_waiting", j.MaxWaiting)
 			time.Sleep(60 * time.Second)
