@@ -386,6 +386,11 @@ func runCheckYoutubeIsUploadable(ctx context.Context, jctx jobs.JobContext, args
 		if filename == "" {
 			return true, "podcast filename missing", nil
 		}
+		// If the podcast was rendered on another host, treat it as uploadable even if it's not
+		// present locally yet (the upload job will rsync it).
+		if host, _ := podcast["hostname"].(string); host != "" && host != jctx.Config.Hostname {
+			return false, "podcast on remote host (will rsync on upload)", nil
+		}
 		podcastPath := filepath.Join(jctx.Config.BaseOutputFolder, "podcast", filename)
 		if !utils.FileExists(podcastPath) {
 			return true, "podcast file missing", nil
@@ -528,6 +533,17 @@ func logYoutubeUploadEligibility(jctx jobs.JobContext, content db.Content, meta 
 		utils.Warn("youtube upload eligibility", "content_id", content.ID, "decision", "flagged", "reason", "podcast filename missing")
 		return
 	}
+	if host, _ := podcast["hostname"].(string); host != "" && host != jctx.Config.Hostname {
+		utils.Info(
+			"youtube upload eligibility",
+			"content_id", content.ID,
+			"decision", "pending",
+			"reason", "podcast on remote host (will rsync on upload)",
+			"host", host,
+			"filename", filename,
+		)
+		return
+	}
 	podcastPath := filepath.Join(jctx.Config.BaseOutputFolder, "podcast", filename)
 	if !utils.FileExists(podcastPath) {
 		utils.Warn("youtube upload eligibility", "content_id", content.ID, "decision", "flagged", "reason", "podcast file missing", "path", podcastPath)
@@ -540,7 +556,7 @@ func logYoutubeUploadEligibility(jctx jobs.JobContext, content db.Content, meta 
 			return
 		}
 		if haveSHA != wantSHA {
-			utils.Warn("youtube upload eligibility", "content_id", content.ID, "decision", "flagged", "reason", "podcast checksum mismatch", "path", podcastPath)
+			utils.Warn("youtube upload eligibility", "content_id", content.ID, "decision", "flagged", "reason", "podcast checksum mismatch", "path", podcastPath, "want_sha256", wantSHA, "have_sha256", haveSHA)
 			return
 		}
 	}
