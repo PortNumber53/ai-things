@@ -99,7 +99,8 @@ func Load() (Config, error) {
 
 	cfg.SubtitleScript = ini.get("paths", "subtitle_script")
 	if cfg.SubtitleScript == "" && cfg.BaseAppFolder != "" {
-		cfg.SubtitleScript = fmt.Sprintf("python %s", filepath.Join(cfg.BaseAppFolder, "podcast", "whisper.py"))
+		py := pythonForProjectVenv(cfg.BaseAppFolder, "podcast")
+		cfg.SubtitleScript = fmt.Sprintf("%s %s", py, filepath.Join(cfg.BaseAppFolder, "podcast", "whisper.py"))
 	}
 
 	cfg.YoutubeUpload = ini.get("paths", "youtube_upload_script")
@@ -336,6 +337,12 @@ func pythonForProjectVenv(baseAppFolder, project string) string {
 		filepath.Join(baseDeploy, "venvs", project, "bin", "python"),
 		// Dev layout: <repo>/venvs/<project>/bin/python
 		filepath.Join(baseAppFolder, "venvs", project, "bin", "python"),
+		// Dev layout: <repo>/.venvs/<project>/bin/python
+		filepath.Join(baseAppFolder, ".venvs", project, "bin", "python"),
+		// Project-local venv layout: <repo>/<project>/.venvs/bin/python (used by podcast)
+		filepath.Join(baseAppFolder, project, ".venvs", "bin", "python"),
+		// Common alt name: .venv
+		filepath.Join(baseAppFolder, project, ".venv", "bin", "python"),
 	}
 	for _, candidate := range candidates {
 		if _, err := os.Stat(candidate); err == nil {
