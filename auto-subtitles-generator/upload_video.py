@@ -6,6 +6,7 @@ import os
 import random
 import time
 import pickle
+import sys
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -80,6 +81,49 @@ https://developers.google.com/api-client-library/python/guide/aaa_client_secrets
 
 VALID_PRIVACY_STATUSES = ("public", "private", "unlisted")
 
+# YouTube limits:
+# - Title: 100 characters
+# - Description: 5000 characters
+MAX_TITLE_CHARS = 100
+MAX_DESCRIPTION_CHARS = 4500  # keep some headroom
+
+
+def sanitize_text(value: str) -> str:
+    if value is None:
+        return ""
+    # Normalize newlines and remove NUL/control chars that sometimes cause API validation issues.
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
+    cleaned = []
+    for ch in value:
+        code = ord(ch)
+        if ch in ("\n", "\t"):
+            cleaned.append(ch)
+            continue
+        if code < 32 or code == 127:
+            continue
+        cleaned.append(ch)
+    return "".join(cleaned).strip()
+
+
+def truncate(value: str, max_chars: int) -> str:
+    if value is None:
+        return ""
+    if max_chars <= 0:
+        return ""
+    if len(value) <= max_chars:
+        return value
+    if max_chars <= 3:
+        return value[:max_chars]
+    return value[: max_chars - 3] + "..."
+
+
+def sanitize_title(title: str) -> str:
+    return truncate(sanitize_text(title), MAX_TITLE_CHARS)
+
+
+def sanitize_description(desc: str) -> str:
+    return truncate(sanitize_text(desc), MAX_DESCRIPTION_CHARS)
+
 
 def get_authenticated_service():
     creds = None
@@ -116,6 +160,10 @@ def initialize_upload(youtube, options):
     tags = None
     if options.keywords:
         tags = options.keywords.split(",")
+
+    # Sanitize metadata to avoid YouTube validation errors (invalidDescription, invalidTitle).
+    options.title = sanitize_title(options.title)
+    options.description = sanitize_description(options.description)
 
     body = dict(
         snippet=dict(
@@ -210,3 +258,4 @@ if __name__ == '__main__':
         initialize_upload(youtube, args)
     except HttpError as e:
         print("An HTTP error %d occurred:\n%s" % (e.resp.status, e.content))
+        sys.exit(1)
