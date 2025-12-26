@@ -23,7 +23,7 @@ type UploadYouTubeJob struct {
 func NewUploadYouTubeJob() UploadYouTubeJob {
 	return UploadYouTubeJob{
 		BaseJob: BaseJob{
-			QueueInput:  "podcast_ready",
+			QueueInput:  "youtube_approved",
 			QueueOutput: "upload.tiktok",
 		},
 		MaxWaiting: 100,
@@ -66,16 +66,20 @@ func (j UploadYouTubeJob) Run(ctx context.Context, jctx JobContext, opts JobOpti
 
 func (j UploadYouTubeJob) countWaiting(ctx context.Context, jctx JobContext) (int, error) {
 	where := "WHERE type = 'gemini.payload'"
-	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready"})
+	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready", "youtube_approved"})
 	// Treat "not uploaded yet" as "not true" (NULL or anything other than 'true'),
 	// matching selectNext(). Using StatusFalseCondition would require an explicit 'false' value.
 	notTrue := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	notRejected := db.StatusNotTrueCondition([]string{"youtube_rejected"})
 	missing := db.MetaKeyMissingCondition([]string{"video_id.v1"})
 	if trueFlags != "" {
 		where += " AND " + trueFlags
 	}
 	if notTrue != "" {
 		where += " AND " + notTrue
+	}
+	if notRejected != "" {
+		where += " AND " + notRejected
 	}
 	if missing != "" {
 		where += " AND " + missing
@@ -85,14 +89,18 @@ func (j UploadYouTubeJob) countWaiting(ctx context.Context, jctx JobContext) (in
 
 func (j UploadYouTubeJob) selectNext(ctx context.Context, jctx JobContext) (db.Content, error) {
 	where := "WHERE type = 'gemini.payload'"
-	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready"})
+	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready", "youtube_approved"})
 	notTrue := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	notRejected := db.StatusNotTrueCondition([]string{"youtube_rejected"})
 	missing := db.MetaKeyMissingCondition([]string{"video_id.v1"})
 	if trueFlags != "" {
 		where += " AND " + trueFlags
 	}
 	if notTrue != "" {
 		where += " AND " + notTrue
+	}
+	if notRejected != "" {
+		where += " AND " + notRejected
 	}
 	if missing != "" {
 		where += " AND " + missing
@@ -116,6 +124,14 @@ func (j UploadYouTubeJob) processContent(ctx context.Context, jctx JobContext, c
 	meta, err := utils.DecodeMeta(content.Meta)
 	if err != nil {
 		return err
+	}
+
+	// Gate uploads behind explicit human approval.
+	if approved, ok := utils.GetStatus(meta, "youtube_approved"); !ok || !approved {
+		if rejected, _ := utils.GetStatus(meta, "youtube_rejected"); rejected {
+			return errors.New("youtube upload rejected (youtube_rejected=true)")
+		}
+		return errors.New("youtube upload not approved yet (missing youtube_approved=true)")
 	}
 
 	description, err := utils.ExtractTextFromMeta(meta)

@@ -358,6 +358,60 @@ func (s *Store) FindContentBySlackImageThread(ctx context.Context, teamID, chann
 	return c, nil
 }
 
+// FindContentBySlackYouTubeReviewThread finds a content row linked to a Slack YouTube review thread.
+// The linkage is stored in contents.meta.slack_youtube_review_request.{team_id,channel_id,thread_ts}
+// and may also be present in contents.meta.slack_youtube_review_requests[] (history).
+func (s *Store) FindContentBySlackYouTubeReviewThread(ctx context.Context, teamID, channelID, messageTS string) (Content, error) {
+	if strings.TrimSpace(teamID) == "" || strings.TrimSpace(channelID) == "" || strings.TrimSpace(messageTS) == "" {
+		return Content{}, errors.New("missing teamID/channelID/messageTS")
+	}
+	threadNeedle, _ := json.Marshal([]map[string]string{{
+		"team_id":    teamID,
+		"channel_id": channelID,
+		"thread_ts":  messageTS,
+	}})
+	linkNeedle, _ := json.Marshal([]map[string]string{{
+		"team_id":    teamID,
+		"channel_id": channelID,
+		"link_ts":    messageTS,
+	}})
+	row := s.pool.QueryRow(ctx, `
+		SELECT id, title, status, type, sentences, count, meta, archive, created_at, updated_at
+		FROM contents
+		WHERE (
+			(meta->'slack_youtube_review_request'->>'team_id' = $1
+			 AND meta->'slack_youtube_review_request'->>'channel_id' = $2
+			 AND (meta->'slack_youtube_review_request'->>'thread_ts' = $3 OR meta->'slack_youtube_review_request'->>'link_ts' = $3))
+			OR
+			(COALESCE(meta->'slack_youtube_review_requests', '[]'::jsonb) @> $4::jsonb)
+			OR
+			(COALESCE(meta->'slack_youtube_review_requests', '[]'::jsonb) @> $5::jsonb)
+		)
+		ORDER BY id
+		LIMIT 1
+	`, teamID, channelID, messageTS, string(threadNeedle), string(linkNeedle))
+	var c Content
+	err := row.Scan(
+		&c.ID,
+		&c.Title,
+		&c.Status,
+		&c.Type,
+		&c.Sentences,
+		&c.Count,
+		&c.Meta,
+		&c.Archive,
+		&c.CreatedAt,
+		&c.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Content{}, nil
+		}
+		return Content{}, err
+	}
+	return c, nil
+}
+
 func (s *Store) ListActiveSubscriptions(ctx context.Context) ([]Subscription, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, feed_url, title, description, site_url, last_fetched_at, last_build_date, is_active, created_at, updated_at

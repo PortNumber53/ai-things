@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -74,7 +75,85 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 		Transport: loggingRoundTripper{base: http.DefaultTransport},
 	}
 
+	// Base URL used for watch links (prefer app.public_url, then --public-url, then infer from redirect URL).
+	baseURL := strings.TrimRight(strings.TrimSpace(cfg.PublicURL), "/")
+	if baseURL == "" {
+		baseURL = strings.TrimRight(strings.TrimSpace(*publicURL), "/")
+	}
+	if baseURL == "" && strings.HasSuffix(redirectURL, "/slack/oauth/callback") {
+		baseURL = strings.TrimSuffix(redirectURL, "/slack/oauth/callback")
+	}
+
 	mux := http.NewServeMux()
+	mux.HandleFunc("/watch/podcast/", func(w http.ResponseWriter, r *http.Request) {
+		// Token-protected watch endpoint for reviewing rendered videos.
+		// URL patterns:
+		// - /watch/podcast/{id}?token=...
+		// - /watch/podcast/{id}.mp4?token=...
+		if cfg.SlackSigningSecret == "" {
+			http.Error(w, "server missing slack signing secret", http.StatusInternalServerError)
+			return
+		}
+		token := strings.TrimSpace(r.URL.Query().Get("token"))
+		if token == "" {
+			http.Error(w, "missing token", http.StatusUnauthorized)
+			return
+		}
+
+		suffix := strings.TrimPrefix(r.URL.Path, "/watch/podcast/")
+		if suffix == "" {
+			http.Error(w, "missing id", http.StatusBadRequest)
+			return
+		}
+		isMP4 := strings.HasSuffix(suffix, ".mp4")
+		if isMP4 {
+			suffix = strings.TrimSuffix(suffix, ".mp4")
+		}
+		id, err := strconv.ParseInt(suffix, 10, 64)
+		if err != nil || id <= 0 {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		expected := youtubeWatchToken(cfg.SlackSigningSecret, id)
+		if subtle.ConstantTimeCompare([]byte(expected), []byte(token)) != 1 {
+			http.Error(w, "invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		videoPath := filepath.Join(cfg.BaseOutputFolder, "podcast", fmt.Sprintf("%010d.mp4", id))
+		if !utils.FileExists(videoPath) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+
+		if isMP4 {
+			w.Header().Set("Content-Type", "video/mp4")
+			w.Header().Set("Cache-Control", "no-store")
+			http.ServeFile(w, r, videoPath)
+			return
+		}
+
+		// Simple HTML wrapper so browsers show an inline player.
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		mp4URL := fmt.Sprintf("/watch/podcast/%d.mp4?token=%s", id, token)
+		if strings.TrimSpace(baseURL) != "" {
+			mp4URL = fmt.Sprintf("%s/watch/podcast/%d.mp4?token=%s", baseURL, id, token)
+		}
+		_, _ = w.Write([]byte(fmt.Sprintf(`<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Podcast %010d</title></head>
+  <body style="font-family: sans-serif; padding: 24px;">
+    <h2>Podcast %010d</h2>
+    <video controls style="width: min(960px, 100%%);">
+      <source src="%s" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+    <p><a href="%s">Direct MP4 link</a></p>
+  </body>
+</html>`, id, id, mp4URL, mp4URL)))
+	})
+
 	mux.HandleFunc("/slack/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("ok\n"))
@@ -273,6 +352,28 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 					}
 				}()
 				return
+			case "reaction_added":
+				// Handle approvals/rejections for YouTube review threads.
+				itemTS := envelope.Event.Item.TS
+				itemChannel := envelope.Event.Item.Channel
+				reaction := envelope.Event.Reaction
+				userID := envelope.Event.User
+				if itemTS == "" || itemChannel == "" || reaction == "" {
+					return
+				}
+				go func() {
+					handleSlackYouTubeReviewReaction(
+						context.Background(),
+						jctx,
+						client,
+						teamID,
+						itemChannel,
+						itemTS,
+						reaction,
+						userID,
+					)
+				}()
+				return
 			default:
 				return
 			}
@@ -327,6 +428,13 @@ type slackEventEnvelope struct {
 		Text        string `json:"text"`
 		TS          string `json:"ts"`
 		ThreadTS    string `json:"thread_ts"`
+		// Reaction events
+		Reaction string `json:"reaction"`
+		Item     struct {
+			Type    string `json:"type"`
+			Channel string `json:"channel"`
+			TS      string `json:"ts"`
+		} `json:"item"`
 		Files       []struct {
 			ID         string `json:"id"`
 			Name       string `json:"name"`
@@ -335,6 +443,12 @@ type slackEventEnvelope struct {
 			URLPrivate string `json:"url_private"`
 		} `json:"files"`
 	} `json:"event"`
+}
+
+func youtubeWatchToken(secret string, contentID int64) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(fmt.Sprintf("watch:%d", contentID)))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func slackMakeState(secret string) (string, error) {
@@ -476,6 +590,121 @@ func (t loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 	// Never log request headers/body (may contain secrets). Only method/url/status.
 	utils.Debug("http outbound", "method", req.Method, "url", req.URL.Redacted(), "status", resp.StatusCode, "dur", dur.Truncate(time.Millisecond).String())
 	return resp, nil
+}
+
+func handleSlackYouTubeReviewReaction(
+	ctx context.Context,
+	jctx jobs.JobContext,
+	client *http.Client,
+	teamID string,
+	channelID string,
+	messageTS string,
+	reaction string,
+	userID string,
+) {
+	r := strings.TrimSpace(reaction)
+	var decision string
+	switch r {
+	case "thumbsup", "+1":
+		decision = "approved"
+	case "thumbsdown", "-1":
+		decision = "rejected"
+	default:
+		return
+	}
+
+	content, err := jctx.Store.FindContentBySlackYouTubeReviewThread(ctx, teamID, channelID, messageTS)
+	if err != nil {
+		utils.Warn("slack youtube review lookup failed", "team_id", teamID, "channel", channelID, "ts", messageTS, "err", err)
+		return
+	}
+	if content.ID == 0 {
+		return
+	}
+
+	token, err := jctx.Store.GetSlackBotToken(ctx, teamID)
+	if err != nil || token == "" {
+		utils.Warn("slack no bot token", "team_id", teamID, "err", err)
+		return
+	}
+
+	meta, err := utils.DecodeMeta(content.Meta)
+	if err != nil {
+		utils.Warn("slack youtube review decode meta failed", "content_id", content.ID, "err", err)
+		return
+	}
+
+	// Update request record (best-effort; tolerate missing structure).
+	updateReq := func(m map[string]any) {
+		m["decision"] = decision
+		m["decided_at"] = time.Now().Format(time.RFC3339)
+		m["decided_by_user_id"] = userID
+		m["decided_reaction"] = r
+	}
+	if req, ok := utils.GetMap(meta, "slack_youtube_review_request"); ok {
+		updateReq(req)
+		meta["slack_youtube_review_request"] = req
+	}
+	if history, ok := meta["slack_youtube_review_requests"].([]any); ok && history != nil {
+		for i := range history {
+			m, _ := history[i].(map[string]any)
+			if m == nil {
+				continue
+			}
+			if ts, _ := m["thread_ts"].(string); ts != "" && ts == messageTS {
+				updateReq(m)
+				history[i] = m
+				break
+			}
+			if ts, _ := m["link_ts"].(string); ts != "" && ts == messageTS {
+				updateReq(m)
+				history[i] = m
+				break
+			}
+		}
+		meta["slack_youtube_review_requests"] = history
+	}
+
+	var statusKey string
+	var reply string
+	switch decision {
+	case "approved":
+		statusKey = "youtube_approved"
+		utils.SetStatus(meta, "youtube_approved", true)
+		utils.SetStatus(meta, "youtube_rejected", false)
+		reply = "Approved for YouTube upload. Queued."
+	case "rejected":
+		statusKey = "youtube_rejected"
+		utils.SetStatus(meta, "youtube_approved", false)
+		utils.SetStatus(meta, "youtube_rejected", true)
+		reply = "Rejected for YouTube upload."
+	default:
+		return
+	}
+
+	if err := jctx.Store.UpdateContentMetaStatus(ctx, content.ID, statusKey, meta); err != nil {
+		utils.Warn("slack youtube review update failed", "content_id", content.ID, "err", err)
+		return
+	}
+
+	// Publish to approval queue so UploadYouTube workers can proceed (host-agnostic payload).
+	if decision == "approved" && jctx.Queue != nil {
+		payload, _ := json.Marshal(jobs.QueuePayload{ContentID: content.ID, Hostname: ""})
+		if err := jctx.Queue.Publish("youtube_approved", payload); err != nil {
+			utils.Warn("slack youtube approved publish failed", "content_id", content.ID, "err", err)
+		}
+	}
+
+	// Best-effort confirmation message (in-thread). We try to reply to the root thread if we have it.
+	threadTS := messageTS
+	if req, ok := utils.GetMap(meta, "slack_youtube_review_request"); ok {
+		if ts, _ := req["thread_ts"].(string); ts != "" {
+			threadTS = ts
+		}
+	}
+	if err := slack.PostMessage(ctx, client, token, channelID, reply, threadTS); err != nil {
+		utils.Warn("slack youtube review reply failed", "content_id", content.ID, "channel", channelID, "err", err)
+	}
 }
 
 func handleSlackImageUpload(

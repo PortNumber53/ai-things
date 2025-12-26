@@ -18,6 +18,9 @@ const (
 type Config struct {
 	Hostname                   string
 	AppEnv                     string
+	// PublicURL is a publicly reachable base URL for this host (used for watch links).
+	// Example: https://manager.example.com
+	PublicURL                  string
 	BaseOutputFolder           string
 	BaseAppFolder              string
 	SubtitleFolder             string
@@ -84,6 +87,7 @@ func Load() (Config, error) {
 		}
 	}
 	cfg.AppEnv = ini.getDefault("app", "env", "production")
+	cfg.PublicURL = strings.TrimRight(firstNonEmpty(ini.get("app", "public_url"), os.Getenv("AI_THINGS_PUBLIC_URL")), "/")
 
 	cfg.BaseOutputFolder = ini.get("app", "base_output_folder")
 	cfg.BaseAppFolder = ini.get("app", "base_app_folder")

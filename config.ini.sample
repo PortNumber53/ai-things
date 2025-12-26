@@ -5,6 +5,9 @@
 hostname=
 # Environment name (production, staging, dev).
 env=production
+# Public base URL for this host (used to generate watch links for Slack review).
+# Example: https://manager.example.com
+public_url=
 # Base output folder for generated assets. Required.
 base_output_folder=/var/lib/ai-things/output
 # Base app folder (repo root) used for scripts. Required.

@@ -363,8 +363,9 @@ func runCheckPodcastIsGenerated(ctx context.Context, jctx jobs.JobContext, args 
 
 func runCheckYoutubeIsUploadable(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	where := "WHERE type = 'gemini.payload'"
-	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready"})
+	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready", "youtube_approved"})
 	notTrue := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	notRejected := db.StatusNotTrueCondition([]string{"youtube_rejected"})
 	missing := db.MetaKeyMissingCondition([]string{"video_id.v1"})
 	if trueFlags != "" {
 		where += " AND " + trueFlags
@@ -372,12 +373,21 @@ func runCheckYoutubeIsUploadable(ctx context.Context, jctx jobs.JobContext, args
 	if notTrue != "" {
 		where += " AND " + notTrue
 	}
+	if notRejected != "" {
+		where += " AND " + notRejected
+	}
 	if missing != "" {
 		where += " AND " + missing
 	}
 
 	// Validate the same artifact UploadPodcastToYoutube needs: local podcast mp4 is present (and matches sha256 if recorded).
 	return checkGeneratedFilesWhere(ctx, jctx, args, "YoutubeIsUploadable", where, func(content db.Content, meta map[string]any) (bool, string, error) {
+		if approved, ok := utils.GetStatus(meta, "youtube_approved"); !ok || !approved {
+			if rejected, _ := utils.GetStatus(meta, "youtube_rejected"); rejected {
+				return true, "youtube rejected (youtube_rejected=true)", nil
+			}
+			return true, "awaiting slack approval (youtube_approved!=true)", nil
+		}
 		podcast, ok := meta["podcast"].(map[string]any)
 		if !ok {
 			return true, "podcast meta missing", nil
