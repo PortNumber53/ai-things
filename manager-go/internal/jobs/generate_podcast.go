@@ -64,11 +64,19 @@ func (j GeneratePodcastJob) countWaiting(ctx context.Context, jctx JobContext) (
 	where := "WHERE type = 'gemini.payload'"
 	readyTrue := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated"})
 	notReady := db.StatusNotTrueCondition([]string{"podcast_ready"})
+	notUploaded := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	missingVideoID := db.MetaKeyMissingCondition([]string{"video_id.v1"})
 	if readyTrue != "" {
 		where += " AND " + readyTrue
 	}
 	if notReady != "" {
 		where += " AND " + notReady
+	}
+	if notUploaded != "" {
+		where += " AND " + notUploaded
+	}
+	if missingVideoID != "" {
+		where += " AND " + missingVideoID
 	}
 	return jctx.Store.CountContent(ctx, where)
 }
@@ -77,11 +85,19 @@ func (j GeneratePodcastJob) selectNext(ctx context.Context, jctx JobContext) (db
 	where := "WHERE type = 'gemini.payload'"
 	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated"})
 	falseFlags := db.StatusNotTrueCondition([]string{"podcast_ready"})
+	notUploaded := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	missingVideoID := db.MetaKeyMissingCondition([]string{"video_id.v1"})
 	if trueFlags != "" {
 		where += " AND " + trueFlags
 	}
 	if falseFlags != "" {
 		where += " AND " + falseFlags
+	}
+	if notUploaded != "" {
+		where += " AND " + notUploaded
+	}
+	if missingVideoID != "" {
+		where += " AND " + missingVideoID
 	}
 	content, err := jctx.Store.FindFirstContent(ctx, where)
 	if err != nil {
@@ -102,6 +118,23 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 	meta, err := utils.DecodeMeta(content.Meta)
 	if err != nil {
 		return err
+	}
+
+	// Terminal state: if this content was uploaded to YouTube (or manually overridden with a video ID),
+	// never re-render a podcast for it (even if other flags get reset later).
+	if status, ok := meta["status"].(map[string]any); ok {
+		if raw, ok := status["youtube_uploaded"].(string); ok && raw == "true" {
+			utils.Info("GeneratePodcast skip (already uploaded)", "content_id", contentID)
+			return nil
+		}
+		if raw, ok := status["youtube_uploaded"].(bool); ok && raw {
+			utils.Info("GeneratePodcast skip (already uploaded)", "content_id", contentID)
+			return nil
+		}
+	}
+	if _, ok := meta["video_id.v1"]; ok {
+		utils.Info("GeneratePodcast skip (video_id.v1 present)", "content_id", contentID)
+		return nil
 	}
 
 	mp3s, ok := meta["mp3s"].([]any)
