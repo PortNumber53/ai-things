@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"ai-things/manager-go/internal/db"
@@ -187,7 +188,30 @@ func (j GenerateSrtJob) processContent(ctx context.Context, jctx JobContext, con
 
 	cmd := fmt.Sprintf("%s %s %d", jctx.Config.SubtitleScript, utils.ShellEscape(wavPath), content.ID)
 	if _, err := utils.RunCommand(cmd); err != nil {
-		return err
+		// If local subtitle generation fails (e.g. missing python deps like torch),
+		// fall back to running it on the host that produced the wav, then rsync the output back.
+		host, _ := wavMeta["hostname"].(string)
+		host = strings.TrimSpace(host)
+		if host != "" && host != jctx.Config.Hostname {
+			utils.Warn("GenerateSrt local subtitle generation failed; trying remote", "content_id", contentID, "host", host, "err", err)
+
+			remoteCmd := fmt.Sprintf("%s %s %d", jctx.Config.SubtitleScript, utils.ShellEscape(wavPath), content.ID)
+			sshCmd := fmt.Sprintf("ssh %s %s", host, utils.ShellEscape(remoteCmd))
+			if _, sshErr := utils.RunCommand(sshCmd); sshErr != nil {
+				return fmt.Errorf("remote subtitle generation failed (host=%s): %w", host, sshErr)
+			}
+
+			srtPath := filepath.Join(jctx.Config.SubtitleFolder, fmt.Sprintf("transcription_%d.srt", content.ID))
+			if err := utils.EnsureDir(filepath.Dir(srtPath)); err != nil {
+				return err
+			}
+			rsyncCmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(srtPath), utils.ShellEscape(srtPath))
+			if _, rsyncErr := utils.RunCommand(rsyncCmd); rsyncErr != nil {
+				return fmt.Errorf("rsync subtitle from host failed (host=%s): %w", host, rsyncErr)
+			}
+		} else {
+			return err
+		}
 	}
 
 	srtPath := filepath.Join(jctx.Config.SubtitleFolder, fmt.Sprintf("transcription_%d.srt", content.ID))
