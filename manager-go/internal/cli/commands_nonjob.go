@@ -928,6 +928,101 @@ func runContentQuery(ctx context.Context, jctx jobs.JobContext, args []string) e
 	return nil
 }
 
+func runContentShow(ctx context.Context, jctx jobs.JobContext, args []string) error {
+	fs := flag.NewFlagSet("Content:Show", flag.ContinueOnError)
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	utils.ConfigureLogging(*verbose)
+
+	contentID, err := parseContentID(fs.Args())
+	if err != nil {
+		return err
+	}
+	if contentID == 0 {
+		return errors.New("content_id is required")
+	}
+
+	content, err := jctx.Store.GetContentByID(ctx, contentID)
+	if err != nil {
+		return err
+	}
+	meta, err := utils.DecodeMeta(content.Meta)
+	if err != nil {
+		return err
+	}
+
+	status, _ := meta["status"].(map[string]any)
+	podcast, _ := meta["podcast"].(map[string]any)
+	review, _ := meta["slack_youtube_review_request"].(map[string]any)
+
+	pretty := func(v any) string {
+		if v == nil {
+			return ""
+		}
+		b, err := json.MarshalIndent(v, "", "  ")
+		if err != nil {
+			return fmt.Sprintf("<json error: %v>", err)
+		}
+		return string(b)
+	}
+
+	utils.Info(
+		"content show",
+		"content_id", content.ID,
+		"title", strings.TrimSpace(content.Title),
+		"status", pretty(status),
+		"podcast", pretty(podcast),
+		"review", pretty(review),
+	)
+	return nil
+}
+
+func runContentSearchTitle(ctx context.Context, jctx jobs.JobContext, args []string) error {
+	fs := flag.NewFlagSet("Content:SearchTitle", flag.ContinueOnError)
+	q := fs.String("q", "", "Case-insensitive substring to search in contents.title (required)")
+	limit := fs.Int("limit", 20, "Max rows to return")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	utils.ConfigureLogging(*verbose)
+
+	query := strings.TrimSpace(*q)
+	if query == "" {
+		return errors.New("--q is required")
+	}
+	n := *limit
+	if n <= 0 {
+		n = 20
+	}
+	if n > 200 {
+		n = 200
+	}
+
+	sql := `
+		SELECT id, title, status, type, sentences, count, meta, archive, created_at, updated_at
+		FROM contents
+		WHERE title ILIKE $1
+		ORDER BY id DESC
+		LIMIT $2
+	`
+	contents, err := jctx.Store.QueryContents(ctx, sql, "%"+query+"%", n)
+	if err != nil {
+		return err
+	}
+	if len(contents) == 0 {
+		utils.Info("content search title", "q", query, "matches", 0)
+		return nil
+	}
+	for _, c := range contents {
+		utils.Info("content match", "content_id", c.ID, "title", strings.TrimSpace(c.Title))
+	}
+	utils.Info("content search title", "q", query, "matches", len(contents))
+	return nil
+}
+
 func runGeminiGenerateFunFact(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Gemini:GenerateFunFact", flag.ContinueOnError)
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")

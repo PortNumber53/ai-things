@@ -105,6 +105,10 @@ func Run(args []string) int {
 		runErr = runContentFindDuplicateTitles(ctx, jctx, cmdArgs)
 	case "Content:IdentifySubject":
 		runErr = runContentIdentifySubject(ctx, jctx, cmdArgs)
+	case "Content:Show":
+		runErr = runContentShow(ctx, jctx, cmdArgs)
+	case "Content:SearchTitle":
+		runErr = runContentSearchTitle(ctx, jctx, cmdArgs)
 	case "content:query":
 		runErr = runContentQuery(ctx, jctx, cmdArgs)
 	case "Gemini:GenerateFunFact":
@@ -554,6 +558,8 @@ func printUsage() {
 	fmt.Println("  Check:WavIsGenerated [--verbose]")
 	fmt.Println("  Content:FindDuplicateTitles [--verbose]")
 	fmt.Println("  Content:IdentifySubject --content-id=N [--verbose]")
+	fmt.Println("  Content:Show <content_id> [--verbose]")
+	fmt.Println("  Content:SearchTitle --q=\"blob fish\" [--limit=20] [--verbose]")
 	fmt.Println("  content:query [start] [end] [--verbose]")
 	fmt.Println("  Gemini:GenerateFunFact [content_id] [--verbose]")
 	fmt.Println("  job:GenerateWav [content_id] [--sleep=N] [--queue] [--verbose]")
