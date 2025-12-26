@@ -196,7 +196,11 @@ func (j UploadTikTokJob) processContent(ctx context.Context, jctx JobContext, co
 
 	utilityDir := filepath.Join(jctx.Config.BaseAppFolder, "utility")
 	cmd := fmt.Sprintf("cd %s && %s %s %s 2>&1",
-		utils.ShellEscape(utilityDir),
+		utils.ShellEscape(resolveWorkDir([]string{
+			utilityDir,
+			filepath.Join("..", "utility"),
+			"utility",
+		}, jctx.Config.TikTokUploadScript)),
 		jctx.Config.TikTokUploadScript,
 		utils.ShellEscape(filename),
 		utils.ShellEscape(caption),

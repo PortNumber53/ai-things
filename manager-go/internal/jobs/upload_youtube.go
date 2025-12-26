@@ -257,7 +257,11 @@ func (j UploadYouTubeJob) processContent(ctx context.Context, jctx JobContext, c
 
 	command := fmt.Sprintf(
 		"cd %s && %s --file=%s --title=%s --description=%s --category=%s --keywords=\"%s\" --privacyStatus=%s",
-		utils.ShellEscape(filepath.Join(jctx.Config.BaseAppFolder, "auto-subtitles-generator")),
+		utils.ShellEscape(resolveWorkDir([]string{
+			filepath.Join(jctx.Config.BaseAppFolder, "auto-subtitles-generator"),
+			filepath.Join("..", "auto-subtitles-generator"),
+			"auto-subtitles-generator",
+		}, jctx.Config.YoutubeUpload)),
 		jctx.Config.YoutubeUpload,
 		utils.ShellEscape(filename),
 		utils.ShellEscape(title),
