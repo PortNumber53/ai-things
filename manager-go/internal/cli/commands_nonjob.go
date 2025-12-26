@@ -406,6 +406,148 @@ func runCheckYoutubeIsUploadable(ctx context.Context, jctx jobs.JobContext, args
 	})
 }
 
+func runCheckYoutubeUploadEligibility(ctx context.Context, jctx jobs.JobContext, args []string) error {
+	fs := flag.NewFlagSet("Check:YoutubeUploadEligibility", flag.ContinueOnError)
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	utils.ConfigureLogging(*verbose)
+
+	contentID, err := parseContentID(fs.Args())
+	if err != nil {
+		return err
+	}
+
+	// Evaluate eligibility for a single content_id if provided.
+	if contentID != 0 {
+		content, err := jctx.Store.GetContentByID(ctx, contentID)
+		if err != nil {
+			return err
+		}
+		meta, err := utils.DecodeMeta(content.Meta)
+		if err != nil {
+			return err
+		}
+		logYoutubeUploadEligibility(jctx, content, meta)
+		return nil
+	}
+
+	// Otherwise, scan podcast_ready rows and explain why each is (not) pending upload.
+	where := "WHERE type = 'gemini.payload'"
+	ready := db.StatusTrueCondition([]string{"podcast_ready"})
+	if ready != "" {
+		where += " AND " + ready
+	}
+
+	checked := 0
+	lastID := int64(0)
+	for {
+		contents, err := listContentBatch(ctx, jctx.Store, where, nil, lastID, 500)
+		if err != nil {
+			return err
+		}
+		if len(contents) == 0 {
+			break
+		}
+		for _, content := range contents {
+			meta, err := utils.DecodeMeta(content.Meta)
+			if err != nil {
+				return err
+			}
+			logYoutubeUploadEligibility(jctx, content, meta)
+			checked++
+			lastID = content.ID
+		}
+	}
+	utils.Info("check summary", "check", "YoutubeUploadEligibility", "checked", checked)
+	return nil
+}
+
+func logYoutubeUploadEligibility(jctx jobs.JobContext, content db.Content, meta map[string]any) {
+	// Mirrors UploadPodcastToYoutube selection logic.
+	videoID, hasVideoID := meta["video_id.v1"]
+	youtubeUploaded := false
+	if status, ok := meta["status"].(map[string]any); ok {
+		if raw, ok := status["youtube_uploaded"].(string); ok && raw == "true" {
+			youtubeUploaded = true
+		}
+		if raw, ok := status["youtube_uploaded"].(bool); ok && raw {
+			youtubeUploaded = true
+		}
+	}
+
+	if youtubeUploaded {
+		utils.Info("youtube upload eligibility", "content_id", content.ID, "decision", "skip", "reason", "youtube_uploaded=true")
+		return
+	}
+	if hasVideoID && videoID != nil {
+		utils.Info("youtube upload eligibility", "content_id", content.ID, "decision", "skip", "reason", "video_id.v1 present (manual override)")
+		return
+	}
+
+	// Ensure required upstream flags are true (same as UploadPodcastToYoutube).
+	required := []string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready"}
+	var missing []string
+	if status, ok := meta["status"].(map[string]any); ok {
+		for _, k := range required {
+			v, ok := status[k]
+			if !ok {
+				missing = append(missing, k)
+				continue
+			}
+			switch vv := v.(type) {
+			case string:
+				if vv != "true" {
+					missing = append(missing, k)
+				}
+			case bool:
+				if !vv {
+					missing = append(missing, k)
+				}
+			default:
+				missing = append(missing, k)
+			}
+		}
+	} else {
+		missing = required
+	}
+	if len(missing) > 0 {
+		utils.Warn("youtube upload eligibility", "content_id", content.ID, "decision", "skip", "reason", "missing required flags", "missing", strings.Join(missing, ","))
+		return
+	}
+
+	// Validate local file presence (and checksum if present).
+	podcast, ok := meta["podcast"].(map[string]any)
+	if !ok {
+		utils.Warn("youtube upload eligibility", "content_id", content.ID, "decision", "flagged", "reason", "podcast meta missing")
+		return
+	}
+	filename, _ := podcast["filename"].(string)
+	if filename == "" {
+		utils.Warn("youtube upload eligibility", "content_id", content.ID, "decision", "flagged", "reason", "podcast filename missing")
+		return
+	}
+	podcastPath := filepath.Join(jctx.Config.BaseOutputFolder, "podcast", filename)
+	if !utils.FileExists(podcastPath) {
+		utils.Warn("youtube upload eligibility", "content_id", content.ID, "decision", "flagged", "reason", "podcast file missing", "path", podcastPath)
+		return
+	}
+	if wantSHA, _ := podcast["sha256"].(string); wantSHA != "" {
+		haveSHA, err := utils.SHA256File(podcastPath)
+		if err != nil {
+			utils.Warn("youtube upload eligibility", "content_id", content.ID, "decision", "flagged", "reason", "sha256 read failed", "err", err)
+			return
+		}
+		if haveSHA != wantSHA {
+			utils.Warn("youtube upload eligibility", "content_id", content.ID, "decision", "flagged", "reason", "podcast checksum mismatch", "path", podcastPath)
+			return
+		}
+	}
+
+	utils.Info("youtube upload eligibility", "content_id", content.ID, "decision", "pending", "reason", "eligible for upload")
+}
+
 func runCheckSrtIsGenerated(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	return checkGeneratedFiles(ctx, jctx, args, "srt_generated", func(content db.Content, meta map[string]any) (bool, string, error) {
 		srtPath := filepath.Join(jctx.Config.SubtitleFolder, fmt.Sprintf("transcription_%d.srt", content.ID))

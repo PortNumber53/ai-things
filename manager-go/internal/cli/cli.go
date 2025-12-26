@@ -93,6 +93,8 @@ func Run(args []string) int {
 		runErr = runCheckMp3IsGenerated(ctx, jctx, cmdArgs)
 	case "Check:PodcastIsGenerated":
 		runErr = runCheckPodcastIsGenerated(ctx, jctx, cmdArgs)
+	case "Check:YoutubeUploadEligibility":
+		runErr = runCheckYoutubeUploadEligibility(ctx, jctx, cmdArgs)
 	case "Check:YoutubeIsUploadable":
 		runErr = runCheckYoutubeIsUploadable(ctx, jctx, cmdArgs)
 	case "Check:SrtIsGenerated":
@@ -522,6 +524,7 @@ func printUsage() {
 	fmt.Println("  Check:ImageIsGenerated [--verbose]")
 	fmt.Println("  Check:Mp3IsGenerated [--verbose]")
 	fmt.Println("  Check:PodcastIsGenerated [--verbose]")
+	fmt.Println("  Check:YoutubeUploadEligibility [content_id] [--verbose]")
 	fmt.Println("  Check:YoutubeIsUploadable [--verbose]")
 	fmt.Println("  Check:SrtIsGenerated [--verbose]")
 	fmt.Println("  Check:WavIsGenerated [--verbose]")

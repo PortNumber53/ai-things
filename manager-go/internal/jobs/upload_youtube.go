@@ -67,13 +67,15 @@ func (j UploadYouTubeJob) Run(ctx context.Context, jctx JobContext, opts JobOpti
 func (j UploadYouTubeJob) countWaiting(ctx context.Context, jctx JobContext) (int, error) {
 	where := "WHERE type = 'gemini.payload'"
 	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready"})
-	falseFlags := db.StatusFalseCondition([]string{"youtube_uploaded"})
+	// Treat "not uploaded yet" as "not true" (NULL or anything other than 'true'),
+	// matching selectNext(). Using StatusFalseCondition would require an explicit 'false' value.
+	notTrue := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
 	missing := db.MetaKeyMissingCondition([]string{"video_id.v1"})
 	if trueFlags != "" {
 		where += " AND " + trueFlags
 	}
-	if falseFlags != "" {
-		where += " AND " + falseFlags
+	if notTrue != "" {
+		where += " AND " + notTrue
 	}
 	if missing != "" {
 		where += " AND " + missing
