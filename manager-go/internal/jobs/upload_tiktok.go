@@ -60,13 +60,15 @@ func (j UploadTikTokJob) Run(ctx context.Context, jctx JobContext, opts JobOptio
 func (j UploadTikTokJob) countWaiting(ctx context.Context, jctx JobContext) (int, error) {
 	where := "WHERE type = 'gemini.payload'"
 	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready"})
-	falseFlags := db.StatusFalseCondition([]string{"tiktok_uploaded"})
+	// Treat "not uploaded yet" as "not true" (NULL or anything other than 'true'),
+	// matching selectNext(). Using StatusFalseCondition would require an explicit 'false' value.
+	notTrue := db.StatusNotTrueCondition([]string{"tiktok_uploaded"})
 	missing := db.MetaKeyMissingCondition([]string{"tiktok_video_id"})
 	if trueFlags != "" {
 		where += " AND " + trueFlags
 	}
-	if falseFlags != "" {
-		where += " AND " + falseFlags
+	if notTrue != "" {
+		where += " AND " + notTrue
 	}
 	if missing != "" {
 		where += " AND " + missing
@@ -125,6 +127,60 @@ func (j UploadTikTokJob) processContent(ctx context.Context, jctx JobContext, co
 
 	filename := filepath.Join(jctx.Config.BaseOutputFolder, "podcast", podcastFilename)
 	caption := fmt.Sprintf("%07d - %s", content.ID, content.Title)
+
+	if host, _ := podcast["hostname"].(string); host != "" && host != jctx.Config.Hostname {
+		wantSHA, _ := podcast["sha256"].(string)
+		needRsync := true
+		if utils.FileExists(filename) {
+			if wantSHA == "" {
+				needRsync = false
+				utils.Debug("UploadTikTok podcast present locally; skipping rsync", "content_id", contentID, "path", filename)
+			} else {
+				haveSHA, err := utils.SHA256File(filename)
+				if err != nil {
+					return err
+				}
+				if haveSHA == wantSHA {
+					needRsync = false
+					utils.Debug("UploadTikTok podcast checksum match; skipping rsync", "content_id", contentID, "path", filename)
+				} else {
+					utils.Debug("UploadTikTok podcast checksum mismatch; will rsync", "content_id", contentID, "path", filename)
+				}
+			}
+		}
+
+		if needRsync {
+			if err := utils.EnsureDir(filepath.Dir(filename)); err != nil {
+				return err
+			}
+			cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", host, utils.ShellEscape(filename), utils.ShellEscape(filename))
+			output, err := utils.RunCommand(cmd)
+			if err != nil {
+				if isMissingFileOutput(output) || !utils.FileExists(filename) {
+					utils.Warn("UploadTikTok podcast missing/unreachable; resetting podcast_ready", "content_id", contentID, "host", host, "path", filename)
+					_ = resetPodcastStatus(ctx, jctx, contentID, meta)
+					return nil
+				}
+				return err
+			}
+			if wantSHA != "" {
+				haveSHA, err := utils.SHA256File(filename)
+				if err != nil {
+					return err
+				}
+				if haveSHA != wantSHA {
+					utils.Warn("UploadTikTok podcast checksum mismatch after rsync; resetting podcast_ready", "content_id", contentID, "host", host, "path", filename)
+					_ = resetPodcastStatus(ctx, jctx, contentID, meta)
+					return nil
+				}
+			}
+		}
+	}
+	if !utils.FileExists(filename) {
+		utils.Warn("UploadTikTok podcast missing; resetting podcast_ready", "content_id", contentID, "path", filename)
+		_ = resetPodcastStatus(ctx, jctx, contentID, meta)
+		return nil
+	}
 
 	if info {
 		_, _ = fmt.Printf("Caption: %s\nDescription: %s\n", caption, description)

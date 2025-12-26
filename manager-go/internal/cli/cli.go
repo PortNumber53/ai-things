@@ -382,6 +382,7 @@ func runGeneratePodcast(ctx context.Context, jctx jobs.JobContext, args []string
 	fs := flag.NewFlagSet("job:GeneratePodcast", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
+	force := fs.Bool("force", false, "Force a re-render even if already uploaded")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -391,7 +392,7 @@ func runGeneratePodcast(ctx context.Context, jctx jobs.JobContext, args []string
 	if err != nil {
 		return err
 	}
-	opts := jobs.JobOptions{ContentID: contentID, Sleep: *sleep, Queue: *queueFlag}
+	opts := jobs.JobOptions{ContentID: contentID, Sleep: *sleep, Queue: *queueFlag, Regenerate: *force}
 	logJobStart("job:GeneratePodcast", opts)
 
 	job := jobs.NewGeneratePodcastJob()
@@ -538,7 +539,7 @@ func printUsage() {
 	fmt.Println("  job:PromptForImage [content_id] [--sleep=N] [--queue] [--regenerate] [--verbose]")
 	fmt.Println("  job:SlackPromptForImage [content_id] [--sleep=N] [--queue] [--regenerate] [--verbose]")
 	fmt.Println("  job:GenerateImage [content_id] [--sleep=N] [--queue] [--verbose]")
-	fmt.Println("  job:GeneratePodcast [content_id] [--sleep=N] [--queue] [--verbose]")
+	fmt.Println("  job:GeneratePodcast [content_id] [--sleep=N] [--queue] [--force] [--verbose]")
 	fmt.Println("  job:FixSubtitles [content_id] [--sleep=N] [--queue] [--verbose]")
 	fmt.Println("  job:CorrectSubtitles [content_id] [--sleep=N] [--queue] [--verbose]")
 	fmt.Println("  job:SetupPodcast [content_id] [--verbose]")

@@ -33,7 +33,7 @@ func NewGeneratePodcastJob() GeneratePodcastJob {
 func (j GeneratePodcastJob) Run(ctx context.Context, jctx JobContext, opts JobOptions) error {
 	if opts.Queue {
 		return j.RunQueue(ctx, jctx, opts, func(ctx context.Context, contentID int64, hostname string) error {
-			return j.processContent(ctx, jctx, contentID)
+			return j.processContent(ctx, jctx, contentID, opts.Regenerate)
 		})
 	}
 
@@ -57,14 +57,16 @@ func (j GeneratePodcastJob) Run(ctx context.Context, jctx JobContext, opts JobOp
 		contentID = content.ID
 	}
 
-	return j.processContent(ctx, jctx, contentID)
+	return j.processContent(ctx, jctx, contentID, opts.Regenerate)
 }
 
 func (j GeneratePodcastJob) countWaiting(ctx context.Context, jctx JobContext) (int, error) {
 	where := "WHERE type = 'gemini.payload'"
 	readyTrue := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated"})
 	notReady := db.StatusNotTrueCondition([]string{"podcast_ready"})
-	notUploaded := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	// Once uploaded anywhere, treat it as terminal and do not re-render (unless forced by explicit content_id).
+	notYoutubeUploaded := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	notTiktokUploaded := db.StatusNotTrueCondition([]string{"tiktok_uploaded"})
 	missingVideoID := db.MetaKeyMissingCondition([]string{"video_id.v1"})
 	if readyTrue != "" {
 		where += " AND " + readyTrue
@@ -72,8 +74,11 @@ func (j GeneratePodcastJob) countWaiting(ctx context.Context, jctx JobContext) (
 	if notReady != "" {
 		where += " AND " + notReady
 	}
-	if notUploaded != "" {
-		where += " AND " + notUploaded
+	if notYoutubeUploaded != "" {
+		where += " AND " + notYoutubeUploaded
+	}
+	if notTiktokUploaded != "" {
+		where += " AND " + notTiktokUploaded
 	}
 	if missingVideoID != "" {
 		where += " AND " + missingVideoID
@@ -85,7 +90,9 @@ func (j GeneratePodcastJob) selectNext(ctx context.Context, jctx JobContext) (db
 	where := "WHERE type = 'gemini.payload'"
 	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated"})
 	falseFlags := db.StatusNotTrueCondition([]string{"podcast_ready"})
-	notUploaded := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	// Once uploaded anywhere, treat it as terminal and do not re-render (unless forced by explicit content_id).
+	notYoutubeUploaded := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	notTiktokUploaded := db.StatusNotTrueCondition([]string{"tiktok_uploaded"})
 	missingVideoID := db.MetaKeyMissingCondition([]string{"video_id.v1"})
 	if trueFlags != "" {
 		where += " AND " + trueFlags
@@ -93,8 +100,11 @@ func (j GeneratePodcastJob) selectNext(ctx context.Context, jctx JobContext) (db
 	if falseFlags != "" {
 		where += " AND " + falseFlags
 	}
-	if notUploaded != "" {
-		where += " AND " + notUploaded
+	if notYoutubeUploaded != "" {
+		where += " AND " + notYoutubeUploaded
+	}
+	if notTiktokUploaded != "" {
+		where += " AND " + notTiktokUploaded
 	}
 	if missingVideoID != "" {
 		where += " AND " + missingVideoID
@@ -109,8 +119,8 @@ func (j GeneratePodcastJob) selectNext(ctx context.Context, jctx JobContext) (db
 	return content, nil
 }
 
-func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext, contentID int64) error {
-	utils.Info("GeneratePodcast process", "content_id", contentID)
+func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext, contentID int64, force bool) error {
+	utils.Info("GeneratePodcast process", "content_id", contentID, "force", force)
 	content, err := jctx.Store.GetContentByID(ctx, contentID)
 	if err != nil {
 		return err
@@ -120,21 +130,33 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 		return err
 	}
 
-	// Terminal state: if this content was uploaded to YouTube (or manually overridden with a video ID),
-	// never re-render a podcast for it (even if other flags get reset later).
-	if status, ok := meta["status"].(map[string]any); ok {
-		if raw, ok := status["youtube_uploaded"].(string); ok && raw == "true" {
-			utils.Info("GeneratePodcast skip (already uploaded)", "content_id", contentID)
+	// Terminal state: once uploaded to BOTH YouTube and TikTok (or manually overridden with a YouTube video ID + TikTok),
+	// do not re-render unless forced.
+	if !force {
+		youtubeUploaded := false
+		tiktokUploaded := false
+		if status, ok := meta["status"].(map[string]any); ok {
+			if raw, ok := status["youtube_uploaded"].(string); ok && raw == "true" {
+				youtubeUploaded = true
+			}
+			if raw, ok := status["youtube_uploaded"].(bool); ok && raw {
+				youtubeUploaded = true
+			}
+			if raw, ok := status["tiktok_uploaded"].(string); ok && raw == "true" {
+				tiktokUploaded = true
+			}
+			if raw, ok := status["tiktok_uploaded"].(bool); ok && raw {
+				tiktokUploaded = true
+			}
+		}
+		_, hasVideoID := meta["video_id.v1"]
+		if youtubeUploaded || tiktokUploaded || hasVideoID {
+			utils.Info("GeneratePodcast skip (already uploaded)", "content_id", contentID, "youtube_uploaded", youtubeUploaded, "tiktok_uploaded", tiktokUploaded, "has_video_id", hasVideoID)
+			// Avoid reprocessing loops if podcast_ready was reset after upload.
+			utils.SetStatus(meta, "podcast_ready", true)
+			_ = jctx.Store.UpdateContentMetaStatus(ctx, content.ID, "podcast_ready", meta)
 			return nil
 		}
-		if raw, ok := status["youtube_uploaded"].(bool); ok && raw {
-			utils.Info("GeneratePodcast skip (already uploaded)", "content_id", contentID)
-			return nil
-		}
-	}
-	if _, ok := meta["video_id.v1"]; ok {
-		utils.Info("GeneratePodcast skip (video_id.v1 present)", "content_id", contentID)
-		return nil
 	}
 
 	mp3s, ok := meta["mp3s"].([]any)
@@ -372,7 +394,10 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 
 func isMissingFileOutput(output string) bool {
 	lower := strings.ToLower(output)
-	return strings.Contains(lower, "no such file") || strings.Contains(lower, "cannot stat")
+	return strings.Contains(lower, "no such file") ||
+		strings.Contains(lower, "cannot stat") ||
+		strings.Contains(lower, "could not resolve hostname") ||
+		strings.Contains(lower, "connection unexpectedly closed")
 }
 
 func resetMp3Status(ctx context.Context, jctx JobContext, contentID int64, meta map[string]any) error {
