@@ -85,7 +85,7 @@ verification_token=
 # OAuth scopes (comma-separated).
 # If you want the bot to keep replying in a thread without requiring an @mention each time,
 # include channels:history and subscribe to message.channels events in the Slack app dashboard.
-scopes=chat:write,channels:read,channels:join,channels:history,app_mentions:read,files:read
+scopes=chat:write,channels:read,channels:join,channels:history,app_mentions:read,files:read,reactions:read
 # Redirect URL for OAuth callback.
 # Example: https://manager.example.com/slack/oauth/callback
 redirect_url=

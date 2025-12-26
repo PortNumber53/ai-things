@@ -51,7 +51,8 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 	if scopes == "" {
 		// Include channels:history so we can receive and handle message.channels events for thread follow-ups.
 		// Include files:read so we can download images uploaded to threads (url_private).
-		scopes = "chat:write,channels:read,channels:join,channels:history,app_mentions:read,files:read"
+		// Include reactions:read so we can receive reaction_added events used for approvals.
+		scopes = "chat:write,channels:read,channels:join,channels:history,app_mentions:read,files:read,reactions:read"
 	}
 
 	redirectURL := strings.TrimSpace(cfg.SlackRedirectURL)
@@ -378,6 +379,20 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 					// Ignore message subtypes (edits, joins, file_share, etc.) for the non-image logic below.
 					// File uploads are handled above.
 					if envelope.Event.Subtype != "" {
+						return
+					}
+
+					// Allow YouTube review approvals via plain text in the thread (fallback if reaction_added isn't delivered).
+					if handled := handleSlackYouTubeReviewTextDecision(
+						context.Background(),
+						jctx,
+						client,
+						teamID,
+						channel,
+						threadTS,
+						strings.TrimSpace(original),
+						envelope.Event.User,
+					); handled {
 						return
 					}
 
@@ -761,6 +776,66 @@ func handleSlackYouTubeReviewReaction(
 	if err := slack.PostMessage(ctx, client, token, channelID, reply, threadTS); err != nil {
 		utils.Warn("slack youtube review reply failed", "content_id", content.ID, "channel", channelID, "err", err)
 	}
+}
+
+func handleSlackYouTubeReviewTextDecision(
+	ctx context.Context,
+	jctx jobs.JobContext,
+	client *http.Client,
+	teamID string,
+	channelID string,
+	threadTS string,
+	text string,
+	userID string,
+) bool {
+	t := strings.ToLower(strings.TrimSpace(text))
+	if t == "" {
+		return false
+	}
+
+	approve := map[string]bool{
+		"approve":  true,
+		"approved": true,
+		"yes":      true,
+		"y":        true,
+		"ship it":  true,
+		"shipit":   true,
+		"+1":       true,
+		"👍":        true,
+	}
+	reject := map[string]bool{
+		"reject":   true,
+		"rejected": true,
+		"no":       true,
+		"n":        true,
+		"redo":     true,
+		"-1":       true,
+		"👎":        true,
+	}
+
+	var reaction string
+	switch {
+	case approve[t]:
+		reaction = "thumbsup"
+	case reject[t]:
+		reaction = "thumbsdown"
+	default:
+		return false
+	}
+
+	// Only handle if this thread corresponds to a review request.
+	content, err := jctx.Store.FindContentBySlackYouTubeReviewThread(ctx, teamID, channelID, threadTS)
+	if err != nil {
+		utils.Warn("slack youtube review lookup failed", "team_id", teamID, "channel", channelID, "ts", threadTS, "err", err)
+		return false
+	}
+	if content.ID == 0 {
+		return false
+	}
+
+	// Apply the same logic as reaction approvals, using the parent thread ts as the item ts.
+	handleSlackYouTubeReviewReaction(ctx, jctx, client, teamID, channelID, threadTS, reaction, userID)
+	return true
 }
 
 func handleSlackImageUpload(
