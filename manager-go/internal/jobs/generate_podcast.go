@@ -361,6 +361,12 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 		utils.ShellEscape(filepath.Join(jctx.Config.BaseAppFolder, "podcast")),
 		buildArgs,
 	)
+
+	// Remotion renders to podcast/out/video.mp4. Ensure the output directory exists first.
+	// Some environments (fresh deploys / rsynced folders) may not have created it yet.
+	if err := utils.EnsureDir(filepath.Join(jctx.Config.BaseAppFolder, "podcast", "out")); err != nil {
+		return err
+	}
 	if _, err := utils.RunCommand(cmd); err != nil {
 		return err
 	}
