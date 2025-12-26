@@ -260,20 +260,30 @@ func backfillContentOriginalText(ctx context.Context, jctx jobs.JobContext, cont
 }
 
 func runCheckImageIsGenerated(ctx context.Context, jctx jobs.JobContext, args []string) error {
-	return checkGeneratedFiles(ctx, jctx, args, "thumbnail_generated", func(content db.Content, meta map[string]any) (bool, error) {
+	return checkGeneratedFiles(ctx, jctx, args, "thumbnail_generated", func(content db.Content, meta map[string]any) (bool, string, error) {
 		thumb, ok := meta["thumbnail"].(map[string]any)
 		if !ok {
-			return true, nil
+			return true, "thumbnail meta missing", nil
 		}
 		filename, _ := thumb["filename"].(string)
 		if filename == "" {
-			return true, nil
+			return true, "thumbnail filename missing", nil
 		}
 		imgPath := filepath.Join(jctx.Config.BaseOutputFolder, "images", filename)
-		if utils.FileExists(imgPath) {
-			return false, nil
+		if !utils.FileExists(imgPath) {
+			return true, "thumbnail file missing", nil
 		}
-		return true, nil
+
+		if wantSHA, _ := thumb["sha256"].(string); wantSHA != "" {
+			haveSHA, err := utils.SHA256File(imgPath)
+			if err != nil {
+				return false, "", err
+			}
+			if haveSHA != wantSHA {
+				return true, "thumbnail checksum mismatch", nil
+			}
+		}
+		return false, "thumbnail ok", nil
 	}, func(meta map[string]any) {
 		if status, ok := meta["status"].(map[string]any); ok {
 			delete(status, "thumbnail")
@@ -285,26 +295,35 @@ func runCheckImageIsGenerated(ctx context.Context, jctx jobs.JobContext, args []
 }
 
 func runCheckMp3IsGenerated(ctx context.Context, jctx jobs.JobContext, args []string) error {
-	return checkGeneratedFiles(ctx, jctx, args, "mp3_generated", func(content db.Content, meta map[string]any) (bool, error) {
+	return checkGeneratedFiles(ctx, jctx, args, "mp3_generated", func(content db.Content, meta map[string]any) (bool, string, error) {
 		mp3s, ok := meta["mp3s"].([]any)
 		if !ok || len(mp3s) == 0 {
-			return true, nil
+			return true, "mp3s meta missing/empty", nil
 		}
 		for _, entry := range mp3s {
 			mp3Meta, ok := entry.(map[string]any)
 			if !ok {
-				return true, nil
+				return true, "mp3s meta invalid", nil
 			}
 			filename, _ := mp3Meta["mp3"].(string)
 			if filename == "" {
-				return true, nil
+				return true, "mp3 filename missing", nil
 			}
 			mp3Path := filepath.Join(jctx.Config.BaseOutputFolder, "mp3", filename)
 			if !utils.FileExists(mp3Path) {
-				return true, nil
+				return true, "mp3 file missing", nil
+			}
+			if wantSHA, _ := mp3Meta["sha256"].(string); wantSHA != "" {
+				haveSHA, err := utils.SHA256File(mp3Path)
+				if err != nil {
+					return false, "", err
+				}
+				if haveSHA != wantSHA {
+					return true, "mp3 checksum mismatch", nil
+				}
 			}
 		}
-		return false, nil
+		return false, "mp3 ok", nil
 	}, func(meta map[string]any) {
 		delete(meta, "mp3s")
 		utils.SetStatus(meta, "mp3_generated", false)
@@ -313,20 +332,29 @@ func runCheckMp3IsGenerated(ctx context.Context, jctx jobs.JobContext, args []st
 }
 
 func runCheckPodcastIsGenerated(ctx context.Context, jctx jobs.JobContext, args []string) error {
-	return checkGeneratedFiles(ctx, jctx, args, "podcast_ready", func(content db.Content, meta map[string]any) (bool, error) {
+	return checkGeneratedFiles(ctx, jctx, args, "podcast_ready", func(content db.Content, meta map[string]any) (bool, string, error) {
 		podcast, ok := meta["podcast"].(map[string]any)
 		if !ok {
-			return true, nil
+			return true, "podcast meta missing", nil
 		}
 		filename, _ := podcast["filename"].(string)
 		if filename == "" {
-			return true, nil
+			return true, "podcast filename missing", nil
 		}
 		podcastPath := filepath.Join(jctx.Config.BaseOutputFolder, "podcast", filename)
-		if utils.FileExists(podcastPath) {
-			return false, nil
+		if !utils.FileExists(podcastPath) {
+			return true, "podcast file missing", nil
 		}
-		return true, nil
+		if wantSHA, _ := podcast["sha256"].(string); wantSHA != "" {
+			haveSHA, err := utils.SHA256File(podcastPath)
+			if err != nil {
+				return false, "", err
+			}
+			if haveSHA != wantSHA {
+				return true, "podcast checksum mismatch", nil
+			}
+		}
+		return false, "podcast ok", nil
 	}, func(meta map[string]any) {
 		delete(meta, "podcast")
 		utils.SetStatus(meta, "podcast_ready", false)
@@ -334,12 +362,12 @@ func runCheckPodcastIsGenerated(ctx context.Context, jctx jobs.JobContext, args 
 }
 
 func runCheckSrtIsGenerated(ctx context.Context, jctx jobs.JobContext, args []string) error {
-	return checkGeneratedFiles(ctx, jctx, args, "srt_generated", func(content db.Content, meta map[string]any) (bool, error) {
+	return checkGeneratedFiles(ctx, jctx, args, "srt_generated", func(content db.Content, meta map[string]any) (bool, string, error) {
 		srtPath := filepath.Join(jctx.Config.SubtitleFolder, fmt.Sprintf("transcription_%d.srt", content.ID))
 		if utils.FileExists(srtPath) {
-			return false, nil
+			return false, "srt ok", nil
 		}
-		return true, nil
+		return true, "srt file missing", nil
 	}, func(meta map[string]any) {
 		delete(meta, "subtitles")
 		utils.SetStatus(meta, "srt_generated", false)
@@ -349,20 +377,29 @@ func runCheckSrtIsGenerated(ctx context.Context, jctx jobs.JobContext, args []st
 }
 
 func runCheckWavIsGenerated(ctx context.Context, jctx jobs.JobContext, args []string) error {
-	return checkGeneratedFiles(ctx, jctx, args, "wav_generated", func(content db.Content, meta map[string]any) (bool, error) {
+	return checkGeneratedFiles(ctx, jctx, args, "wav_generated", func(content db.Content, meta map[string]any) (bool, string, error) {
 		wav, ok := meta["wav"].(map[string]any)
 		if !ok {
-			return true, nil
+			return true, "wav meta missing", nil
 		}
 		filename, _ := wav["filename"].(string)
 		if filename == "" {
-			return true, nil
+			return true, "wav filename missing", nil
 		}
 		wavPath := filepath.Join(jctx.Config.BaseOutputFolder, "waves", filename)
-		if utils.FileExists(wavPath) {
-			return false, nil
+		if !utils.FileExists(wavPath) {
+			return true, "wav file missing", nil
 		}
-		return true, nil
+		if wantSHA, _ := wav["sha256"].(string); wantSHA != "" {
+			haveSHA, err := utils.SHA256File(wavPath)
+			if err != nil {
+				return false, "", err
+			}
+			if haveSHA != wantSHA {
+				return true, "wav checksum mismatch", nil
+			}
+		}
+		return false, "wav ok", nil
 	}, func(meta map[string]any) {
 		delete(meta, "wav")
 		utils.SetStatus(meta, "wav_generated", false)
@@ -371,7 +408,7 @@ func runCheckWavIsGenerated(ctx context.Context, jctx jobs.JobContext, args []st
 }
 
 type checkResetter func(meta map[string]any)
-type checkPredicate func(content db.Content, meta map[string]any) (bool, error)
+type checkPredicate func(content db.Content, meta map[string]any) (bool, string, error)
 
 func checkGeneratedFiles(ctx context.Context, jctx jobs.JobContext, args []string, statusKey string, predicate checkPredicate, reset checkResetter) error {
 	fs := flag.NewFlagSet("Check:"+statusKey, flag.ContinueOnError)
@@ -389,6 +426,9 @@ func checkGeneratedFiles(ctx context.Context, jctx jobs.JobContext, args []strin
 		}
 	}
 
+	checked := 0
+	valid := 0
+	flagged := 0
 	fixed := 0
 	lastID := int64(0)
 	for {
@@ -404,21 +444,30 @@ func checkGeneratedFiles(ctx context.Context, jctx jobs.JobContext, args []strin
 			if err != nil {
 				return err
 			}
-			needsReset, err := predicate(content, meta)
+			needsReset, reason, err := predicate(content, meta)
 			if err != nil {
 				return err
 			}
+			checked++
 			if needsReset {
+				flagged++
+				utils.Warn("check row", "check", statusKey, "content_id", content.ID, "decision", "flagged", "reason", reason)
 				reset(meta)
 				if err := jctx.Store.UpdateContentMeta(ctx, content.ID, meta); err != nil {
 					return err
 				}
 				fixed++
+			} else {
+				valid++
+				if utils.Verbose {
+					utils.Debug("check row", "check", statusKey, "content_id", content.ID, "decision", "valid", "reason", reason)
+				}
 			}
 			lastID = content.ID
 		}
 	}
 
+	utils.Info("check summary", "check", statusKey, "checked", checked, "valid", valid, "flagged", flagged, "updated", fixed)
 	fmt.Printf("Fixed %d rows\n", fixed)
 	return nil
 }
