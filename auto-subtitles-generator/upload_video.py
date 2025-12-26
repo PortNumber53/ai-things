@@ -98,7 +98,13 @@ def get_authenticated_service():
             if auth_mode == "local_server":
                 creds = flow.run_local_server(port=0)
             else:
-                creds = flow.run_console()
+                # google-auth-oauthlib versions vary: some expose run_console(), some don't.
+                # Prefer console flow when available (best for headless), otherwise fall back to local_server.
+                if hasattr(flow, "run_console"):
+                    creds = flow.run_console()
+                else:
+                    # Fallback: prints a URL you can open (SSH port forwarding works too).
+                    creds = flow.run_local_server(port=0)
         
         with open(TOKEN_PICKLE_FILE, "wb") as token:
             pickle.dump(creds, token)
