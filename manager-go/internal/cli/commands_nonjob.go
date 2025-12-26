@@ -501,8 +501,22 @@ func logYoutubeUploadEligibility(jctx jobs.JobContext, content db.Content, meta 
 		return
 	}
 
+	// New: gate uploads behind explicit human approval.
+	if rejected, _ := utils.GetStatus(meta, "youtube_rejected"); rejected {
+		utils.Info("youtube upload eligibility", "content_id", content.ID, "decision", "skip", "reason", "youtube_rejected=true")
+		return
+	}
+	if approved, _ := utils.GetStatus(meta, "youtube_approved"); !approved {
+		if requested, _ := utils.GetStatus(meta, "youtube_review_requested"); requested {
+			utils.Info("youtube upload eligibility", "content_id", content.ID, "decision", "pending", "reason", "awaiting Slack approval (youtube_approved!=true)")
+		} else {
+			utils.Info("youtube upload eligibility", "content_id", content.ID, "decision", "pending", "reason", "review not requested yet (run job:SlackReviewPodcast)")
+		}
+		return
+	}
+
 	// Ensure required upstream flags are true (same as UploadPodcastToYoutube).
-	required := []string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready"}
+	required := []string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready", "youtube_approved"}
 	var missing []string
 	if status, ok := meta["status"].(map[string]any); ok {
 		for _, k := range required {

@@ -121,7 +121,63 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 		}
 
 		videoPath := filepath.Join(cfg.BaseOutputFolder, "podcast", fmt.Sprintf("%010d.mp4", id))
-		if !utils.FileExists(videoPath) {
+		ensureLocal := func() error {
+			if utils.FileExists(videoPath) {
+				return nil
+			}
+			// Try to fetch from the render host recorded in meta.podcast.hostname.
+			content, err := jctx.Store.GetContentByID(r.Context(), id)
+			if err != nil {
+				return err
+			}
+			meta, err := utils.DecodeMeta(content.Meta)
+			if err != nil {
+				return err
+			}
+			podcast, _ := meta["podcast"].(map[string]any)
+			if podcast == nil {
+				return errors.New("podcast meta missing")
+			}
+			remoteHost, _ := podcast["hostname"].(string)
+			wantSHA, _ := podcast["sha256"].(string)
+			if strings.TrimSpace(remoteHost) == "" {
+				return errors.New("podcast host missing; cannot fetch")
+			}
+
+			// Ensure output dir exists.
+			if err := utils.EnsureDir(filepath.Dir(videoPath)); err != nil {
+				return err
+			}
+
+			cmd := fmt.Sprintf("rsync -ravp --progress %s:%s %s", remoteHost, utils.ShellEscape(videoPath), utils.ShellEscape(videoPath))
+			output, err := utils.RunCommand(cmd)
+			if err != nil {
+				lower := strings.ToLower(output)
+				if strings.Contains(lower, "no such file") ||
+					strings.Contains(lower, "cannot stat") ||
+					strings.Contains(lower, "could not resolve hostname") ||
+					strings.Contains(lower, "connection unexpectedly closed") {
+					return fmt.Errorf("remote podcast missing/unreachable: %s", strings.TrimSpace(output))
+				}
+				return err
+			}
+			if !utils.FileExists(videoPath) {
+				return errors.New("fetch finished but file still missing")
+			}
+			if wantSHA != "" {
+				haveSHA, err := utils.SHA256File(videoPath)
+				if err != nil {
+					return err
+				}
+				if haveSHA != wantSHA {
+					return fmt.Errorf("checksum mismatch after fetch (want=%s have=%s)", wantSHA, haveSHA)
+				}
+			}
+			return nil
+		}
+
+		if err := ensureLocal(); err != nil {
+			utils.Warn("watch fetch failed", "content_id", id, "err", err)
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}

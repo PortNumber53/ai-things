@@ -24,7 +24,7 @@ func NewUploadYouTubeJob() UploadYouTubeJob {
 	return UploadYouTubeJob{
 		BaseJob: BaseJob{
 			QueueInput:  "youtube_approved",
-			QueueOutput: "upload.tiktok",
+			QueueOutput: "upload.youtube",
 		},
 		MaxWaiting: 100,
 	}

@@ -76,10 +76,6 @@ func (j SlackReviewPodcastJob) selectNext(ctx context.Context, jctx JobContext) 
 	if missing != "" {
 		where += " AND " + missing
 	}
-	// Only review videos rendered on this host (the watch endpoint streams from the local filesystem).
-	if strings.TrimSpace(jctx.Config.Hostname) != "" {
-		where += " AND meta->'podcast'->>'hostname' = '" + strings.ReplaceAll(jctx.Config.Hostname, "'", "''") + "'"
-	}
 
 	content, err := jctx.Store.FindFirstContent(ctx, where)
 	if err != nil {
@@ -141,10 +137,17 @@ func (j SlackReviewPodcastJob) processContent(ctx context.Context, jctx JobConte
 		}
 	}
 
-	// Ensure the video exists locally on this host.
+	// Ensure we at least know how the watch endpoint can retrieve the file:
+	// - Either it already exists locally, or we have a render host recorded in meta.podcast.hostname.
 	filename := filepath.Join(cfg.BaseOutputFolder, "podcast", fmt.Sprintf("%010d.mp4", content.ID))
 	if !utils.FileExists(filename) {
-		return fmt.Errorf("podcast video not found on this host: %s", filename)
+		podcast, _ := meta["podcast"].(map[string]any)
+		if podcast == nil {
+			return errors.New("podcast metadata missing")
+		}
+		if host, _ := podcast["hostname"].(string); strings.TrimSpace(host) == "" {
+			return fmt.Errorf("podcast video missing locally and no render host recorded: %s", filename)
+		}
 	}
 
 	watchURL := fmt.Sprintf("%s/watch/podcast/%d?token=%s", strings.TrimRight(cfg.PublicURL, "/"), content.ID, youtubeWatchToken(cfg.SlackSigningSecret, content.ID))

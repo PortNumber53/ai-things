@@ -16,8 +16,8 @@ const (
 )
 
 type Config struct {
-	Hostname                   string
-	AppEnv                     string
+	Hostname string
+	AppEnv   string
 	// PublicURL is a publicly reachable base URL for this host (used for watch links).
 	// Example: https://manager.example.com
 	PublicURL                  string
