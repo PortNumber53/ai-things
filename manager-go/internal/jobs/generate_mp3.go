@@ -65,11 +65,19 @@ func (j GenerateMp3Job) countWaiting(ctx context.Context, jctx JobContext) (int,
 	where := "WHERE type = 'gemini.payload'"
 	finishedTrue := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated"})
 	finishedFalse := db.StatusNotTrueCondition([]string{"podcast_ready"})
+	notUploaded := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	missingVideoID := db.MetaKeyMissingCondition([]string{"video_id.v1"})
 	if finishedTrue != "" {
 		where += " AND " + finishedTrue
 	}
 	if finishedFalse != "" {
 		where += " AND " + finishedFalse
+	}
+	if notUploaded != "" {
+		where += " AND " + notUploaded
+	}
+	if missingVideoID != "" {
+		where += " AND " + missingVideoID
 	}
 	return jctx.Store.CountContent(ctx, where)
 }
@@ -78,11 +86,19 @@ func (j GenerateMp3Job) selectNext(ctx context.Context, jctx JobContext) (db.Con
 	where := "WHERE type = 'gemini.payload'"
 	trueFlags := db.StatusTrueCondition([]string{"funfact_created", "wav_generated"})
 	falseFlags := db.StatusNotTrueCondition([]string{"mp3_generated"})
+	notUploaded := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
+	missingVideoID := db.MetaKeyMissingCondition([]string{"video_id.v1"})
 	if trueFlags != "" {
 		where += " AND " + trueFlags
 	}
 	if falseFlags != "" {
 		where += " AND " + falseFlags
+	}
+	if notUploaded != "" {
+		where += " AND " + notUploaded
+	}
+	if missingVideoID != "" {
+		where += " AND " + missingVideoID
 	}
 	content, err := jctx.Store.FindFirstContent(ctx, where)
 	if err != nil {
@@ -103,6 +119,23 @@ func (j GenerateMp3Job) processContent(ctx context.Context, jctx JobContext, con
 	meta, err := utils.DecodeMeta(content.Meta)
 	if err != nil {
 		return err
+	}
+
+	// If this content was already published to YouTube (or manually overridden with a YouTube video ID),
+	// skip generating upstream assets.
+	if status, ok := meta["status"].(map[string]any); ok {
+		if raw, ok := status["youtube_uploaded"].(string); ok && raw == "true" {
+			utils.Info("GenerateMp3 skip (already uploaded)", "content_id", contentID)
+			return nil
+		}
+		if raw, ok := status["youtube_uploaded"].(bool); ok && raw {
+			utils.Info("GenerateMp3 skip (already uploaded)", "content_id", contentID)
+			return nil
+		}
+	}
+	if _, ok := meta["video_id.v1"]; ok {
+		utils.Info("GenerateMp3 skip (video_id.v1 present)", "content_id", contentID)
+		return nil
 	}
 
 	wavMeta, ok := utils.GetMap(meta, "wav")
