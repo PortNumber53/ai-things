@@ -279,10 +279,10 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 	}
 
 	replacements := map[string]string{
-		"__REPLACE_WITH_TITLE__":     fmt.Sprintf("%07d - %s", content.ID, content.Title),
-		"__REPLACE_WITH_MP3__":       "audio.mp3",
-		"__REPLACE_WITH_IMAGE__":     "image.jpg",
-		"__REPLACE_WITH_SUBTITLES__": "podcast.srt",
+		"__REPLACE_WITH_TITLE__":     utils.EscapeJSSingleQuotedString(fmt.Sprintf("%07d - %s", content.ID, content.Title)),
+		"__REPLACE_WITH_MP3__":       utils.EscapeJSSingleQuotedString("audio.mp3"),
+		"__REPLACE_WITH_IMAGE__":     utils.EscapeJSSingleQuotedString("image.jpg"),
+		"__REPLACE_WITH_SUBTITLES__": utils.EscapeJSSingleQuotedString("podcast.srt"),
 		"__DURATION__":               strconv.Itoa(duration),
 	}
 
