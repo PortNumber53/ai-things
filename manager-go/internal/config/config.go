@@ -326,10 +326,17 @@ func pythonForProjectVenv(baseAppFolder, project string) string {
 	if baseAppFolder == "" || project == "" {
 		return "python"
 	}
+	// Prod layout: /deploy/ai-things/current -> /deploy/ai-things/venvs/<project>/bin/python
 	baseDeploy := filepath.Dir(baseAppFolder)
-	candidate := filepath.Join(baseDeploy, "venvs", project, "bin", "python")
-	if _, err := os.Stat(candidate); err == nil {
-		return candidate
+	candidates := []string{
+		filepath.Join(baseDeploy, "venvs", project, "bin", "python"),
+		// Dev layout: <repo>/venvs/<project>/bin/python
+		filepath.Join(baseAppFolder, "venvs", project, "bin", "python"),
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
 	}
 	return "python"
 }
