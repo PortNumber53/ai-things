@@ -158,7 +158,13 @@ func (j SlackReviewPodcastJob) processContent(ctx context.Context, jctx JobConte
 		return fmt.Errorf("missing slack bot token for team_id=%s (install the Slack app first)", teamID)
 	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	// Use a transport with explicit dial/TLS timeouts so a single bad Slack edge IP doesn't stall us.
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext
+	transport.TLSHandshakeTimeout = 10 * time.Second
+	transport.ResponseHeaderTimeout = 30 * time.Second
+	transport.ExpectContinueTimeout = 1 * time.Second
+	client := &http.Client{Timeout: 90 * time.Second, Transport: transport}
 
 	isTimeout := func(err error) bool {
 		if err == nil {

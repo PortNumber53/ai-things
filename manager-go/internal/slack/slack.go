@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -306,49 +307,77 @@ func JoinChannel(ctx context.Context, client *http.Client, botToken, channelID s
 		return errors.New("channel id missing")
 	}
 
-	payload := map[string]any{
-		"channel": channelID,
-	}
+	payload := map[string]any{"channel": channelID}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, conversationsJoinURL, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+botToken)
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("slack conversations.join status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
-	}
-	var decoded struct {
-		OK       bool   `json:"ok"`
-		Error    string `json:"error"`
-		Needed   string `json:"needed"`
-		Provided string `json:"provided"`
-	}
-	if err := json.Unmarshal(respBody, &decoded); err == nil {
-		if !decoded.OK {
-			// Slack returns this when the bot is already a member; treat as success.
-			if strings.TrimSpace(decoded.Error) == "already_in_channel" {
-				return nil
-			}
-			if decoded.Error == "" {
-				decoded.Error = "conversations.join failed"
-			}
-			if strings.TrimSpace(decoded.Needed) != "" || strings.TrimSpace(decoded.Provided) != "" {
-				return fmt.Errorf("%s (needed=%s provided=%s)", decoded.Error, strings.TrimSpace(decoded.Needed), strings.TrimSpace(decoded.Provided))
-			}
-			return errors.New(decoded.Error)
+	isTimeout := func(err error) bool {
+		if err == nil {
+			return false
 		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return true
+		}
+		var ne net.Error
+		if errors.As(err, &ne) && ne.Timeout() {
+			return true
+		}
+		if strings.Contains(err.Error(), "i/o timeout") || strings.Contains(err.Error(), "Client.Timeout exceeded") {
+			return true
+		}
+		return false
+	}
+
+	var lastErr error
+	for attempt := 1; attempt <= 4; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, conversationsJoinURL, bytes.NewReader(body))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+botToken)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			if isTimeout(err) && attempt < 4 {
+				time.Sleep(time.Duration(attempt) * time.Second)
+				continue
+			}
+			return err
+		}
+		respBody, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return fmt.Errorf("slack conversations.join status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		}
+		var decoded struct {
+			OK       bool   `json:"ok"`
+			Error    string `json:"error"`
+			Needed   string `json:"needed"`
+			Provided string `json:"provided"`
+		}
+		if err := json.Unmarshal(respBody, &decoded); err == nil {
+			if !decoded.OK {
+				// Slack returns this when the bot is already a member; treat as success.
+				if strings.TrimSpace(decoded.Error) == "already_in_channel" {
+					return nil
+				}
+				if decoded.Error == "" {
+					decoded.Error = "conversations.join failed"
+				}
+				if strings.TrimSpace(decoded.Needed) != "" || strings.TrimSpace(decoded.Provided) != "" {
+					return fmt.Errorf("%s (needed=%s provided=%s)", decoded.Error, strings.TrimSpace(decoded.Needed), strings.TrimSpace(decoded.Provided))
+				}
+				return errors.New(decoded.Error)
+			}
+		}
+		return nil
+	}
+	if lastErr != nil {
+		return lastErr
 	}
 	return nil
 }
@@ -593,46 +622,75 @@ func PostMessageWithTS(ctx context.Context, client *http.Client, botToken, chann
 		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, chatPostMessageURL, bytes.NewReader(body))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+botToken)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("slack chat.postMessage status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
-	}
-
-	var decoded struct {
-		OK      bool   `json:"ok"`
-		Error   string `json:"error"`
-		TS      string `json:"ts"`
-		Message struct {
-			TS string `json:"ts"`
-		} `json:"message"`
-	}
-	if err := json.Unmarshal(respBody, &decoded); err != nil {
-		return "", err
-	}
-	if !decoded.OK {
-		if decoded.Error == "" {
-			decoded.Error = "chat.postMessage failed"
+	isTimeout := func(err error) bool {
+		if err == nil {
+			return false
 		}
-		return "", errors.New(decoded.Error)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return true
+		}
+		var ne net.Error
+		if errors.As(err, &ne) && ne.Timeout() {
+			return true
+		}
+		if strings.Contains(err.Error(), "i/o timeout") || strings.Contains(err.Error(), "Client.Timeout exceeded") {
+			return true
+		}
+		return false
 	}
-	if decoded.TS != "" {
-		return decoded.TS, nil
+
+	var lastErr error
+	for attempt := 1; attempt <= 4; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, chatPostMessageURL, bytes.NewReader(body))
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+botToken)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			if isTimeout(err) && attempt < 4 {
+				time.Sleep(time.Duration(attempt) * time.Second)
+				continue
+			}
+			return "", err
+		}
+		respBody, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return "", fmt.Errorf("slack chat.postMessage status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		}
+
+		var decoded struct {
+			OK      bool   `json:"ok"`
+			Error   string `json:"error"`
+			TS      string `json:"ts"`
+			Message struct {
+				TS string `json:"ts"`
+			} `json:"message"`
+		}
+		if err := json.Unmarshal(respBody, &decoded); err != nil {
+			return "", err
+		}
+		if !decoded.OK {
+			if decoded.Error == "" {
+				decoded.Error = "chat.postMessage failed"
+			}
+			return "", errors.New(decoded.Error)
+		}
+		if decoded.TS != "" {
+			return decoded.TS, nil
+		}
+		if decoded.Message.TS != "" {
+			return decoded.Message.TS, nil
+		}
+		return "", nil
 	}
-	if decoded.Message.TS != "" {
-		return decoded.Message.TS, nil
+	if lastErr != nil {
+		return "", lastErr
 	}
 	return "", nil
 }
