@@ -364,14 +364,28 @@ func (j GeneratePodcastJob) processContent(ctx context.Context, jctx JobContext,
 
 	// Remotion renders to podcast/out/video.mp4. Ensure the output directory exists first.
 	// Some environments (fresh deploys / rsynced folders) may not have created it yet.
-	if err := utils.EnsureDir(filepath.Join(jctx.Config.BaseAppFolder, "podcast", "out")); err != nil {
+	outDir := filepath.Join(jctx.Config.BaseAppFolder, "podcast", "out")
+	if err := utils.EnsureDir(outDir); err != nil {
 		return err
 	}
-	if _, err := utils.RunCommand(cmd); err != nil {
+	podcastOut := filepath.Join(outDir, "video.mp4")
+	// Remove any stale output so we can reliably detect whether this run produced a file.
+	_ = os.Remove(podcastOut)
+	buildOutput, err := utils.RunCommand(cmd)
+	if err != nil {
 		return err
+	}
+	if !utils.FileExists(podcastOut) {
+		trimmed := strings.TrimSpace(buildOutput)
+		if len(trimmed) > 2000 {
+			trimmed = trimmed[len(trimmed)-2000:]
+		}
+		if trimmed != "" {
+			return fmt.Errorf("podcast build finished but output file missing: %s\n\nlast build output:\n%s", podcastOut, trimmed)
+		}
+		return fmt.Errorf("podcast build finished but output file missing: %s", podcastOut)
 	}
 
-	podcastOut := filepath.Join(jctx.Config.BaseAppFolder, "podcast", "out", "video.mp4")
 	podcastFilename := fmt.Sprintf("%010d.mp4", content.ID)
 	podcastTarget := filepath.Join(jctx.Config.BaseOutputFolder, "podcast", podcastFilename)
 	if err := utils.CopyFile(podcastOut, podcastTarget); err != nil {
