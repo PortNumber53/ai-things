@@ -389,6 +389,7 @@ func runSlackReviewPodcast(ctx context.Context, jctx jobs.JobContext, args []str
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	regenerate := fs.Bool("regenerate", false, "Force re-posting the review thread even if already requested")
+	force := fs.Bool("force", false, "Alias for --regenerate (force re-posting the review thread even if already requested)")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -398,7 +399,7 @@ func runSlackReviewPodcast(ctx context.Context, jctx jobs.JobContext, args []str
 	if err != nil {
 		return err
 	}
-	opts := jobs.JobOptions{ContentID: contentID, Sleep: *sleep, Queue: *queueFlag, Regenerate: *regenerate}
+	opts := jobs.JobOptions{ContentID: contentID, Sleep: *sleep, Queue: *queueFlag, Regenerate: *regenerate || *force}
 	logJobStart("job:SlackReviewPodcast", opts)
 
 	job := jobs.NewSlackReviewPodcastJob()
@@ -567,7 +568,7 @@ func printUsage() {
 	fmt.Println("  job:GenerateMp3 [content_id] [--sleep=N] [--queue] [--verbose]")
 	fmt.Println("  job:PromptForImage [content_id] [--sleep=N] [--queue] [--regenerate] [--verbose]")
 	fmt.Println("  job:SlackPromptForImage [content_id] [--sleep=N] [--queue] [--regenerate] [--verbose]")
-	fmt.Println("  job:SlackReviewPodcast [content_id] [--sleep=N] [--queue] [--regenerate] [--verbose]")
+	fmt.Println("  job:SlackReviewPodcast [content_id] [--sleep=N] [--queue] [--force|--regenerate] [--verbose]")
 	fmt.Println("  job:GenerateImage [content_id] [--sleep=N] [--queue] [--verbose]")
 	fmt.Println("  job:GeneratePodcast [content_id] [--sleep=N] [--queue] [--force] [--verbose]")
 	fmt.Println("  job:FixSubtitles [content_id] [--sleep=N] [--queue] [--verbose]")
