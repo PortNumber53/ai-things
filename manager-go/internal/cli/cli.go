@@ -262,16 +262,44 @@ func parseContentID(args []string) (int64, error) {
 	return id, nil
 }
 
+// splitInterspersedFlagArgs allows flags to appear after positional args (e.g. "906 --force"),
+// which the stdlib flag parser does not support by default.
+//
+// valueFlags contains flag names (without leading dashes) that consume the next arg as a value
+// when passed as "--flag value" (e.g. sleep, limit).
+func splitInterspersedFlagArgs(args []string, valueFlags map[string]bool) (flagArgs []string, positionalArgs []string) {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "-") {
+			flagArgs = append(flagArgs, a)
+			// If the flag is of form "--sleep 30" (no '='), carry the next token too.
+			if !strings.Contains(a, "=") {
+				name := strings.TrimLeft(a, "-")
+				if valueFlags != nil && valueFlags[name] {
+					if i+1 < len(args) {
+						flagArgs = append(flagArgs, args[i+1])
+						i++
+					}
+				}
+			}
+			continue
+		}
+		positionalArgs = append(positionalArgs, a)
+	}
+	return flagArgs, positionalArgs
+}
+
 func runGenerateWav(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("job:GenerateWav", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -287,11 +315,12 @@ func runGenerateSrt(ctx context.Context, jctx jobs.JobContext, args []string) er
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -307,11 +336,12 @@ func runGenerateMp3(ctx context.Context, jctx jobs.JobContext, args []string) er
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -328,11 +358,12 @@ func runPromptForImage(ctx context.Context, jctx jobs.JobContext, args []string)
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	regenerate := fs.Bool("regenerate", false, "Regenerate the image")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -348,11 +379,12 @@ func runGenerateImage(ctx context.Context, jctx jobs.JobContext, args []string) 
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -369,11 +401,12 @@ func runSlackPromptForImage(ctx context.Context, jctx jobs.JobContext, args []st
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	regenerate := fs.Bool("regenerate", false, "Re-request the image via Slack even if already requested")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -391,11 +424,12 @@ func runSlackReviewPodcast(ctx context.Context, jctx jobs.JobContext, args []str
 	regenerate := fs.Bool("regenerate", false, "Force re-posting the review thread even if already requested")
 	force := fs.Bool("force", false, "Alias for --regenerate (force re-posting the review thread even if already requested)")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -412,11 +446,12 @@ func runGeneratePodcast(ctx context.Context, jctx jobs.JobContext, args []string
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	force := fs.Bool("force", false, "Force a re-render even if already uploaded")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -432,11 +467,12 @@ func runFixSubtitles(ctx context.Context, jctx jobs.JobContext, args []string) e
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -452,11 +488,12 @@ func runCorrectSubtitles(ctx context.Context, jctx jobs.JobContext, args []strin
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -470,11 +507,12 @@ func runCorrectSubtitles(ctx context.Context, jctx jobs.JobContext, args []strin
 func runSetupPodcast(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("job:SetupPodcast", flag.ContinueOnError)
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, nil)
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -491,11 +529,12 @@ func runUploadTikTok(ctx context.Context, jctx jobs.JobContext, args []string) e
 	queueFlag := fs.Bool("queue", false, "Process queue messages")
 	info := fs.Bool("info", false, "Just show info, do not upload")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
@@ -513,11 +552,12 @@ func runUploadYouTube(ctx context.Context, jctx jobs.JobContext, args []string) 
 	info := fs.Bool("info", false, "Just show info, do not upload")
 	easyUpload := fs.Bool("easy-upload", false, "Upload with default settings")
 	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	if err := fs.Parse(args); err != nil {
+	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, map[string]bool{"sleep": true})
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(fs.Args())
+	contentID, err := parseContentID(positionalArgs)
 	if err != nil {
 		return err
 	}
