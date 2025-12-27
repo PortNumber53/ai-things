@@ -451,6 +451,15 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 				if itemTS == "" || itemChannel == "" || reaction == "" {
 					return
 				}
+				// Log at INFO so we can confirm delivery even if we end up ignoring the reaction.
+				utils.Info(
+					"slack reaction_added",
+					"team_id", teamID,
+					"channel", itemChannel,
+					"item_ts", itemTS,
+					"reaction", reaction,
+					"user_id", userID,
+				)
 				go func() {
 					handleSlackYouTubeReviewReaction(
 						context.Background(),
@@ -702,6 +711,7 @@ func handleSlackYouTubeReviewReaction(
 	default:
 		return
 	}
+	utils.Info("slack youtube review reaction", "team_id", teamID, "channel", channelID, "ts", messageTS, "reaction", r, "decision", decision, "user_id", userID)
 
 	content, err := jctx.Store.FindContentBySlackYouTubeReviewThread(ctx, teamID, channelID, messageTS)
 	if err != nil {
@@ -709,6 +719,7 @@ func handleSlackYouTubeReviewReaction(
 		return
 	}
 	if content.ID == 0 {
+		utils.Warn("slack youtube review: no content found for reaction", "team_id", teamID, "channel", channelID, "ts", messageTS, "reaction", r)
 		return
 	}
 
@@ -776,6 +787,7 @@ func handleSlackYouTubeReviewReaction(
 		utils.Warn("slack youtube review update failed", "content_id", content.ID, "err", err)
 		return
 	}
+	utils.Info("slack youtube review recorded", "content_id", content.ID, "decision", decision, "status_key", statusKey)
 
 	// Publish to approval queue so UploadYouTube workers can proceed (host-agnostic payload).
 	if decision == "approved" && jctx.Queue != nil {
