@@ -135,8 +135,6 @@ func Run(args []string) int {
 		runErr = runFixSubtitles(ctx, jctx, cmdArgs)
 	case "job:CorrectSubtitles":
 		runErr = runCorrectSubtitles(ctx, jctx, cmdArgs)
-	case "job:SetupPodcast":
-		runErr = runSetupPodcast(ctx, jctx, cmdArgs)
 	case "job:UploadPodcastToTikTok":
 		runErr = runUploadTikTok(ctx, jctx, cmdArgs)
 	case "job:UploadPodcastToYoutube":
@@ -506,25 +504,6 @@ func runCorrectSubtitles(ctx context.Context, jctx jobs.JobContext, args []strin
 	return job.Run(ctx, jctx, opts)
 }
 
-func runSetupPodcast(ctx context.Context, jctx jobs.JobContext, args []string) error {
-	fs := flag.NewFlagSet("job:SetupPodcast", flag.ContinueOnError)
-	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
-	flagArgs, positionalArgs := splitInterspersedFlagArgs(args, nil)
-	if err := fs.Parse(flagArgs); err != nil {
-		return err
-	}
-	utils.ConfigureLogging(*verbose)
-	contentID, err := parseContentID(positionalArgs)
-	if err != nil {
-		return err
-	}
-	opts := jobs.JobOptions{ContentID: contentID}
-	logJobStart("job:SetupPodcast", opts)
-
-	job := jobs.NewSetupPodcastJob()
-	return job.Run(ctx, jctx, opts)
-}
-
 func runUploadTikTok(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("job:UploadPodcastToTikTok", flag.ContinueOnError)
 	sleep := fs.Int("sleep", 30, "Sleep time in seconds")
@@ -616,7 +595,6 @@ func printUsage() {
 	fmt.Println("  job:GeneratePodcast [content_id] [--sleep=N] [--queue] [--force] [--verbose]")
 	fmt.Println("  job:FixSubtitles [content_id] [--sleep=N] [--queue] [--verbose]")
 	fmt.Println("  job:CorrectSubtitles [content_id] [--sleep=N] [--queue] [--verbose]")
-	fmt.Println("  job:SetupPodcast [content_id] [--verbose]")
 	fmt.Println("  job:UploadPodcastToTikTok [content_id] [--sleep=N] [--queue] [--info] [--verbose]")
 	fmt.Println("  job:UploadPodcastToYoutube [content_id] [--sleep=N] [--queue] [--info] [--easy-upload] [--verbose]")
 	fmt.Println("  Rss:FetchHtml [--verbose]")
