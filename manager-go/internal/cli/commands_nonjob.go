@@ -979,6 +979,182 @@ func runContentShow(ctx context.Context, jctx jobs.JobContext, args []string) er
 	return nil
 }
 
+func runContentReset(ctx context.Context, jctx jobs.JobContext, args []string) error {
+	fs := flag.NewFlagSet("Content:Reset", flag.ContinueOnError)
+	deleteFiles := fs.Bool("delete-files", true, "Delete generated artifacts under base_output_folder for this content (wav/mp3/srt/image/mp4)")
+	resetText := fs.Bool("reset-text", false, "Also clear contents.sentences/count and remove extracted text from meta (keeps title)")
+	dryRun := fs.Bool("dry-run", true, "Print what would change, without changing DB or deleting files")
+	yes := fs.Bool("yes", false, "Actually perform the reset (overrides --dry-run)")
+	verbose := fs.Bool("verbose", utils.Verbose, "Verbose logging")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	utils.ConfigureLogging(*verbose)
+
+	contentID, err := parseContentID(fs.Args())
+	if err != nil {
+		return err
+	}
+	if contentID == 0 {
+		return errors.New("content_id is required")
+	}
+	if *yes {
+		*dryRun = false
+	}
+
+	content, err := jctx.Store.GetContentByID(ctx, contentID)
+	if err != nil {
+		return err
+	}
+	meta, err := utils.DecodeMeta(content.Meta)
+	if err != nil {
+		return err
+	}
+
+	// Compute candidate file paths BEFORE mutating meta.
+	baseOut := strings.TrimSpace(jctx.Config.BaseOutputFolder)
+	if baseOut == "" {
+		baseOut = "/output"
+	}
+	var candidates []string
+
+	// wav
+	if wav, ok := utils.GetMap(meta, "wav"); ok {
+		if fn, _ := wav["filename"].(string); strings.TrimSpace(fn) != "" {
+			candidates = append(candidates, filepath.Join(baseOut, "waves", fn))
+		}
+	}
+	// mp3s
+	if mp3s, ok := meta["mp3s"].([]any); ok {
+		for _, item := range mp3s {
+			m, _ := item.(map[string]any)
+			if m == nil {
+				continue
+			}
+			if fn, _ := m["mp3"].(string); strings.TrimSpace(fn) != "" {
+				candidates = append(candidates, filepath.Join(baseOut, "mp3", fn))
+			}
+		}
+	}
+	// srt (standard location)
+	candidates = append(candidates, filepath.Join(baseOut, "subtitles", fmt.Sprintf("transcription_%d.srt", contentID)))
+	// thumbnail
+	if thumb, ok := utils.GetMap(meta, "thumbnail"); ok {
+		if fn, _ := thumb["filename"].(string); strings.TrimSpace(fn) != "" {
+			candidates = append(candidates, filepath.Join(baseOut, "images", fn))
+		}
+	}
+	// podcast mp4
+	if pod, ok := utils.GetMap(meta, "podcast"); ok {
+		if fn, _ := pod["filename"].(string); strings.TrimSpace(fn) != "" {
+			candidates = append(candidates, filepath.Join(baseOut, "podcast", fn))
+			// also delete any "bad" variants created by the watch endpoint
+			candidates = append(candidates, filepath.Join(baseOut, "podcast", fn)+".bad")
+		}
+	}
+	// also delete the canonical mp4 name regardless of meta (helps if meta was already corrupted)
+	candidates = append(candidates, filepath.Join(baseOut, "podcast", fmt.Sprintf("%010d.mp4", contentID)))
+
+	// De-dupe candidates.
+	seen := map[string]bool{}
+	unique := make([]string, 0, len(candidates))
+	for _, p := range candidates {
+		p = filepath.Clean(p)
+		if p == "" || seen[p] {
+			continue
+		}
+		seen[p] = true
+		unique = append(unique, p)
+	}
+
+	// Mutate meta: remove generated artifacts + workflow state.
+	removedKeys := []string{
+		"status",
+		"wav",
+		"mp3s",
+		"subtitles",
+		"thumbnail",
+		"podcast",
+		"slack_youtube_review_request",
+		"slack_youtube_review_requests",
+		"video_id.v1",
+	}
+	for _, k := range removedKeys {
+		delete(meta, k)
+	}
+	// Clear the legacy contents.status marker too.
+	newStatus := "reset"
+
+	utils.Warn(
+		"content reset",
+		"content_id", contentID,
+		"title", strings.TrimSpace(content.Title),
+		"delete_files", *deleteFiles,
+		"reset_text", *resetText,
+		"dry_run", *dryRun,
+	)
+	for _, p := range unique {
+		utils.Info("content reset file candidate", "content_id", contentID, "path", p)
+	}
+
+	if *dryRun {
+		utils.Warn("content reset dry-run; no changes applied", "content_id", contentID)
+		return nil
+	}
+	if !*yes {
+		return errors.New("refusing to reset without --yes (use --dry-run to preview)")
+	}
+
+	// Delete files (local only).
+	if *deleteFiles {
+		for _, p := range unique {
+			// Only allow deletes under baseOut (safety).
+			cleanBase := filepath.Clean(baseOut)
+			cleanP := filepath.Clean(p)
+			if !strings.HasPrefix(cleanP, cleanBase+string(os.PathSeparator)) && cleanP != cleanBase {
+				return fmt.Errorf("refusing to delete path outside base_output_folder: %s", cleanP)
+			}
+			// If user gave us a prefix like "<file>.bad", remove all matches.
+			if strings.HasSuffix(cleanP, ".bad") {
+				matches, _ := filepath.Glob(cleanP + ".*")
+				for _, m := range matches {
+					_ = os.Remove(m)
+				}
+				continue
+			}
+			_ = os.Remove(cleanP)
+		}
+	}
+
+	if *resetText {
+		// Clear extracted payload while keeping title (so it can be re-generated/re-ingested if desired).
+		emptySentences := []byte("[]")
+		if err := jctx.Store.UpdateContentText(ctx, contentID, strings.TrimSpace(content.Title), emptySentences, 0, mustJSON(meta)); err != nil {
+			return err
+		}
+		if err := jctx.Store.UpdateContentStatus(ctx, contentID, newStatus); err != nil {
+			return err
+		}
+		utils.Warn("content reset applied (text cleared)", "content_id", contentID, "status", newStatus)
+		return nil
+	}
+
+	if err := jctx.Store.UpdateContentMetaStatus(ctx, contentID, newStatus, meta); err != nil {
+		return err
+	}
+	utils.Warn("content reset applied", "content_id", contentID, "status", newStatus)
+	return nil
+}
+
+func mustJSON(meta map[string]any) []byte {
+	b, err := json.Marshal(meta)
+	if err != nil {
+		// This should never happen for our meta structures; fail loud.
+		return []byte("{}")
+	}
+	return b
+}
+
 func runContentSearchTitle(ctx context.Context, jctx jobs.JobContext, args []string) error {
 	fs := flag.NewFlagSet("Content:SearchTitle", flag.ContinueOnError)
 	q := fs.String("q", "", "Case-insensitive substring to search in contents.title (required)")
