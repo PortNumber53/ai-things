@@ -60,7 +60,8 @@ func (j SlackReviewPodcastJob) selectNext(ctx context.Context, jctx JobContext) 
 	ready := db.StatusTrueCondition([]string{"funfact_created", "wav_generated", "mp3_generated", "srt_generated", "thumbnail_generated", "podcast_ready"})
 	notRequested := db.StatusNotTrueCondition([]string{j.QueueOutput})
 	notUploaded := db.StatusNotTrueCondition([]string{"youtube_uploaded"})
-	notApprovedOrRejected := db.StatusNotTrueCondition([]string{"youtube_approved", "youtube_rejected"})
+	// Rejections are not terminal; we want to re-request review after a re-render.
+	notApproved := db.StatusNotTrueCondition([]string{"youtube_approved"})
 	missing := db.MetaKeyMissingCondition([]string{"video_id.v1"})
 	if ready != "" {
 		where += " AND " + ready
@@ -71,8 +72,8 @@ func (j SlackReviewPodcastJob) selectNext(ctx context.Context, jctx JobContext) 
 	if notUploaded != "" {
 		where += " AND " + notUploaded
 	}
-	if notApprovedOrRejected != "" {
-		where += " AND " + notApprovedOrRejected
+	if notApproved != "" {
+		where += " AND " + notApproved
 	}
 	if missing != "" {
 		where += " AND " + missing

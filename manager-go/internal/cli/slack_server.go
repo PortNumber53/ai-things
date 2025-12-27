@@ -778,9 +778,31 @@ func handleSlackYouTubeReviewReaction(
 		statusKey = "youtube_rejected"
 		utils.SetStatus(meta, "youtube_approved", false)
 		utils.SetStatus(meta, "youtube_rejected", true)
-		reply = "Rejected for YouTube upload."
+		// Treat rejection as a "redo": clear the rendered podcast artifact and roll back the pipeline
+		// so GeneratePodcast can re-render and SlackReviewPodcast can request review again.
+		delete(meta, "podcast")
+		utils.SetStatus(meta, "podcast_ready", false)
+		utils.SetStatus(meta, "youtube_review_requested", false)
+		reply = "Rejected for YouTube upload. Resetting podcast so it can be re-rendered."
 	default:
 		return
+	}
+
+	// If rejected: best-effort delete the local mp4 so watch links don't keep showing the old render.
+	// (This only affects the Slack:Serve host's local disk; render hosts may still have their copies.)
+	if decision == "rejected" {
+		baseOut := strings.TrimSpace(jctx.Config.BaseOutputFolder)
+		if baseOut == "" {
+			baseOut = "/output"
+		}
+		podDir := filepath.Join(baseOut, "podcast")
+		mp4 := filepath.Join(podDir, fmt.Sprintf("%010d.mp4", content.ID))
+		_ = os.Remove(mp4)
+		matches, _ := filepath.Glob(mp4 + ".bad.*")
+		for _, m := range matches {
+			_ = os.Remove(m)
+		}
+		utils.Warn("slack youtube review rejected: local podcast files removed (best-effort)", "content_id", content.ID, "mp4", mp4, "bad_files", len(matches))
 	}
 
 	if err := jctx.Store.UpdateContentMetaStatus(ctx, content.ID, statusKey, meta); err != nil {
