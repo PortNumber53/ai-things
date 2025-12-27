@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -157,15 +158,50 @@ func (j SlackReviewPodcastJob) processContent(ctx context.Context, jctx JobConte
 		return fmt.Errorf("missing slack bot token for team_id=%s (install the Slack app first)", teamID)
 	}
 
-	client := &http.Client{Timeout: 20 * time.Second}
-	if err := slack.JoinChannel(ctx, client, token, channelID); err != nil {
-		return fmt.Errorf("failed to join slack channel %s: %w", channelID, err)
+	client := &http.Client{Timeout: 60 * time.Second}
+
+	isTimeout := func(err error) bool {
+		if err == nil {
+			return false
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return true
+		}
+		var ne net.Error
+		if errors.As(err, &ne) && ne.Timeout() {
+			return true
+		}
+		// Go's http client wraps timeouts in this message sometimes.
+		if strings.Contains(err.Error(), "Client.Timeout exceeded") {
+			return true
+		}
+		return false
+	}
+
+	// Best-effort join: retry timeouts, but if join is flaky we still try to post (bot may already be in channel).
+	var joinErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		joinErr = slack.JoinChannel(ctx, client, token, channelID)
+		if joinErr == nil {
+			break
+		}
+		if isTimeout(joinErr) && attempt < 3 {
+			utils.Warn("SlackReviewPodcast slack join timed out; retrying", "content_id", contentID, "channel_id", channelID, "attempt", attempt)
+			time.Sleep(time.Duration(attempt) * time.Second)
+			continue
+		}
+		break
 	}
 
 	label := fmt.Sprintf("%010d - %s", content.ID, strings.TrimSpace(content.Title))
 	rootText := fmt.Sprintf("Review before YouTube upload:\n%s\n\nReact with :thumbsup: to approve or :thumbsdown: to reject.", label)
 	threadTS, err := slack.PostMessageWithTS(ctx, client, token, channelID, rootText, "")
 	if err != nil {
+		// If join failed and we can't post because we're not in the channel, surface the join error too.
+		if joinErr != nil && strings.Contains(strings.ToLower(err.Error()), "not_in_channel") {
+			return fmt.Errorf("failed to join slack channel %s: %w (and post failed: %v)", channelID, joinErr, err)
+		}
+		// If join failed due to timeout, still return the post error (it might be the real problem).
 		return err
 	}
 	linkTS, err := slack.PostMessageWithTS(ctx, client, token, channelID, fmt.Sprintf("Watch: %s", watchURL), threadTS)

@@ -337,6 +337,10 @@ func JoinChannel(ctx context.Context, client *http.Client, botToken, channelID s
 	}
 	if err := json.Unmarshal(respBody, &decoded); err == nil {
 		if !decoded.OK {
+			// Slack returns this when the bot is already a member; treat as success.
+			if strings.TrimSpace(decoded.Error) == "already_in_channel" {
+				return nil
+			}
 			if decoded.Error == "" {
 				decoded.Error = "conversations.join failed"
 			}
