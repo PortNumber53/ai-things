@@ -123,10 +123,7 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 
 		videoPath := filepath.Join(cfg.BaseOutputFolder, "podcast", fmt.Sprintf("%010d.mp4", id))
 		ensureLocal := func() error {
-			if utils.FileExists(videoPath) {
-				return nil
-			}
-			// Try to fetch from the render host recorded in meta.podcast.hostname.
+			// Always consult DB meta so we can validate checksum (and fetch the correct artifact if local is stale).
 			content, err := jctx.Store.GetContentByID(r.Context(), id)
 			if err != nil {
 				return err
@@ -141,8 +138,30 @@ func runSlackServe(ctx context.Context, jctx jobs.JobContext, args []string) err
 			}
 			remoteHost, _ := podcast["hostname"].(string)
 			wantSHA, _ := podcast["sha256"].(string)
+
+			// If we have a local file, validate it against the expected checksum (when recorded).
+			if utils.FileExists(videoPath) {
+				if strings.TrimSpace(wantSHA) == "" {
+					return nil
+				}
+				haveSHA, err := utils.SHA256File(videoPath)
+				if err != nil {
+					return err
+				}
+				if haveSHA == wantSHA {
+					return nil
+				}
+				// Local file exists but is not the expected artifact; keep it around for debugging and refetch.
+				backupPath := fmt.Sprintf("%s.bad.%s", videoPath, haveSHA)
+				_ = os.Rename(videoPath, backupPath)
+			}
+
+			// Try to fetch from the render host recorded in meta.podcast.hostname.
 			if strings.TrimSpace(remoteHost) == "" {
-				return errors.New("podcast host missing; cannot fetch")
+				if strings.TrimSpace(wantSHA) != "" {
+					return fmt.Errorf("podcast file missing or stale locally (want_sha=%s) and no render host recorded; cannot fetch", wantSHA)
+				}
+				return errors.New("podcast file missing locally and no render host recorded; cannot fetch")
 			}
 
 			// Ensure output dir exists.
