@@ -534,7 +534,7 @@ type slackEventEnvelope struct {
 			Channel string `json:"channel"`
 			TS      string `json:"ts"`
 		} `json:"item"`
-		Files       []struct {
+		Files []struct {
 			ID         string `json:"id"`
 			Name       string `json:"name"`
 			Mimetype   string `json:"mimetype"`
@@ -775,34 +775,65 @@ func handleSlackYouTubeReviewReaction(
 		utils.SetStatus(meta, "youtube_rejected", false)
 		reply = "Approved for YouTube upload. Queued."
 	case "rejected":
-		statusKey = "youtube_rejected"
-		utils.SetStatus(meta, "youtube_approved", false)
-		utils.SetStatus(meta, "youtube_rejected", true)
-		// Treat rejection as a "redo": clear the rendered podcast artifact and roll back the pipeline
-		// so GeneratePodcast can re-render and SlackReviewPodcast can request review again.
-		delete(meta, "podcast")
-		utils.SetStatus(meta, "podcast_ready", false)
-		utils.SetStatus(meta, "youtube_review_requested", false)
-		reply = "Rejected for YouTube upload. Resetting podcast so it can be re-rendered."
-	default:
-		return
-	}
+		// Full reset: clear all status flags and remove all generated artifacts so the pipeline can restart.
+		// This is intentionally local-only for file deletes (Slack:Serve host disk).
+		statusKey = "reset"
 
-	// If rejected: best-effort delete the local mp4 so watch links don't keep showing the old render.
-	// (This only affects the Slack:Serve host's local disk; render hosts may still have their copies.)
-	if decision == "rejected" {
 		baseOut := strings.TrimSpace(jctx.Config.BaseOutputFolder)
 		if baseOut == "" {
 			baseOut = "/output"
 		}
-		podDir := filepath.Join(baseOut, "podcast")
-		mp4 := filepath.Join(podDir, fmt.Sprintf("%010d.mp4", content.ID))
-		_ = os.Remove(mp4)
-		matches, _ := filepath.Glob(mp4 + ".bad.*")
+
+		// Best-effort delete generated files based on current meta.
+		if wav, ok := utils.GetMap(meta, "wav"); ok {
+			if fn, _ := wav["filename"].(string); strings.TrimSpace(fn) != "" {
+				_ = os.Remove(filepath.Join(baseOut, "waves", fn))
+			}
+		}
+		if mp3s, ok := meta["mp3s"].([]any); ok {
+			for _, item := range mp3s {
+				m, _ := item.(map[string]any)
+				if m == nil {
+					continue
+				}
+				if fn, _ := m["mp3"].(string); strings.TrimSpace(fn) != "" {
+					_ = os.Remove(filepath.Join(baseOut, "mp3", fn))
+				}
+			}
+		}
+		_ = os.Remove(filepath.Join(baseOut, "subtitles", fmt.Sprintf("transcription_%d.srt", content.ID)))
+		if thumb, ok := utils.GetMap(meta, "thumbnail"); ok {
+			if fn, _ := thumb["filename"].(string); strings.TrimSpace(fn) != "" {
+				_ = os.Remove(filepath.Join(baseOut, "images", fn))
+			}
+		}
+		podcastDir := filepath.Join(baseOut, "podcast")
+		canonicalMP4 := filepath.Join(podcastDir, fmt.Sprintf("%010d.mp4", content.ID))
+		_ = os.Remove(canonicalMP4)
+		// If meta.podcast.filename was different for any reason, delete that too.
+		if pod, ok := utils.GetMap(meta, "podcast"); ok {
+			if fn, _ := pod["filename"].(string); strings.TrimSpace(fn) != "" {
+				_ = os.Remove(filepath.Join(podcastDir, fn))
+			}
+		}
+		matches, _ := filepath.Glob(canonicalMP4 + ".bad.*")
 		for _, m := range matches {
 			_ = os.Remove(m)
 		}
-		utils.Warn("slack youtube review rejected: local podcast files removed (best-effort)", "content_id", content.ID, "mp4", mp4, "bad_files", len(matches))
+
+		// Clear generated meta and all status flags.
+		delete(meta, "wav")
+		delete(meta, "mp3s")
+		delete(meta, "subtitles")
+		delete(meta, "thumbnail")
+		delete(meta, "podcast")
+		delete(meta, "video_id.v1")
+		delete(meta, "status") // removes all flags (srt_fixed/mp3_generated/podcast_ready/youtube_* etc.)
+
+		reply = "Rejected. Reset all generated files and status flags so it can regenerate from scratch."
+		utils.Warn("slack youtube review rejected: content reset (best-effort deletes)", "content_id", content.ID, "mp4", canonicalMP4, "bad_files", len(matches))
+	default:
+		return
 	}
 
 	if err := jctx.Store.UpdateContentMetaStatus(ctx, content.ID, statusKey, meta); err != nil {
