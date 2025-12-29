@@ -19,7 +19,11 @@ if len(sys.argv) < 3:
 # Get the filepath from command-line argument
 filepath = sys.argv[1]
 
-API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev"
+MODEL_ID = os.getenv("HUGGING_FACE_MODEL", "black-forest-labs/FLUX.1-dev")
+# Hugging Face deprecated `api-inference.huggingface.co` (HTTP 410).
+# Use the Router endpoint instead.
+HF_BASE_URL = os.getenv("HUGGING_FACE_BASE_URL", "https://router.huggingface.co")
+API_URL = f"{HF_BASE_URL}/models/{MODEL_ID}"
 token = os.getenv("HUGGING_FACE_TOKEN")
 if not token:
     print("Missing HUGGING_FACE_TOKEN (set it in .env or _extra_env).")
