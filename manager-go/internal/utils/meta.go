@@ -100,10 +100,12 @@ func GetValue(meta map[string]any, path ...string) (any, bool) {
 }
 
 func ExtractTextFromMeta(meta map[string]any) (string, error) {
-	if text, ok := GetString(meta, "ollama_response", "response"); ok && text != "" {
+	// Prefer the "clean" canonical text if present. This avoids TTS reading out markdown
+	// formatting that may exist in model responses (e.g. "**TITLE:**" => "asterisk, asterisk...").
+	if text, ok := GetString(meta, "original_text"); ok && text != "" {
 		return ProcessText(text), nil
 	}
-	if text, ok := GetString(meta, "gemini_response", "candidates", "0", "content", "parts", "0", "text"); ok && text != "" {
+	if text, ok := GetString(meta, "ollama_response", "response"); ok && text != "" {
 		return ProcessText(text), nil
 	}
 	if text, ok := GetString(meta, "gemini_response", "candidates", "0", "content", "parts", "0", "text"); ok && text != "" {
@@ -113,9 +115,14 @@ func ExtractTextFromMeta(meta map[string]any) (string, error) {
 }
 
 func ProcessText(raw string) string {
+	// Remove markdown emphasis markers so TTS doesn't speak them.
+	// Example: "**TITLE:** Foo" would otherwise become "asterisk asterisk title colon asterisk asterisk foo".
+	raw = strings.ReplaceAll(raw, "*", "")
+
 	lines := strings.Split(raw, "\n")
 	var builder strings.Builder
 	for _, line := range lines {
+		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "TITLE:") {
 			continue
 		}
