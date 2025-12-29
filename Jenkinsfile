@@ -38,14 +38,36 @@ pipeline {
                             sh 'cd manager-go && go build -o manager ./cmd/manager'
                             withCredentials([
                                 file(credentialsId: 'ai-things-brain-env-prod-file', variable: 'ENV_FILE_BRAIN'),
+                                string(credentialsId: 'ai-things-hugging-face-token', variable: 'HUGGING_FACE_TOKEN'),
                             ]) {
                                 sh 'cp --no-preserve=mode,ownership $ENV_FILE_BRAIN .env.brain'
+                                // Ensure Hugging Face token is present in the deployed .env without leaking it in logs.
+                                sh '''
+                                    set -euo pipefail
+                                    set +x
+                                    if grep -q '^HUGGING_FACE_TOKEN=' .env.brain; then
+                                      sed -i "s/^HUGGING_FACE_TOKEN=.*/HUGGING_FACE_TOKEN=${HUGGING_FACE_TOKEN}/" .env.brain
+                                    else
+                                      printf "\\nHUGGING_FACE_TOKEN=%s\\n" "${HUGGING_FACE_TOKEN}" >> .env.brain
+                                    fi
+                                '''
                             }
                             if (params.DEPLOY_PINKY) {
                                 withCredentials([
                                     file(credentialsId: 'ai-things-pinky-env-prod-file', variable: 'ENV_FILE_PINKY'),
+                                    string(credentialsId: 'ai-things-hugging-face-token', variable: 'HUGGING_FACE_TOKEN'),
                                 ]) {
                                     sh 'cp --no-preserve=mode,ownership $ENV_FILE_PINKY .env.pinky'
+                                    // Ensure Hugging Face token is present in the deployed .env without leaking it in logs.
+                                    sh '''
+                                        set -euo pipefail
+                                        set +x
+                                        if grep -q '^HUGGING_FACE_TOKEN=' .env.pinky; then
+                                          sed -i "s/^HUGGING_FACE_TOKEN=.*/HUGGING_FACE_TOKEN=${HUGGING_FACE_TOKEN}/" .env.pinky
+                                        else
+                                          printf "\\nHUGGING_FACE_TOKEN=%s\\n" "${HUGGING_FACE_TOKEN}" >> .env.pinky
+                                        fi
+                                    '''
                                 }
                             } else {
                                 echo 'Skipping pinky env staging (DEPLOY_PINKY=false)'
