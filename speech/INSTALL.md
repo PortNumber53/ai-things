@@ -1,0 +1,4 @@
+```
+
+yay -S espeak-ng
+```
