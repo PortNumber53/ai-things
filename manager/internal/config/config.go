@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultConfigPath = "/etc/ai-things/config.ini"
+	defaultConfigPath = "~/.config/ai-things/config.ini"
 	configPathEnv     = "AI_THINGS_CONFIG"
 )
 
@@ -72,6 +72,18 @@ func Load() (Config, error) {
 	configPath := os.Getenv(configPathEnv)
 	if configPath == "" {
 		configPath = defaultConfigPath
+	}
+	// Expand tilde in home directory
+	if strings.HasPrefix(configPath, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return Config{}, fmt.Errorf("cannot get home directory: %w", err)
+		}
+		if configPath == "~" {
+			configPath = home
+		} else {
+			configPath = filepath.Join(home, configPath[1:])
+		}
 	}
 
 	ini, err := readINI(configPath)
